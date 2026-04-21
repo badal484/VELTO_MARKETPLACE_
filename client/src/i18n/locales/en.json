@@ -1,0 +1,33 @@
+{
+  "common": {
+    "search": "Search for products...",
+    "categories": "Categories",
+    "view_all": "View All",
+    "add_to_cart": "Add to Bag",
+    "out_of_stock": "Sold Out"
+  },
+  "home": {
+    "welcome": "Welcome back",
+    "find_nearby": "Find fresh products nearby",
+    "featured": "Featured Shops",
+    "near_you": "Verified Shops Near You"
+  },
+  "cart": {
+    "title": "Shopping Bag",
+    "items": "Items",
+    "empty_title": "Your bag is empty",
+    "empty_text": "Looks like you haven't added anything to your bag yet.",
+    "start_shopping": "Start Shopping",
+    "total": "Total Amount",
+    "checkout": "Checkout Now",
+    "price_locked": "Price Locked",
+    "price_updated": "Price Updated"
+  },
+  "order": {
+    "history": "Order History",
+    "success": "Order Placed Successfully!",
+    "pickup_otp": "PICKUP OTP",
+    "delivery_otp": "DELIVERY OTP",
+    "accept_delivery": "Accept Delivery"
+  }
+}
