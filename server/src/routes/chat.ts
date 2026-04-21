@@ -21,5 +21,4 @@ router.put('/read/:id', protect, markConversationAsRead);
 router.get('/conversations', protect, getConversations);
 router.get('/messages/:id', protect, getMessages);
 router.post('/message', protect, sendMessage);
-
 export default router;
