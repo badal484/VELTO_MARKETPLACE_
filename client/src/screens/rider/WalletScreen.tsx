@@ -18,8 +18,11 @@ import {Button} from '../../components/common/Button';
 import {Input} from '../../components/common/Input';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {format} from 'date-fns';
+import {useAuth} from '../../hooks/useAuth';
+import {Role} from '@shared/types';
 
 export default function WalletScreen({navigation}: any) {
+  const {user} = useAuth();
   const [loading, setLoading] = useState(true);
   const [walletData, setWalletData] = useState({
     balance: 0, 
@@ -144,37 +147,32 @@ export default function WalletScreen({navigation}: any) {
           )}
         </View>
 
-        {/* 🚨 NEW: Cash Liability Dashboard 🚨 */}
-        <View style={styles.liabilityCard}>
-          <View style={styles.liabilityHeader}>
-            <View>
-              <Text style={styles.liabilityLabel}>Physical Cash in Hand</Text>
-              <Text style={styles.liabilityValue}>₹{walletData.cashInHand.toLocaleString()}</Text>
+        {/* 🚨 Cash Liability Dashboard - ONLY for Riders 🚨 */}
+        {user?.role === Role.RIDER && (
+          <View style={styles.liabilityCard}>
+            <View style={styles.liabilityHeader}>
+              <View>
+                <Text style={styles.liabilityLabel}>Physical Cash in Hand</Text>
+                <Text style={styles.liabilityValue}>₹{walletData.cashInHand.toLocaleString()}</Text>
+              </View>
+              <View style={styles.limitBadge}>
+                <Text style={styles.limitBadgeText}>Tracked for Daily Settlement</Text>
+              </View>
             </View>
-            <View style={[styles.limitBadge, walletData.cashInHand >= walletData.cashLimit ? styles.limitBadgeError : {}]}>
-              <Text style={styles.limitBadgeText}>Limit: ₹{walletData.cashLimit}</Text>
+            
+            <View style={styles.progressContainer}>
+              <View style={[
+                styles.progressBar, 
+                { width: `${Math.min(100, (walletData.cashInHand / 10000) * 100)}%` },
+                { backgroundColor: theme.colors.primary }
+              ]} />
             </View>
-          </View>
-          
-          <View style={styles.progressContainer}>
-            <View style={[
-              styles.progressBar, 
-              { width: `${Math.min(100, (walletData.cashInHand / walletData.cashLimit) * 100)}%` },
-              walletData.cashInHand >= walletData.cashLimit * 0.8 ? { backgroundColor: theme.colors.danger } : {}
-            ]} />
-          </View>
-
-          {walletData.cashInHand >= walletData.cashLimit ? (
-            <View style={styles.warningBox}>
-              <Icon name="warning" size={16} color={theme.colors.danger} />
-              <Text style={styles.warningText}>Limit Exceeded! Settle cash with Admin to claim new COD orders.</Text>
-            </View>
-          ) : (
+  
             <Text style={styles.liabilityHint}>
-              Keep this below ₹{walletData.cashLimit} to avoid being blocked from new COD orders.
+              Total cash collected today. Please handover to Admin at end of shift.
             </Text>
-          )}
-        </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Transaction History</Text>

@@ -42,7 +42,7 @@ const orderSchema = new Schema<IOrderSchema>(
     razorpaySignature: { type: String },
     paymentReference: { type: String },
     rider: { type: Schema.Types.ObjectId, ref: 'User' },
-    pickupCode: { type: String, required: true },
+    pickupCode: { type: String },
     deliveryCode: { type: String },
     cancellationReason: { type: String },
     fulfillmentMethod: { 

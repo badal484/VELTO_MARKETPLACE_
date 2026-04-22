@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Order } from '../models/Order';
 import { OrderStatus } from '@shared/types';
 import { WalletService } from './WalletService';
@@ -14,11 +15,22 @@ export class FundReleaseJob {
 
   static async run() {
     try {
+      // Ensure we have a valid connection before querying
+      const conn = mongoose.connection || (mongoose as any).default?.connection;
+      if (!conn || conn.readyState !== 1) {
+        console.log('[FundReleaseJob] Waiting for database connection...');
+        return;
+      }
+
       const cutoff = new Date(Date.now() - RELEASE_DELAY_MS);
       const orders = await Order.find({
         status: OrderStatus.COMPLETED_PENDING_RELEASE,
         deliveredAt: { $lte: cutoff },
       }).select('_id');
+
+      if (orders.length > 0) {
+        console.log(`[FundReleaseJob] Processing ${orders.length} orders for fund release...`);
+      }
 
       for (const order of orders) {
         try {
@@ -29,8 +41,12 @@ export class FundReleaseJob {
           console.error(`[FundReleaseJob] Failed for order ${order._id}:`, err);
         }
       }
-    } catch (err) {
-      console.error('[FundReleaseJob] Run failed:', err);
+    } catch (err: any) {
+      if (err.name === 'MongoServerSelectionError') {
+        console.error('[FundReleaseJob] Network Error: Unable to reach MongoDB. Will retry in next cycle.');
+      } else {
+        console.error('[FundReleaseJob] Unexpected Error:', err);
+      }
     }
   }
 }

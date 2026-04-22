@@ -233,6 +233,7 @@ export default function OrderHistoryScreen({
 
             <View style={styles.headerRight}>
               {(String(item.status).toLowerCase() === 'completed' || 
+                String(item.status).toLowerCase() === 'delivered' || 
                 String(item.status).toLowerCase() === 'shipped') && (
                 <TouchableOpacity 
                   style={styles.downloadIconBtn}
@@ -361,7 +362,7 @@ export default function OrderHistoryScreen({
           {/* OTP Section for current state */}
           {item.status === OrderStatus.READY_FOR_PICKUP && item.fulfillmentMethod === 'pickup' && (
              <View style={styles.otpCard}>
-               <Text style={styles.otpLabel}>PICKUP OTP</Text>
+                <Text style={styles.otpLabel}>STORE PICKUP PIN</Text>
                <Text style={styles.otpValue}>{item.pickupCode}</Text>
                <Text style={styles.otpTip}>Share this with the seller at the shop</Text>
              </View>
@@ -369,7 +370,7 @@ export default function OrderHistoryScreen({
 
           {item.status === OrderStatus.IN_TRANSIT && item.deliveryCode && (
              <View style={[styles.otpCard, {backgroundColor: '#EEF2FF', borderColor: '#818CF8'}]}>
-               <Text style={[styles.otpLabel, {color: '#4F46E5'}]}>DELIVERY OTP</Text>
+                <Text style={[styles.otpLabel, {color: '#4F46E5'}]}>HOME DELIVERY PIN</Text>
                <Text style={[styles.otpValue, {color: '#1E1B4B'}]}>{item.deliveryCode}</Text>
                <Text style={styles.otpTip}>Share this with the rider only after receiving items</Text>
                {riderUpdates[item._id] && (

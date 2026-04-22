@@ -168,20 +168,34 @@ export default function OrderSuccessScreen({navigation, route}: any) {
                </View>
              )}
 
-             {(route.params?.fulfillmentMethod === 'delivery' && (paymentMethod !== 'Razorpay' || paymentConfirmed)) && (
-               <View style={styles.codeBox}>
-                  <Text style={styles.codeTitle}>DELIVERY OTP</Text>
-                  <Text style={styles.codeValue}>{route.params?.deliveryCode}</Text>
-                  <Text style={styles.codeInfo}>Share this with the rider when they arrive</Text>
-               </View>
-             )}
-             {(route.params?.fulfillmentMethod === 'pickup' && (paymentMethod !== 'Razorpay' || paymentConfirmed)) && (
-               <View style={styles.codeBox}>
-                  <Text style={styles.codeTitle}>PICKUP OTP</Text>
-                  <Text style={styles.codeValue}>{route.params?.pickupCode}</Text>
-                  <Text style={styles.codeInfo}>Provide this to the shop owner at pickup</Text>
-               </View>
-             )}
+              {(route.params?.fulfillmentMethod === 'delivery' && (paymentMethod !== 'Razorpay' || paymentConfirmed)) && (
+                <View style={styles.codeBox}>
+                   <Text style={styles.codeTitle}>HOME DELIVERY PIN</Text>
+                   {route.params?.deliveryCode ? (
+                     <Text style={styles.codeValue}>{route.params?.deliveryCode}</Text>
+                   ) : (
+                     <View style={styles.pendingPinBox}>
+                       <Icon name="time-outline" size={32} color={theme.colors.primary} />
+                       <Text style={styles.pendingPinText}>Will be generated when out for delivery</Text>
+                     </View>
+                   )}
+                   <Text style={styles.codeInfo}>Share this with the rider when they arrive</Text>
+                </View>
+              )}
+              {(route.params?.fulfillmentMethod === 'pickup' && (paymentMethod !== 'Razorpay' || paymentConfirmed)) && (
+                <View style={styles.codeBox}>
+                   <Text style={styles.codeTitle}>STORE PICKUP PIN</Text>
+                   {route.params?.pickupCode ? (
+                     <Text style={styles.codeValue}>{route.params?.pickupCode}</Text>
+                   ) : (
+                     <View style={styles.pendingPinBox}>
+                       <Icon name="time-outline" size={32} color={theme.colors.primary} />
+                       <Text style={styles.pendingPinText}>Will be generated when ready for pickup</Text>
+                     </View>
+                   )}
+                   <Text style={styles.codeInfo}>Provide this to the shop owner at pickup</Text>
+                </View>
+              )}
           </View>
         </Animated.View>
       </View>
@@ -255,6 +269,18 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginBottom: 12,
   },
+  pendingPinBox: {
+    marginVertical: 15,
+    alignItems: 'center',
+    gap: 8,
+  },
+  pendingPinText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.primary,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
   subtitle: {
     fontSize: 16,
     color: theme.colors.muted,
@@ -311,6 +337,18 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     letterSpacing: 10,
     marginBottom: 12,
+  },
+  pendingPinBox: {
+    marginVertical: 15,
+    alignItems: 'center',
+    gap: 8,
+  },
+  pendingPinText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.primary,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   codeInfo: {
     fontSize: 12,

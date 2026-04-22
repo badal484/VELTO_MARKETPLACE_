@@ -341,7 +341,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               <Text style={styles.sectionSub}>Pin your position to ensure accurate delivery</Text>
               
               <TouchableOpacity
-                style={[styles.gpsButton, coordinates && {backgroundColor: theme.colors.success + '10', borderColor: theme.colors.success}]}
+                style={[styles.gpsButton, coordinates && {backgroundColor: theme.colors.success + '10', borderColor: theme.colors.success + '20'}]}
                 onPress={useCurrentLocation}
                 disabled={locationLoading}>
                 <Icon 
@@ -559,18 +559,18 @@ const styles = StyleSheet.create({
   fulfillmentRow: {flexDirection: 'row', gap: 12},
   methodCard: {
     flex: 1,
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#F8FAFC', // Flatter unselected background
     padding: 16,
     borderRadius: 20,
     alignItems: 'center',
     gap: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    ...theme.shadow.sm,
+    borderWidth: 0.8,
+    borderColor: '#E2E8F0', // Visible but subtle border for unselected
   },
   activeMethod: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary + '08',
+    borderColor: theme.colors.info + '60',
+    backgroundColor: theme.colors.white, // Pop with white background
+    ...theme.shadow.md, // Pop with shadow only when selected
   },
   methodLabel: {
     fontSize: 13,
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     backgroundColor: theme.colors.white,
-    borderWidth: 2,
+    borderWidth: 0.8,
     borderColor: theme.colors.primary,
     borderRadius: 16,
     paddingVertical: 14,

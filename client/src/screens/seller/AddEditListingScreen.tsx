@@ -221,7 +221,7 @@ export default function AddEditListingScreen({
     {id: Category.CLOTHING, icon: 'shirt'},
     {id: Category.HOME, icon: 'home'},
     {id: Category.OTHER, icon: 'build'},
-    {id: Category.OTHER, icon: 'sparkles'},
+    {id: Category.CONSTRUCTION, icon: 'construct'},
   ];
 
   return (
@@ -311,7 +311,7 @@ export default function AddEditListingScreen({
                 const isActive = category === cat.id;
                 return (
                   <Animated.View
-                    key={cat.id}
+                    key={`${cat.id}-${idx}`}
                     entering={FadeInRight.delay(idx * 50)}>
                     <TouchableOpacity
                       style={[styles.catItem, isActive && styles.catItemActive]}

@@ -234,26 +234,31 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
           </View>
         </Animated.View>
 
-        {/* Activity Section - whitelisted by role */}
-        <Text style={styles.sectionLabel}>{user?.role === Role.RIDER ? 'Logistics' : user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER ? 'Store activity' : 'Activity'}</Text>
+        {/* Activity Section - ONLY for Buyers */}
+        {user?.role === Role.BUYER && (
+          <>
+            <Text style={styles.sectionLabel}>Activity</Text>
+            <View style={styles.menuGroup}>
+              {renderMenuItem(
+                'receipt-outline',
+                'Order History',
+                () => navigation.navigate('OrderHistory'),
+                theme.colors.text,
+                100,
+              )}
+              
+              {renderMenuItem(
+                'heart-outline',
+                'Wishlist',
+                () => (navigation.navigate as any)('Wishlist'),
+                theme.colors.text,
+                150,
+              )}
+            </View>
+          </>
+        )}
+
         <View style={styles.menuGroup}>
-          {renderMenuItem(
-            'receipt-outline',
-            user?.role === Role.RIDER ? 'Delivery History' : (user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) ? 'Sales History' : 'Order History',
-            () => navigation.navigate('OrderHistory'),
-            theme.colors.text,
-            100,
-          )}
-          
-          {user?.role === Role.BUYER && renderMenuItem(
-            'heart-outline',
-            'Wishlist',
-            () => (navigation.navigate as any)('Wishlist'),
-            theme.colors.text,
-            150,
-          )}
-
-
           {renderMenuItem(
             'notifications-outline',
             'Notifications',
@@ -314,6 +319,13 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
                 () => (navigation.navigate as any)('DashboardTab', { screen: 'Dashboard' }),
                 theme.colors.text,
                 350,
+              )}
+              {renderMenuItem(
+                'receipt-outline',
+                'Sales History',
+                () => navigation.navigate('OrderHistory'),
+                theme.colors.text,
+                400,
               )}
             </View>
 
@@ -434,29 +446,11 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
 
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.menuGroup}>
-        <TouchableOpacity 
-          style={styles.supportHubCard} 
-          onPress={handleSupportChat}
-          activeOpacity={0.9}>
-          <View style={styles.supportHubContent}>
-            <View style={styles.supportIconBg}>
-              <Icon name="headset" size={24} color={theme.colors.white} />
-            </View>
-            <View style={styles.supportHubTextContainer}>
-              <Text style={styles.supportHubTitle}>Official Support Hub</Text>
-              <Text style={styles.supportHubSubtitle}>Get 24/7 expert help for your orders</Text>
-            </View>
-            <View style={styles.supportHubAction}>
-              <Text style={styles.supportHubActionText}>CHAT NOW</Text>
-              <Icon name="chevron-forward" size={14} color={theme.colors.primary} />
-            </View>
-          </View>
-        </TouchableOpacity>
 
         {renderMenuItem(
-            'call-outline',
-            'Contact Us',
-            handleContactUs,
+            'chatbubbles-outline',
+            'Support',
+            () => navigation.navigate('Support'),
             '#10B981',
             530,
           )}

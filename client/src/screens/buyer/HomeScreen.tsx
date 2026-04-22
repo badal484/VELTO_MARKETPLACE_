@@ -153,23 +153,24 @@ const ProductCard = ({
           <View style={styles.content}>
             <View style={styles.titleRow}>
               <Text style={styles.categoryLabel}>{item.category}</Text>
-              {item.distance !== undefined || (currentCoords && item.shop && (item.shop as any).location?.coordinates) ? (
+              {item.distance !== undefined || (currentCoords && (item.location?.coordinates || (item.shop as any)?.location?.coordinates)) ? (
                 <View style={styles.distanceBadgeSmall}>
-                  <Icon name="location" size={8} color={theme.colors.primary} />
+                  <Icon name="location-sharp" size={10} color={theme.colors.primary} />
                   <Text style={styles.distanceText}>
                     {(item.distance !== undefined 
                       ? item.distance 
                       : calculateDistance(
                           currentCoords!.lat, 
                           currentCoords!.lng, 
-                          (item.shop as any).location.coordinates[1], 
-                          (item.shop as any).location.coordinates[0]
+                          (item.location?.coordinates?.[1] ?? (item.shop as any)?.location?.coordinates?.[1]), 
+                          (item.location?.coordinates?.[0] ?? (item.shop as any)?.location?.coordinates?.[0])
                         )
                     ).toFixed(1)} km
                   </Text>
                 </View>
               ) : (
                 <View style={styles.distanceBadgeSmall}>
+                  <Icon name="navigate-outline" size={10} color={theme.colors.primary} />
                   <Text style={styles.distanceText}>Nearby</Text>
                 </View>
               )}
@@ -478,6 +479,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
     {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
     {id: Category.HOME, icon: 'home', label: 'Home'},
+    {id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction'},
     {id: Category.OTHER, icon: 'apps', label: 'Other'},
   ];
 
@@ -1386,15 +1388,17 @@ const styles = StyleSheet.create({
   distanceBadgeSmall: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    gap: 3,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
   },
   distanceText: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '900',
     color: theme.colors.primary,
   },
 });

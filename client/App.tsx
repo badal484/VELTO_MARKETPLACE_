@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import './src/i18n';
 import {StatusBar, ActivityIndicator, View, StyleSheet} from 'react-native';

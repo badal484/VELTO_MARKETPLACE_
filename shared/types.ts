@@ -14,7 +14,7 @@ export enum Category {
   FOOD = 'Food',
   BOOKS = 'Books',
   HOME = 'Home',
-  BEAUTY = 'Beauty',
+  CONSTRUCTION = 'Construction',
   SPORTS = 'Sports',
   TOYS = 'Toys',
   HEALTH = 'Health',

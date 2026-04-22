@@ -10,7 +10,9 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
     const validatedData = createProductSchema.parse({
       ...req.body,
       price: Number(req.body.price),
-      stock: Number(req.body.stock)
+      stock: Number(req.body.stock),
+      lat: Number(req.body.lat),
+      lng: Number(req.body.lng)
     });
     
     const product = await ProductService.createProduct(

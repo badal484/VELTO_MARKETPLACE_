@@ -45,12 +45,12 @@ export const Input: React.FC<InputProps> = ({
     const borderColor = interpolateColor(
       focusedAnim.value,
       [0, 1],
-      [theme.colors.border, theme.colors.primary],
+      [theme.colors.border, theme.colors.info],
     );
     return {
       borderColor: disabled ? theme.colors.border : borderColor,
       backgroundColor: disabled ? '#F8FAFC' : theme.colors.white,
-      borderWidth: 1.5,
+      borderWidth: 0.8,
     };
   });
 

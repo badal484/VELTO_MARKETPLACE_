@@ -607,7 +607,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                    <TouchableOpacity 
                      style={[styles.actionBtn, {backgroundColor: theme.colors.accent}]}
                      onPress={() => {
-                       require('react-native').Alert.alert('Pickup Handshake', `Your pickup code is: ${order.pickupCode}. Show this to the seller to collect your items.`);
+                       require('react-native').Alert.alert('Store Pickup', `Your pickup code is: ${order.pickupCode}. Show this to the seller to collect your items.`);
                      }}>
                      <Text style={styles.actionBtnText}>CODE</Text>
                    </TouchableOpacity>

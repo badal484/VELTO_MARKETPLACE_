@@ -29,7 +29,7 @@ export class OrderService {
     [OrderStatus.AT_SHOP]: [OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
     [OrderStatus.PICKED_UP]: [OrderStatus.IN_TRANSIT],
     [OrderStatus.IN_TRANSIT]: [OrderStatus.DELIVERED],
-    [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED_PENDING_RELEASE],
+    [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED_PENDING_RELEASE, OrderStatus.COMPLETED],
     [OrderStatus.COMPLETED_PENDING_RELEASE]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
     [OrderStatus.COMPLETED]: [],
     [OrderStatus.CANCELLED]: [],
@@ -48,10 +48,7 @@ export class OrderService {
       if (product.stock < data.quantity) throw new AppError('Insufficient stock', 400);
 
       const totalPrice = (product.price * data.quantity) + (data.deliveryCharge || 0);
-      const pickupCode = Math.floor(1000 + Math.random() * 9000).toString();
-      const deliveryCode = data.fulfillmentMethod === 'delivery' ? 
-        Math.floor(1000 + Math.random() * 9000).toString() : undefined;
-
+      // Codes are now generated dynamically during status transitions
       const { productId, ...rest } = data;
       const order = await Order.create([{
         ...rest,
@@ -66,8 +63,6 @@ export class OrderService {
           category: product.category
         },
         totalPrice,
-        pickupCode,
-        deliveryCode,
         status: OrderStatus.PENDING,
         pickupLocation: product.location,
         deliveryLocation: data.lat && data.lng ? {
@@ -150,8 +145,8 @@ export class OrderService {
       throw new AppError('Only seller can mark order as ready', 403);
     }
 
-    if (newStatus === OrderStatus.PICKED_UP && !isRider && !isAdmin) {
-      throw new AppError('Only the assigned rider can mark as picked up', 403);
+    if (newStatus === OrderStatus.PICKED_UP && !isRider && !isAdmin && !isSeller) {
+      throw new AppError('Only the assigned rider or seller can mark as picked up', 403);
     }
 
     if (newStatus === OrderStatus.DELIVERED && !isRider && !isAdmin) {
@@ -160,8 +155,31 @@ export class OrderService {
 
     if (!isSeller && !isAdmin && !isBuyer && !isRider) throw new AppError('Not authorized', 403);
 
+    // Dynamic PIN Generation
+    if (newStatus === OrderStatus.READY_FOR_PICKUP && order.fulfillmentMethod === 'pickup' && !order.pickupCode) {
+      order.pickupCode = Math.floor(1000 + Math.random() * 9000).toString();
+    }
+    
+    if (newStatus === OrderStatus.IN_TRANSIT && order.fulfillmentMethod === 'delivery' && !order.deliveryCode) {
+      order.deliveryCode = Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
     order.status = newStatus;
     await order.save();
+
+    // 💸 FINANCIAL FULFILLMENT 💸
+    if (newStatus === OrderStatus.COMPLETED) {
+      // 1. Credit Seller
+      await WalletService.creditSellerEarnings(orderId).catch(err => console.error('Seller credit failed:', err));
+      
+      // 2. Credit Rider Delivery Earnings
+      await WalletService.creditEarnings(orderId).catch(err => console.error('Rider credit failed:', err));
+
+      // 3. Handle COD Liability if applicable
+      if (order.paymentMethod === 'Cash on Delivery') {
+        await WalletService.processCODFulfillment(orderId).catch(err => console.error('COD processing failed:', err));
+      }
+    }
 
     // Trigger Financial Refund if order was cancelled after payment
     if (newStatus === OrderStatus.CANCELLED) {
@@ -258,20 +276,20 @@ export class OrderService {
       throw new AppError('You must be a verified rider to claim orders', 403);
     }
 
-    // 🚨 SECURE COD GUARDRAIL: Check Liability Limit 🚨
-    const isCOD = await Order.exists({ _id: orderId, paymentMethod: 'Cash on Delivery' });
-    if (isCOD && (rider.cashInHand || 0) >= (rider.cashLimit || 2000)) {
-      throw new AppError(`Claim Blocked: Your cash liability (₹${rider.cashInHand}) exceeds your limit. Please settle with the Admin.`, 403);
-    }
+    // Liability limit check removed as per user request to allow larger single-order cash handling.
 
-    // Check if rider already has an active job
-    const activeJob = await Order.findOne({
+    const activeJobsCount = await Order.countDocuments({
       rider: riderId,
-      status: { $nin: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] }
+      status: { $nin: [
+        OrderStatus.COMPLETED, 
+        OrderStatus.CANCELLED, 
+        OrderStatus.DELIVERED, 
+        OrderStatus.COMPLETED_PENDING_RELEASE
+      ] }
     });
-
-    if (activeJob) {
-      throw new AppError('You already have an active job. Complete it before taking another one.', 400);
+    
+    if (activeJobsCount >= 5) {
+      throw new AppError('[V2] Job Limit Reached: You can only handle 5 active deliveries at a time.', 400);
     }
 
     // Atomic update to prevent race conditions
@@ -308,11 +326,25 @@ export class OrderService {
 
     const pickupLocation = order.pickupLocation!.coordinates; // [lng, lat]
     
-    // 1. Find "Busy" riders (those with active assignments)
-    const busyRiders = await Order.find({
-      status: { $nin: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] },
-      rider: { $exists: true }
-    }).distinct('rider');
+    // 1. Find "Maxed Out" riders (those with 5+ active assignments)
+    const activeJobsAgg = await Order.aggregate([
+      { 
+        $match: { 
+          status: { 
+            $nin: [
+              OrderStatus.COMPLETED, 
+              OrderStatus.CANCELLED, 
+              OrderStatus.DELIVERED, 
+              OrderStatus.COMPLETED_PENDING_RELEASE
+            ] 
+          }, 
+          rider: { $exists: true } 
+        } 
+      },
+      { $group: { _id: "$rider", count: { $sum: 1 } } },
+      { $match: { count: { $gte: 5 } } }
+    ]);
+    const maxedRiders = activeJobsAgg.map(r => r._id);
 
     // 2. Adaptive Expansion Logic: (1km -> 2.5km -> 5km)
     const radii = [1000, 2500, 5000];
@@ -332,7 +364,7 @@ export class OrderService {
               role: Role.RIDER,
               isRiderVerified: true,
               isBlocked: { $ne: true },
-              _id: { $nin: busyRiders }
+              _id: { $nin: maxedRiders }
             }
           }
         },
@@ -432,10 +464,8 @@ export class OrderService {
         const isRazorpay = paymentMethod === 'Razorpay';
         const initialStatus = isRazorpay ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.PENDING;
 
+        // Codes are now generated dynamically during status transitions
         let itemTotalPrice = (itemPrice * item.quantity) + (currentDeliveryCharge / items.length);
-        const pickupCode = Math.floor(1000 + Math.random() * 9000).toString();
-        const deliveryCode = fulfillmentMethod === 'delivery' ? 
-          Math.floor(1000 + Math.random() * 9000).toString() : undefined;
 
         // 3. Create Order document
         const [order] = await Order.create([{
@@ -458,8 +488,6 @@ export class OrderService {
           deliveryAddress,
           deliveryCharge: currentDeliveryCharge / items.length,
           buyerPhone,
-          pickupCode,
-          deliveryCode,
           pickupLocation: product.location,
           deliveryLocation: data.lat && data.lng ? {
             type: 'Point',

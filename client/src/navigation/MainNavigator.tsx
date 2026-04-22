@@ -35,6 +35,7 @@ import RiderSetupScreen from '../screens/rider/RiderSetupScreen';
 import WalletScreen from '../screens/rider/WalletScreen';
 import {RiderNavigator} from './RiderNavigator';
 import SellerOrdersScreen from '../screens/seller/SellerOrdersScreen';
+import SupportScreen from '../screens/profile/SupportScreen';
 
 // --- Navigator Instances ---
 const RootStack = createStackNavigator();
@@ -83,9 +84,15 @@ const CartStack = () => (
   </Stack.Navigator>
 );
 
+const ChatStack = () => (
+  <Stack.Navigator screenOptions={{headerShown: false}}>
+    <Stack.Screen name="ChatList" component={ConversationsScreen} />
+  </Stack.Navigator>
+);
+
 const MainTabs = () => {
   const {user} = useAuth();
-  useNotifications();
+  const {unreadChatCount} = useNotifications();
 
   return (
     <Tab.Navigator
@@ -150,7 +157,7 @@ const MainTabs = () => {
       )}
 
       {/* Seller Specific Tab */}
-      {(user?.role === Role.SELLER || (user?.role === Role.SHOP_OWNER && user?.isShopVerified)) && (
+      {(user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) && (
         <Tab.Screen
           name="DashboardTab"
           component={DashboardStack}
@@ -178,6 +185,7 @@ const MainTabs = () => {
         />
       )}
 
+
       {/* Profile Tab - Global */}
       <Tab.Screen
         name="ProfileTab"
@@ -203,6 +211,7 @@ export const MainNavigator = () => {
       <RootStack.Screen name="ShopProfile" component={ShopProfileScreen} />
       <RootStack.Screen name="Checkout" component={CheckoutScreen as React.FC} />
       <RootStack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+      <RootStack.Screen name="Support" component={SupportScreen} />
     </RootStack.Navigator>
   );
 };

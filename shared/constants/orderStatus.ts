@@ -19,7 +19,7 @@ export const getStatusDisplay = (status: OrderStatus) => {
     case OrderStatus.PICKED_UP:
       return { label: 'Picked Up', color: '#0F172A' }; // primary
     case OrderStatus.IN_TRANSIT:
-      return { label: 'In Transit', color: '#0F172A' }; // primary
+      return { label: 'Out for Delivery', color: '#0F172A' }; // primary
     case OrderStatus.DELIVERED:
       return { label: 'Delivered', color: '#10B981' }; // success
     case OrderStatus.COMPLETED_PENDING_RELEASE:

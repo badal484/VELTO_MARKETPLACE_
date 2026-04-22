@@ -93,7 +93,7 @@ const categoriesList = [
   {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
   {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
   {id: Category.HOME, icon: 'home', label: 'Home'},
-  {id: Category.BEAUTY, icon: 'color-palette', label: 'Beauty'},
+  {id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction'},
   {id: Category.SPORTS, icon: 'football', label: 'Sports'},
 ];
 // Distance calculation helper (Haversine formula)
@@ -324,21 +324,25 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
                   color={item.isWishlisted ? "#FF476E" : theme.colors.muted} 
                 />
               </TouchableOpacity>
-              <View style={styles.distanceBadge}>
-                <Text style={styles.distanceBadgeText}>
-                  {item.distance !== undefined || (location && item.shop?.location?.coordinates) 
-                    ? `${(item.distance !== undefined 
+              {item.distance !== undefined || (location && (item.location?.coordinates || (item.shop as any)?.location?.coordinates)) ? (
+                <View style={styles.distanceBadge}>
+                  <Text style={styles.distanceBadgeText}>
+                    {(item.distance !== undefined 
                         ? item.distance 
                         : calculateDistance(
                             location!.lat, 
                             location!.lng, 
-                            item.shop?.location?.coordinates[1], 
-                            item.shop?.location?.coordinates[0]
+                            (item.location?.coordinates?.[1] ?? (item.shop as any)?.location?.coordinates?.[1]), 
+                            (item.location?.coordinates?.[0] ?? (item.shop as any)?.location?.coordinates?.[0])
                           )
-                      ).toFixed(1)} km`
-                    : 'Nearby'}
-                </Text>
-              </View>
+                    ).toFixed(1)} km
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.distanceBadge}>
+                  <Text style={styles.distanceBadgeText}>Nearby</Text>
+                </View>
+              )}
             </View>
             <View style={styles.listContent}>
               <View style={styles.listHeader}>

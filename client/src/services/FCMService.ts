@@ -6,14 +6,22 @@ import {
   requestPermission,
   registerDeviceForRemoteMessages,
   AuthorizationStatus,
-} from '@react-native-firebase/messaging/lib/modular';
+} from '@react-native-firebase/messaging';
 import { axiosInstance } from '../api/axiosInstance';
 import { Platform } from 'react-native';
+import { getApps, getApp } from '@react-native-firebase/app';
 
 export class FCMService {
   static async registerDevice() {
     try {
-      const m = getMessaging();
+      console.log('📡 [DEBUG] FCMService: Attempting to register device...');
+      const apps = getApps();
+      if (!apps.length) {
+        console.log('⚠️ [DEBUG] FCM Service Skip: Firebase app not initialized yet.');
+        return;
+      }
+      console.log('🔗 [DEBUG] FCM Service: Using app:', apps[0].name);
+      const m = getMessaging(getApp());
 
       const authStatus = await requestPermission(m);
       const enabled =
@@ -48,7 +56,8 @@ export class FCMService {
 
   static listenForMessages(callback: (message: any) => void) {
     try {
-      return onMessage(getMessaging(), async remoteMessage => {
+      if (!getApps().length) return () => {};
+      return onMessage(getMessaging(getApp()), async remoteMessage => {
         if (callback) callback(remoteMessage);
       });
     } catch {
@@ -58,7 +67,7 @@ export class FCMService {
 
   static setBackgroundHandler() {
     try {
-      setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
+      setBackgroundMessageHandler(getMessaging(getApp()), async remoteMessage => {
         console.log('🌙 Background Notification Received:', remoteMessage);
       });
     } catch {

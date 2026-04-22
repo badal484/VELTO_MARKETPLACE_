@@ -31,6 +31,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {DashboardStackParamList} from '../../navigation/types';
 import {MainTabParamList} from '../../navigation/types';
+import {useSocket} from '../../hooks/useSocket';
 
 type DashboardScreenNavigationProp = StackNavigationProp<DashboardStackParamList & MainTabParamList, 'Dashboard'>;
 
@@ -57,7 +58,22 @@ export default function DashboardScreen({navigation}: DashboardProps) {
   const [chartData, setChartData] = useState<{label: string, value: number, isToday: boolean}[]>([]);
   const [maxEarnings, setMaxEarnings] = useState(1000);
 
+  const {socket, isConnected} = useSocket();
   const {unreadCount, resetUnreadCount} = useNotifications();
+
+  // Socket listener for real-time dashboard updates
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.on('order_status_updated', (updatedOrder: IOrder) => {
+        // Trigger a silent refresh to update earnings and pipeline
+        fetchData();
+        showToast({ message: `Order #${updatedOrder._id.slice(-6).toUpperCase()} is now ${updatedOrder.status.replace(/_/g, ' ')}`, type: 'info' });
+      });
+    }
+    return () => {
+      if (socket) socket.off('order_status_updated');
+    };
+  }, [socket, isConnected]);
 
   // Use focus effect to refresh data and reset unread badges when user returns to this tab
   useFocusEffect(
@@ -134,7 +150,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
       setOtpValue('');
       setActiveOrderId(null);
       fetchData();
-      showToast({message: 'Handshake verified. Order completed!', type: 'success'});
+      showToast({message: 'Handover verified. Order completed!', type: 'success'});
     } catch (error: any) {
       showToast({message: error.response?.data?.message || 'Invalid code.', type: 'error'});
     } finally {
@@ -173,7 +189,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
     return (
       <Card style={styles.orderCard} variant="elevated">
         <View style={styles.orderHeader}>
-          <Text style={styles.orderId}>#NB-{item._id.slice(-6).toUpperCase()}</Text>
+          <Text style={styles.orderId}>#NB-{item._id?.slice(-6).toUpperCase() || 'ORDER'}</Text>
           <View style={[
             styles.statusBadge, 
             {backgroundColor: isCompleted ? theme.colors.success + '15' : isPending ? theme.colors.warning + '15' : theme.colors.primary + '15'}
@@ -196,10 +212,10 @@ export default function DashboardScreen({navigation}: DashboardProps) {
             <TouchableOpacity 
               style={styles.actionBtnAccept} 
               onPress={() => handleAcceptOrder(item._id)}>
-              <Text style={styles.actionBtnText}>Accept</Text>
+              <Text style={styles.actionBtnText}>Confirm Order</Text>
             </TouchableOpacity>
           )}
-          {isConfirmed && (
+          {isConfirmed && item.fulfillmentMethod === 'pickup' && (
             <TouchableOpacity 
               style={styles.actionBtnVerify} 
               onPress={() => {
@@ -207,7 +223,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
                 setIsOtpModalVisible(true);
               }}>
               <Icon name="hand-right-outline" size={14} color={theme.colors.white} />
-              <Text style={styles.actionBtnText}>Handshake</Text>
+              <Text style={styles.actionBtnText}>Verify Handover</Text>
             </TouchableOpacity>
           )}
           {isCompleted && (
@@ -252,14 +268,14 @@ export default function DashboardScreen({navigation}: DashboardProps) {
         <View style={styles.modalOverlay}>
           <Animated.View entering={FadeInUp} style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Handshake Verification</Text>
+              <Text style={styles.modalTitle}>Handover Verification</Text>
               <TouchableOpacity onPress={() => setIsOtpModalVisible(false)}>
                 <Icon name="close" size={24} color={theme.colors.muted} />
               </TouchableOpacity>
             </View>
             
             <Text style={styles.modalSubtitle}>
-              Enter the 4-digit code shown on the buyer's Handshake Ticket.
+              Enter the 4-digit code shown on the buyer's handover ticket.
             </Text>
 
             <TextInput
@@ -447,25 +463,6 @@ export default function DashboardScreen({navigation}: DashboardProps) {
               {products.length === 0 && <Text style={styles.emptyTxtCenter}>No listings yet. Add your first product!</Text>}
             </View>
 
-            {/* Premium Support Hub Card */}
-            <TouchableOpacity 
-              style={styles.supportHubCard} 
-              onPress={handleSupportChat}
-              activeOpacity={0.9}>
-              <View style={styles.supportHubContent}>
-                <View style={styles.supportIconBg}>
-                  <Icon name="headset" size={24} color={theme.colors.white} />
-                </View>
-                <View style={styles.supportHubTextContainer}>
-                  <Text style={styles.supportHubTitle}>Official Support Hub</Text>
-                  <Text style={styles.supportHubSubtitle}>Get 24/7 assistance for your store</Text>
-                </View>
-                <View style={styles.supportHubAction}>
-                  <Text style={styles.supportHubActionText}>CHAT NOW</Text>
-                  <Icon name="chevron-forward" size={14} color={theme.colors.primary} />
-                </View>
-              </View>
-            </TouchableOpacity>
           </>
         ) : (
           <View style={[styles.setupContainer, !!shop?.rejectionReason && styles.setupContainerRejected]}>
@@ -494,26 +491,6 @@ export default function DashboardScreen({navigation}: DashboardProps) {
               </Text>
             </TouchableOpacity>
 
-            {!shop?.rejectionReason && (
-              <TouchableOpacity 
-                style={styles.supportHubCard} 
-                onPress={handleSupportChat}
-                activeOpacity={0.9}>
-                <View style={styles.supportHubContent}>
-                  <View style={styles.supportIconBg}>
-                    <Icon name="headset" size={24} color={theme.colors.white} />
-                  </View>
-                  <View style={styles.supportHubTextContainer}>
-                    <Text style={styles.supportHubTitle}>Official Support Hub</Text>
-                    <Text style={styles.supportHubSubtitle}>Get 24/7 assistance for your store</Text>
-                  </View>
-                  <View style={styles.supportHubAction}>
-                    <Text style={styles.supportHubActionText}>CHAT NOW</Text>
-                    <Icon name="chevron-forward" size={14} color={theme.colors.primary} />
-                  </View>
-                </View>
-              </TouchableOpacity>
-            )}
           </View>
         )}
         

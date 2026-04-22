@@ -44,7 +44,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Handshake OTP State
+  // Handover OTP State
   const [isOtpModalVisible, setIsOtpModalVisible] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -53,13 +53,17 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
   useEffect(() => {
     if (socket && isConnected) {
       socket.on(SocketEvent.ORDER_STATUS_UPDATED, (updatedOrder: IOrder) => {
-        setOrders(prev => prev.map(o => o._id === updatedOrder._id ? { ...o, ...updatedOrder } : o));
-        showToast({ message: `Order #${updatedOrder._id.slice(-6).toUpperCase()} status updated`, type: 'info' });
+        if (updatedOrder?._id) {
+          setOrders(prev => prev.map(o => o._id === updatedOrder._id ? { ...o, ...updatedOrder } : o));
+          showToast({ message: `Order #${updatedOrder._id.slice(-6).toUpperCase()} status updated`, type: 'info' });
+        }
       });
 
       socket.on('new_order', (newOrder: IOrder) => {
-        showToast({ message: `New Order Received! #${newOrder._id.slice(-6).toUpperCase()}`, type: 'success' });
-        fetchOrders();
+        if (newOrder?._id) {
+          showToast({ message: `New Order Received! #${newOrder._id.slice(-6).toUpperCase()}`, type: 'success' });
+          fetchOrders();
+        }
       });
     }
     return () => {
@@ -133,7 +137,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     }
   };
 
-  const handleVerifyHandshake = async () => {
+  const handleVerifyHandover = async () => {
     if (otpValue.length !== 4) {
       showToast({message: 'Please enter a valid 4-digit code', type: 'info'});
       return;
@@ -146,7 +150,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
       setOtpValue('');
       setActiveOrderId(null);
       fetchOrders();
-      showToast({message: 'Handshake verified. Order completed!', type: 'success'});
+      showToast({message: 'Handover verified. Order completed!', type: 'success'});
     } catch (error: any) {
       showToast({message: error.response?.data?.message || 'Invalid code.', type: 'error'});
     } finally {
@@ -170,7 +174,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
               <View style={styles.iconBox}>
                 <Icon name="receipt-outline" size={16} color={theme.colors.primary} />
               </View>
-              <Text style={styles.orderId}>#{item._id.slice(-6).toUpperCase()}</Text>
+              <Text style={styles.orderId}>#{item._id?.slice(-6).toUpperCase() || 'ORDER'}</Text>
             </View>
             <View style={[styles.statusBadge, { backgroundColor: color + '15' }]}>
               <View style={[styles.statusDot, { backgroundColor: color }]} />
@@ -323,7 +327,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Verification Modal */}
+      {/* Handover Verification Modal */}
       <Modal
         visible={isOtpModalVisible}
         transparent
@@ -332,13 +336,13 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
         <View style={styles.modalOverlay}>
           <Animated.View entering={FadeInUp} style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Seller Handshake</Text>
+              <Text style={styles.modalTitle}>Seller Handover</Text>
               <TouchableOpacity onPress={() => setIsOtpModalVisible(false)}>
                 <Icon name="close" size={24} color={theme.colors.muted} />
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Ask the buyer for their 4-digit handshake code to complete the fulfillment.
+              Ask the buyer for their 4-digit handover code to complete the fulfillment.
             </Text>
             <TextInput
               style={styles.otpInput}
@@ -352,7 +356,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
             <Button
               title={verifying ? "Processing..." : "Verify & Release Payment"}
               type="primary"
-              onPress={handleVerifyHandshake}
+              onPress={handleVerifyHandover}
               loading={verifying}
             />
           </Animated.View>

@@ -21,8 +21,8 @@ export const openMap = (
   if (lat && lng) {
     const latLng = `${lat},${lng}`;
     const url = Platform.select({
-      ios: `maps://app?daddr=${latLng}&label=${label || 'Location'}`,
-      android: `google.navigation:q=${latLng}(${label || 'Location'})`,
+      ios: `maps://app?daddr=${latLng}&label=${encodeURIComponent(label || 'Location')}`,
+      android: `google.navigation:q=${latLng}`,
     });
 
     if (url) {

@@ -520,7 +520,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
                   {id: Category.CLOTHING, icon: 'shirt'},
                   {id: Category.HOME, icon: 'home'},
                   {id: Category.OTHER, icon: 'build'},
-                  {id: Category.BEAUTY, icon: 'sparkles'},
+                  {id: Category.CONSTRUCTION, icon: 'construct'},
                 ].map((cat, idx) => {
                   const isActive = selectedCategory === cat.id;
                   return (

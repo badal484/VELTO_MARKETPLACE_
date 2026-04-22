@@ -137,20 +137,23 @@ export const generateInvoice = async (req: Request, res: Response): Promise<void
       .text('Thank you for supporting your local economy with Velto.', 50, 700, { align: 'center' })
       .text('This is a computer generated invoice.', 50, 715, { align: 'center' });
 
+    console.log(`[INVOICE] Starting generation for order ${id}`);
     // End PDF Generation
     doc.end();
 
     // Await the buffer and upload to cloud
+    console.log(`[INVOICE] PDF buffer generated, uploading to cloud...`);
     const pdfBuffer = await pdfPromise;
     const downloadUrl = await uploadImage(pdfBuffer, `invoice-${order._id}.pdf`, '/invoices');
+    console.log(`[INVOICE] Upload success: ${downloadUrl}`);
 
     res.status(200).json({ 
       success: true, 
       data: { url: downloadUrl } 
     });
 
-  } catch (error) {
-    console.error('Invoice Generation Error:', error);
-    res.status(500).json({ success: false, message: 'Could not generate invoice' });
+  } catch (error: any) {
+    console.error('❌ [INVOICE] Generation Error:', error.message || error);
+    res.status(500).json({ success: false, message: error.message || 'Could not generate invoice' });
   }
 };

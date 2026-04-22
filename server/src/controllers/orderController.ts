@@ -49,7 +49,7 @@ export const verifyOrderOTP = async (req: Request, res: Response): Promise<void>
 
     const updated = await OrderService.updateStatus(
       id, 
-      'completed' as any, 
+      OrderStatus.COMPLETED, 
       req.user._id.toString(), 
       req.user.role
     );
@@ -77,21 +77,33 @@ export const verifyDeliveryOTP = async (req: Request, res: Response): Promise<vo
       throw new AppError('Invalid delivery OTP', 400);
     }
 
-    // Move to DELIVERED first
-    await OrderService.updateStatus(
-      id, 
-      'delivered' as any, 
-      req.user!._id.toString(), 
-      req.user!.role
-    );
+    // Move to DELIVERED first if not already there
+    if (order.status !== OrderStatus.DELIVERED && 
+        order.status !== OrderStatus.COMPLETED_PENDING_RELEASE && 
+        order.status !== OrderStatus.COMPLETED) {
+      await OrderService.updateStatus(
+        id, 
+        OrderStatus.DELIVERED, 
+        req.user!._id.toString(), 
+        req.user!.role
+      );
+    }
 
-    // Then move to COMPLETED
-    const updated = await OrderService.updateStatus(
-      id, 
-      'completed' as any, 
-      req.user!._id.toString(), 
-      req.user!.role
-    );
+    // Decide final status based on payment method
+    const finalStatus = order.paymentMethod === 'Cash on Delivery' 
+      ? OrderStatus.COMPLETED 
+      : OrderStatus.COMPLETED_PENDING_RELEASE;
+
+    // Only update if final status is different
+    let updated = order;
+    if (order.status !== finalStatus) {
+      updated = await OrderService.updateStatus(
+        id, 
+        finalStatus, 
+        req.user!._id.toString(), 
+        req.user!.role
+      );
+    }
 
     res.json({ success: true, message: 'Delivery verified. Order completed!', data: updated });
   } catch (error) {
@@ -191,7 +203,21 @@ export const getRiderOrders = async (req: Request, res: Response): Promise<void>
       .populate('buyer', 'name email avatar phoneNumber')
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, data: orders });
+    const stats = orders.reduce((acc, order) => {
+      const isFinished = [
+        OrderStatus.DELIVERED, 
+        OrderStatus.COMPLETED_PENDING_RELEASE, 
+        OrderStatus.COMPLETED
+      ].includes(order.status as OrderStatus);
+
+      if (isFinished) {
+        acc.deliveries += 1;
+        acc.earnings += (order.deliveryCharge || 0);
+      }
+      return acc;
+    }, { earnings: 0, deliveries: 0 });
+
+    res.json({ success: true, data: orders, stats });
   } catch (error) {
     handleError(error, res);
   }

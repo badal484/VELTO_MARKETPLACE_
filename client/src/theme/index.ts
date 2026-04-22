@@ -33,7 +33,7 @@ export const theme = {
     white: '#FFFFFF',
     black: '#000000',
     transparent: 'transparent',
-    shadow: 'rgba(15, 23, 42, 0.08)',
+    shadow: 'rgba(15, 23, 42, 0.04)',
   },
 
   spacing: {
@@ -69,23 +69,23 @@ export const theme = {
     sm: {
       shadowColor: '#0F172A',
       shadowOffset: {width: 0, height: 1},
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 2,
+      shadowOpacity: 0.03,
+      shadowRadius: 1.5,
+      elevation: 0,
     },
     md: {
       shadowColor: '#0F172A',
       shadowOffset: {width: 0, height: 4},
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 5,
+      shadowOpacity: 0.06,
+      shadowRadius: 6,
+      elevation: 3,
     },
     lg: {
       shadowColor: '#0F172A',
       shadowOffset: {width: 0, height: 10},
-      shadowOpacity: 0.12,
-      shadowRadius: 20,
-      elevation: 10,
+      shadowOpacity: 0.08,
+      shadowRadius: 15,
+      elevation: 6,
     },
   },
 };

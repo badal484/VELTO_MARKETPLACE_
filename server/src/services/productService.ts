@@ -105,7 +105,7 @@ export class ProductService {
     return products.map(p => ({
       ...p,
       isWishlisted: wishlistedIds.includes(p._id.toString()),
-      distance: p.distance ? parseFloat((p.distance / 1000).toFixed(1)) : undefined
+      distance: (p.distance !== undefined && p.distance !== null) ? parseFloat((p.distance / 1000).toFixed(1)) : undefined
     }));
   }
 }

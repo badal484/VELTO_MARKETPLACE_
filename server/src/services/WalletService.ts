@@ -176,26 +176,8 @@ export class WalletService {
         { session }
       );
 
-      // 2. Debit platform commission from their wallet balance
-      // Since they have the physical cash, the platform takes its cut from their virtual balance.
-      const itemTotal = order.totalPrice - (order.deliveryCharge || 0);
-      const commission = this.round(itemTotal * this.SELLER_COMMISSION_RATE); 
-      
-      if (commission > 0) {
-        await User.findByIdAndUpdate(
-          order.rider,
-          { $inc: { walletBalance: -commission } },
-          { session }
-        );
-
-        await WalletTransaction.create([{
-          user: order.rider,
-          amount: commission,
-          type: 'debit',
-          description: `Platform Commission for COD Order #${orderId.toString().slice(-6).toUpperCase()}`,
-          orderId: order._id
-        }], { session });
-      }
+      // 2. Platform commission debit removed as per user request. 
+      // Admin will calculate and collect commission physically when the rider hands over the cash at end-of-day.
 
       await session.commitTransaction();
 
@@ -206,7 +188,7 @@ export class WalletService {
         cashInHand: updatedRider?.cashInHand || 0
       });
 
-      console.log(`[WALLET] COD Fulfilled. Rider ${order.rider} Liability +₹${order.totalPrice}, Wallet -₹${commission}`);
+      console.log(`[WALLET] COD Fulfilled. Rider ${order.rider} Liability +₹${order.totalPrice}`);
     } catch (error) {
        await session.abortTransaction();
        console.error('[WALLET] COD Processing failed:', error);
