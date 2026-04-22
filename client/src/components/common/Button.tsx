@@ -21,6 +21,7 @@ interface ButtonProps {
   type?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent' | 'warning' | 'success' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
@@ -37,6 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
   type = 'primary',
   size = 'md',
   isLoading = false,
+  loading = false,
   disabled = false,
   style,
   textStyle,
@@ -85,7 +87,7 @@ export const Button: React.FC<ButtonProps> = ({
       baseStyle.push(styles.danger as ViewStyle);
     }
 
-    if (disabled || isLoading) {
+    if (disabled || isLoading || loading) {
       baseStyle.push(styles.disabled as ViewStyle);
     }
 
@@ -120,9 +122,9 @@ export const Button: React.FC<ButtonProps> = ({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      disabled={disabled || isLoading}
+      disabled={disabled || isLoading || loading}
       style={[getButtonStyles(), animatedStyle, style]}>
-      {isLoading ? (
+      {(isLoading || loading) ? (
         <ActivityIndicator
           color={
             type === 'outline' || type === 'ghost'

@@ -10,7 +10,8 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_velto_key_123') as jwt.JwtPayload;
 
-      const user = await User.findById(decoded.id).select('-password');
+      const userId = decoded.id || decoded._id;
+      const user = await User.findById(userId).select('-password');
       if (user) {
         if (user.isBlocked) {
           res.status(403).json({ success: false, message: 'Account is suspended. Please contact support.' });
@@ -18,6 +19,9 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
         }
         req.user = user;
         return next();
+      } else {
+        res.status(401).json({ success: false, message: 'User no longer exists.' });
+        return;
       }
     } catch (error) {
       res.status(401).json({ success: false, message: 'Not authorized, token failed' });
@@ -30,7 +34,8 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
     token = req.query.token as string;
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_velto_key_123') as jwt.JwtPayload;
-      const user = await User.findById(decoded.id).select('-password');
+      const userId = decoded.id || decoded._id;
+      const user = await User.findById(userId).select('-password');
       if (user) {
         req.user = user;
         return next();
@@ -54,7 +59,8 @@ export const optional = async (req: Request, _res: Response, next: NextFunction)
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_velto_key_123') as jwt.JwtPayload;
 
-      const user = await User.findById(decoded.id).select('-password');
+      const userId = decoded.id || decoded._id;
+      const user = await User.findById(userId).select('-password');
       if (user) {
         req.user = user;
       }

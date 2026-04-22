@@ -48,9 +48,9 @@ export default function AdminOrdersScreen() {
   };
 
   const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
-    const product = item.product as IProduct;
-    const shop = item.shop as IShop;
-    const buyer = item.buyer as IUser;
+    const product = item.product as unknown as IProduct;
+    const shop = item.shop as unknown as IShop;
+    const buyer = item.buyer as unknown as IUser;
 
     const isCompleted = item.status === OrderStatus.COMPLETED;
     const isCancelled = item.status === OrderStatus.CANCELLED;

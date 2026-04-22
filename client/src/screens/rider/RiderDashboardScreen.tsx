@@ -11,7 +11,8 @@ import {
   Alert,
   Modal,
   TextInput,
-  Linking
+  Linking,
+  Image,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -640,7 +641,6 @@ export default function RiderDashboardScreen({navigation}: any) {
               maxLength={4}
               value={otpValue}
               onChangeText={setOtpValue}
-              letterSpacing={15}
               autoFocus
             />
             <Button
@@ -1134,5 +1134,41 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     color: theme.colors.primary,
+  },
+  inlineNavigateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  inlineNavigateText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: theme.colors.primary,
+    letterSpacing: 0.5,
+  },
+  line: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 8,
+  },
+  liveIndicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  livePulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.success,
+  },
+  liveSearchText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: theme.colors.success,
+    letterSpacing: 1,
   },
 });

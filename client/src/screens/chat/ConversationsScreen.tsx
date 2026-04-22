@@ -64,7 +64,7 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
             lastMessage: data.message.text,
             updatedAt: new Date(),
             unreadCount: (updated[index] as any).unreadCount + 1
-          };
+          } as any;
           // Move to top
           const conv = updated.splice(index, 1)[0];
           return [conv, ...updated];
@@ -93,7 +93,7 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
   };
 
   const filteredConversations = conversations.filter(conv => {
-    const participants = conv.participants.filter(p => typeof p !== 'string') as IUser[];
+    const participants = conv.participants.filter(p => typeof p === 'object') as IUser[];
     const hasAdmin = participants.some(p => p.role === Role.ADMIN);
     const hasRider = participants.some(p => p.role === Role.RIDER);
 
@@ -102,7 +102,7 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
     if (activeTab === 'deliveries' && !hasRider) return false;
 
     const otherParticipant = participants.find(p => p._id !== user?._id);
-    const product = typeof conv.product !== 'string' ? conv.product : null;
+    const product = (typeof conv.product === 'object' ? conv.product : null) as any;
     
     // Search filtering
     const matchesSearch = search === '' || 
@@ -115,10 +115,10 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
   const renderItem = ({item, index}: {item: IConversation; index: number}) => {
     const participants = item.participants.filter(p => typeof p !== 'string') as IUser[];
     const otherParticipant = participants.find(p => p._id !== user?._id);
-    const order = typeof item.order !== 'string' ? item.order : null;
+    const order = (typeof item.order === 'object' ? item.order : null) as any;
     const isSupport = otherParticipant?.role === Role.ADMIN;
 
-    const updatedAt = new Date(item.updatedAt);
+    const updatedAt = new Date(item.updatedAt ?? Date.now());
     const time = updatedAt.toLocaleDateString([], {
       month: 'short',
       day: 'numeric',
@@ -132,8 +132,8 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
           onPress={() =>
             navigation.navigate('ChatRoom', {
               conversationId: item._id,
-              otherUser: otherParticipant,
-              orderId: item.order?._id || item.order,
+              otherUser: otherParticipant!,
+              orderId: order?._id || (typeof item.order === 'string' ? item.order : undefined),
             })
           }>
           <View style={styles.avatarBox}>

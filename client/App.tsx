@@ -11,15 +11,13 @@ import {AuthNavigator} from './src/navigation/AuthNavigator';
 import {MainNavigator} from './src/navigation/MainNavigator';
 import {useAuth} from './src/hooks/useAuth';
 import {theme} from './src/theme';
+import {SplashScreen} from './src/components/common/SplashScreen';
+
 const NavigationWrapper = () => {
   const {user, isLoading} = useAuth();
 
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
+    return <SplashScreen />;
   }
 
   return (

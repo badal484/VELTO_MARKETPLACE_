@@ -30,7 +30,7 @@ interface PersonalDetailsProps {
 }
 
 export default function PersonalDetailsScreen({navigation}: PersonalDetailsProps) {
-  const {user, token, updateUser} = useAuth();
+  const {user, updateUser} = useAuth();
   const {showToast} = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);

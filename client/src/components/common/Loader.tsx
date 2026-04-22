@@ -3,7 +3,7 @@ import {View, ActivityIndicator, StyleSheet} from 'react-native';
 import {theme} from '../../theme';
 import Animated, {FadeIn} from 'react-native-reanimated';
 
-export const Loader = ({ fullScreen }: { fullScreen?: boolean } = {}) => (
+export const Loader = ({ fullScreen, size: _size }: { fullScreen?: boolean; size?: string } = {}) => (
   <View style={[styles.container, fullScreen && styles.fullScreen]}>
     <Animated.View entering={FadeIn} style={styles.loaderContainer}>
       <ActivityIndicator size="large" color={theme.colors.primary} />

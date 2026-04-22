@@ -86,6 +86,8 @@ export interface IUser {
   cashInHand?: number;
   cashLimit?: number;
   isBlocked?: boolean;
+  shopRejectionReason?: string;
+  hasShop?: boolean;
   createdAt?: string | Date;
 }
 
@@ -159,6 +161,7 @@ export interface IProduct {
   isWishlisted?: boolean;
   isNearby?: boolean;
   distance?: number;
+  isActive?: boolean;
   createdAt?: string | Date;
 }
 
@@ -225,10 +228,10 @@ export interface IMessage {
 }
 
 export interface IConversation {
-  _id: MongoId;
-  participants: MongoId[];
-  product?: MongoId;
-  order?: MongoId;
+  _id: string;
+  participants: (string | IUser)[];
+  product?: string | IProduct;
+  order?: string | IOrder;
   lastMessage?: string;
   updatedAt?: string | Date;
 }

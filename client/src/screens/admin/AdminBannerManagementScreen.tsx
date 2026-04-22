@@ -101,9 +101,7 @@ export default function AdminBannerManagementScreen() {
         type: 'image/jpeg',
       } as any);
 
-      await axiosInstance.post('/api/banners', formData, {
-        headers: {'Content-Type': 'multipart/form-data'},
-      });
+      await axiosInstance.post('/api/banners', formData);
 
       showToast({message: 'Banner created successfully!', type: 'success'});
       setIsAddModalVisible(false);

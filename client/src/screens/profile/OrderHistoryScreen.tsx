@@ -76,8 +76,11 @@ export default function OrderHistoryScreen({
   useEffect(() => {
     if (socket && isConnected) {
       socket.on('order_status_updated', (updatedOrder: IOrder) => {
+        if (!updatedOrder?._id) return;
         setOrders(prev => prev.map(o => o._id === updatedOrder._id ? { ...o, ...updatedOrder } : o));
-        showToast({ message: `Order #${updatedOrder._id.slice(-6).toUpperCase()} status updated to ${updatedOrder.status.replace('_', ' ')}`, type: 'info' });
+        const shortId = updatedOrder._id.slice(-6).toUpperCase();
+        const statusLabel = (updatedOrder.status ?? '').replace(/_/g, ' ');
+        showToast({ message: `Order #${shortId} status updated to ${statusLabel}`, type: 'info' });
       });
 
       socket.on('rider_location_updated', (data: {orderId: string, lat: number, lng: number, timestamp: string}) => {
@@ -135,7 +138,7 @@ export default function OrderHistoryScreen({
           role: role as any
         };
 
-        navigation.navigate('ChatRoom', {
+        (navigation as any).navigate('ChatRoom', {
           conversationId: conversation._id,
           otherUser,
           productTitle: (order.product as any)?.title,
@@ -160,7 +163,7 @@ export default function OrderHistoryScreen({
         const adminUser = (conversation.participants as any[]).find(p => p.role === 'admin');
         const adminId = adminUser?._id || (conversation.participants as any[]).find(p => typeof p === 'string' && p !== user?._id) || conversation.participants[1];
 
-        navigation.navigate('ChatRoom', {
+        (navigation as any).navigate('ChatRoom', {
           conversationId: conversation._id,
           otherUser: { 
             _id: adminId,
@@ -202,7 +205,7 @@ export default function OrderHistoryScreen({
 
   const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
     const { label, color } = getStatusDisplay(item.status as OrderStatus);
-    const orderDate = new Date(item.createdAt).toLocaleDateString('en-IN', {
+    const orderDate = new Date(item.createdAt ?? Date.now()).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -271,7 +274,7 @@ export default function OrderHistoryScreen({
             </View>
             <View style={styles.priceColumn}>
               <Text style={styles.price}>₹{item.totalPrice}</Text>
-              {item.deliveryCharge > 0 && (
+              {(item.deliveryCharge ?? 0) > 0 && (
                 <Text style={styles.deliveryFeeText}>Includes ₹{item.deliveryCharge} Delivery</Text>
               )}
               <Text style={styles.qtyText}>Qty: {item.quantity}</Text>

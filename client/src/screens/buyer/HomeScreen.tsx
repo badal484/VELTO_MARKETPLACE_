@@ -581,12 +581,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
             <Pressable
               onPressIn={handleBannerPressIn}
               onPressOut={handleBannerPressOut}
-              onPress={() =>
-                navigation.navigate('BrowseTab', {
-                  screen: 'Browse',
-                  params: {category: item.category},
-                })
-              }
+              onPress={() => setSelectedCategory(selectedCategory === item.category ? null : item.category)}
               style={styles.bannerItemContainer}>
               <Animated.View style={[styles.heroBanner, animatedBannerStyle]}>
                 <Image
@@ -784,7 +779,7 @@ const styles = StyleSheet.create({
   },
   carouselSection: {
     marginBottom: 4,
-    marginHorizontal: -24,
+    marginHorizontal: -16,
   },
   quickNavSection: {
     paddingVertical: 12,

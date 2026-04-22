@@ -90,7 +90,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
         for (let i = 13; i >= 0; i--) {
           const date = subDays(new Date(), i);
           const dayOrders = ordersRes.data.data.filter((o: IOrder) => 
-            o.status === OrderStatus.COMPLETED && isSameDay(new Date(o.createdAt), date)
+            o.status === OrderStatus.COMPLETED && isSameDay(new Date(o.createdAt ?? Date.now()), date)
           );
           const total = dayOrders.reduce((acc: number, o: IOrder) => acc + (o.totalPrice || 0), 0);
           if (total > maxVal) maxVal = total;
@@ -151,7 +151,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
           receiverId: admin._id,
         });
 
-        navigation.navigate('ChatRoom', {
+        (navigation as any).navigate('ChatRoom', {
           conversationId: chatRes.data.data._id,
           otherUser: admin,
           shopName: 'Velto Support',
@@ -164,8 +164,8 @@ export default function DashboardScreen({navigation}: DashboardProps) {
   };
 
   const renderOrderCard = ({item}: {item: IOrder}) => {
-    const product = item.product as IProduct;
-    const buyer = item.buyer as IUser;
+    const product = item.product as unknown as IProduct;
+    const buyer = item.buyer as unknown as IUser;
     const isPending = item.status === OrderStatus.PENDING;
     const isConfirmed = item.status === OrderStatus.CONFIRMED;
     const isCompleted = item.status === OrderStatus.COMPLETED;
@@ -269,7 +269,6 @@ export default function DashboardScreen({navigation}: DashboardProps) {
               maxLength={4}
               value={otpValue}
               onChangeText={setOtpValue}
-              letterSpacing={15}
               autoFocus
             />
 
@@ -296,7 +295,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
           <View style={styles.headerActions}>
             <TouchableOpacity 
               style={styles.notificationBtn}
-              onPress={() => navigation.navigate('Notifications')}>
+              onPress={() => (navigation as any).navigate('Notifications')}>
               <Icon name="notifications-outline" size={24} color={theme.colors.text} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
@@ -336,7 +335,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
                 style={styles.statBox}
                 onPress={() => navigation.navigate('Wallet')}>
                 <Icon name="cash-outline" size={20} color={theme.colors.success} />
-                <Text style={styles.statNum}>₹{orders.filter(o => o.status === 'completed').reduce((acc, o) => acc + (o.totalPrice || 0), 0).toLocaleString()}</Text>
+                <Text style={styles.statNum}>₹{orders.filter(o => o.status === OrderStatus.COMPLETED).reduce((acc, o) => acc + (o.totalPrice || 0), 0).toLocaleString()}</Text>
                 <Text style={styles.statLab}>Total Earnings</Text>
               </TouchableOpacity>
             </View>
@@ -425,7 +424,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
             </View>
             <FlatList
               horizontal
-              data={orders.filter(o => o.status !== 'cancelled')}
+              data={orders.filter(o => o.status !== OrderStatus.CANCELLED)}
               keyExtractor={item => item._id}
               renderItem={renderOrderCard}
               showsHorizontalScrollIndicator={false}
@@ -469,26 +468,26 @@ export default function DashboardScreen({navigation}: DashboardProps) {
             </TouchableOpacity>
           </>
         ) : (
-          <View style={[styles.setupContainer, shop?.rejectionReason && styles.setupContainerRejected]}>
-            <View style={[styles.setupIconBg, shop?.rejectionReason && styles.setupIconBgRejected]}>
-              <Icon 
-                name={shop?.rejectionReason ? "alert-circle-outline" : "storefront-outline"} 
-                size={80} 
-                color={shop?.rejectionReason ? theme.colors.error : theme.colors.muted} 
+          <View style={[styles.setupContainer, !!shop?.rejectionReason && styles.setupContainerRejected]}>
+            <View style={[styles.setupIconBg, !!shop?.rejectionReason && styles.setupIconBgRejected]}>
+              <Icon
+                name={shop?.rejectionReason ? "alert-circle-outline" : "storefront-outline"}
+                size={80}
+                color={shop?.rejectionReason ? theme.colors.danger : theme.colors.muted}
               />
             </View>
-            <Text style={[styles.setupTitle, shop?.rejectionReason && {color: theme.colors.error}]}>
+            <Text style={[styles.setupTitle, !!shop?.rejectionReason && {color: theme.colors.danger}]}>
               {shop?.rejectionReason ? 'Application Rejected' : shop ? 'Verification Pending' : 'Start Your Business'}
             </Text>
             <Text style={styles.setupDesc}>
-              {shop?.rejectionReason 
+              {shop?.rejectionReason
                 ? `Reason: ${shop.rejectionReason}\n\nPlease click below to correct your information and resubmit.`
-                : shop 
-                ? "We're currently reviewing your shop details. This usually takes 24 hours." 
+                : shop
+                ? "We're currently reviewing your shop details. This usually takes 24 hours."
                 : "Join Velto today to reach thousands of buyers in your local area."}
             </Text>
-            <TouchableOpacity 
-              style={[styles.setupBtn, shop?.rejectionReason && {backgroundColor: theme.colors.error}]}
+            <TouchableOpacity
+              style={[styles.setupBtn, !!shop?.rejectionReason && {backgroundColor: theme.colors.danger}]}
               onPress={() => navigation.navigate('ShopSetup')}>
               <Text style={styles.setupBtnText}>
                 {shop?.rejectionReason ? 'Fix & Resubmit' : shop ? 'Update Application' : 'Create Shop Now'}

@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -115,11 +116,11 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
         const adminUser = (conversation.participants as any[]).find(p => p.role === 'admin');
         const adminId = adminUser?._id || (conversation.participants as any[]).find(p => typeof p === 'string') || conversation.participants[1];
 
-        navigation.navigate('ChatRoom', {
+        (navigation as any).navigate('ChatRoom', {
           conversationId: conversation._id,
-          otherUser: { 
+          otherUser: {
             _id: adminId,
-            name: adminUser?.name || 'Velto Support', 
+            name: adminUser?.name || 'Velto Support',
             role: 'admin',
             avatar: adminUser?.avatar
           },
@@ -154,8 +155,8 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
   };
 
   const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
-    const product = item.product as IProduct;
-    const buyer = item.buyer as IUser;
+    const product = item.product as unknown as IProduct;
+    const buyer = item.buyer as unknown as IUser;
     const { label, color } = getStatusDisplay(item.status);
     const isPending = item.status === OrderStatus.PENDING;
     const isConfirmed = item.status === OrderStatus.CONFIRMED;
@@ -188,7 +189,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
                 <Icon name="call" size={12} color={theme.colors.textSecondary} />
                 <Text style={styles.phoneText}>{item.buyerPhone || 'No Contact'}</Text>
               </View>
-              <Text style={styles.dateText}>Placed on {new Date(item.createdAt).toLocaleDateString()}</Text>
+              <Text style={styles.dateText}>Placed on {new Date(item.createdAt ?? Date.now()).toLocaleDateString()}</Text>
             </View>
             <View style={styles.priceInfo}>
               <Text style={styles.amountText}>₹{item.totalPrice.toLocaleString()}</Text>
@@ -225,7 +226,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
                 <Text style={[styles.addressLabel, {color: '#059669'}]}>RIDER ASSIGNED</Text>
               </View>
               <Text style={styles.addressText}>
-                {typeof item.rider === 'object' ? item.rider.name : 'Delivery Partner'} is on the way.
+                {(item.rider as any)?.name || 'Delivery Partner'} is on the way.
               </Text>
             </View>
           )}
@@ -346,7 +347,6 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
               maxLength={4}
               value={otpValue}
               onChangeText={setOtpValue}
-              letterSpacing={15}
               autoFocus
             />
             <Button
@@ -526,5 +526,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.primary,
     fontWeight: '700',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  completedText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.success,
+  },
+  empty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 60,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginTop: 16,
   },
 });

@@ -1,11 +1,8 @@
 import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {
-  createStackNavigator,
-  StackNavigationProp,
-} from '@react-navigation/stack';
+import {createStackNavigator} from '@react-navigation/stack';
 import {useAuth} from '../hooks/useAuth';
-import {Role, IProduct, IUser} from '@shared/types';
+import {Role} from '@shared/types';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {AdminNavigator} from './AdminNavigator';
 import {useNotifications} from '../context/NotificationContext';
@@ -37,18 +34,7 @@ import AddEditAddressScreen from '../screens/profile/AddEditAddressScreen';
 import RiderSetupScreen from '../screens/rider/RiderSetupScreen';
 import WalletScreen from '../screens/rider/WalletScreen';
 import {RiderNavigator} from './RiderNavigator';
-
-// --- Navigation Types ---
-
-import {
-  HomeStackParamList,
-  BrowseStackParamList,
-  ChatStackParamList,
-  DashboardStackParamList,
-  ProfileStackParamList,
-  CartStackParamList,
-  MainTabParamList,
-} from './types';
+import SellerOrdersScreen from '../screens/seller/SellerOrdersScreen';
 
 // --- Navigator Instances ---
 const RootStack = createStackNavigator();
@@ -67,10 +53,6 @@ const BrowseStack = () => (
     <Stack.Screen name="Browse" component={BrowseScreen} />
   </Stack.Navigator>
 );
-
-const ChatRoomScreen = ChatScreen; // Aliasing for clarity in stack if needed
-
-import SellerOrdersScreen from '../screens/seller/SellerOrdersScreen';
 
 const DashboardStack = () => (
   <Stack.Navigator screenOptions={{headerShown: false}}>
@@ -103,7 +85,7 @@ const CartStack = () => (
 
 const MainTabs = () => {
   const {user} = useAuth();
-  const {unreadCount, unreadChatCount, totalUnreadCount} = useNotifications();
+  useNotifications();
 
   return (
     <Tab.Navigator
@@ -146,11 +128,7 @@ const MainTabs = () => {
           <Tab.Screen
             name="HomeTab"
             component={HomeStack}
-            options={{
-              title: 'Home',
-              tabBarBadge: totalUnreadCount > 0 ? totalUnreadCount : undefined,
-              tabBarBadgeStyle: { backgroundColor: theme.colors.danger, color: 'white' }
-            }}
+            options={{title: 'Home'}}
           />
           <Tab.Screen
             name="BrowseTab"
@@ -176,12 +154,7 @@ const MainTabs = () => {
         <Tab.Screen
           name="DashboardTab"
           component={DashboardStack}
-          options={{
-            title: 'Merchant',
-            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-            tabBarBadgeStyle: { backgroundColor: theme.colors.danger, color: 'white' }
-
-          }}
+          options={{title: 'Merchant'}}
         />
       )}
 

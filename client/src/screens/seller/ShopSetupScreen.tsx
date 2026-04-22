@@ -522,7 +522,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
                   {id: Category.FOOD, icon: 'fast-food'},
                   {id: Category.CLOTHING, icon: 'shirt'},
                   {id: Category.HOME, icon: 'home'},
-                  {id: Category.CONSTRUCTION, icon: 'build'},
+                  {id: Category.OTHER, icon: 'build'},
                   {id: Category.OTHER, icon: 'sparkles'},
                 ].map((cat) => {
                   const isActive = selectedCategory === cat.id;
@@ -823,5 +823,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 18,
     marginLeft: 28,
+  },
+  gpsWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  gpsWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '600',
   },
 });

@@ -74,7 +74,7 @@ export default function AddEditListingScreen({
   );
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [locationName, setLocationName] = useState(product?.locationName || '');
+  const [locationName, setLocationName] = useState(product?.location?.address || '');
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') {
@@ -190,14 +190,10 @@ export default function AddEditListingScreen({
       });
 
       if (isEditing && product) {
-        await axiosInstance.put(`/api/products/${product._id}`, formData, {
-          headers: {'Content-Type': 'multipart/form-data'},
-        });
+        await axiosInstance.put(`/api/products/${product._id}`, formData);
         showToast({message: 'Listing updated successfully!', type: 'success'});
       } else {
-        await axiosInstance.post('/api/products', formData, {
-          headers: {'Content-Type': 'multipart/form-data'},
-        });
+        await axiosInstance.post('/api/products', formData);
         showToast({message: 'New listing published successfully!', type: 'success'});
       }
       navigation.goBack();
@@ -224,7 +220,7 @@ export default function AddEditListingScreen({
     {id: Category.FOOD, icon: 'fast-food'},
     {id: Category.CLOTHING, icon: 'shirt'},
     {id: Category.HOME, icon: 'home'},
-    {id: Category.CONSTRUCTION, icon: 'build'},
+    {id: Category.OTHER, icon: 'build'},
     {id: Category.OTHER, icon: 'sparkles'},
   ];
 

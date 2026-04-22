@@ -71,10 +71,10 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
     }
   };
 
-  const product = order.product as IProduct;
-  const shop = order.shop as IShop;
-  const buyer = order.buyer as IUser;
-  const rider = order.rider as IUser | undefined;
+  const product = order.product as unknown as IProduct;
+  const shop = order.shop as unknown as IShop;
+  const buyer = order.buyer as unknown as IUser;
+  const rider = order.rider as unknown as IUser | undefined;
 
   const getStatusConfig = (status: OrderStatus) => {
     switch (status) {

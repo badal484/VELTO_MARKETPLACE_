@@ -43,7 +43,7 @@ interface ProfileScreenProps {
 
 export default function ProfileScreen({navigation}: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
-  const {user, logout, token, updateUser} = useAuth();
+  const {user, logout, updateUser} = useAuth();
   const {unreadCount: unreadNotifications, unreadChatCount: unreadChats, fetchUnreadCount, fetchUnreadChatCount} = useNotifications();
   const [uploading, setUploading] = useState(false);
   const [isContactModalVisible, setIsContactModalVisible] = useState(false);
@@ -79,11 +79,7 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
         name: image.fileName || `avatar_${Date.now()}.jpg`,
       } as any);
 
-      const res = await axiosInstance.patch('/api/user/avatar', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const res = await axiosInstance.patch('/api/user/avatar', formData);
 
       if (res.data.success) {
         updateUser({avatar: res.data.data.avatar});
@@ -121,15 +117,15 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
           role: Role.ADMIN 
         };
 
-        navigation.navigate('ChatRoom', {
+        (navigation as any).navigate('ChatRoom', {
           conversationId: conversation._id,
           otherUser: supportUser,
           shopName: 'Velto Support Hub',
         });
       }
-    } catch (error) {
-      console.error('Support chat error:', error);
-      Alert.alert('Error', 'Unable to connect to support team at the moment.');
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || 'Unable to connect to support team at the moment.';
+      Alert.alert('Support Unavailable', msg);
     }
   };
 
@@ -200,7 +196,7 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
               )}
               {uploading && (
                 <View style={styles.uploadOverlay}>
-                  <Loader size="small" />
+                  <Loader />
                 </View>
               )}
             </View>
@@ -394,7 +390,7 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
             )}
 
             {/* Rider Application Card */}
-            {user?.role !== Role.RIDER && (
+            {(user?.role as string) !== Role.RIDER && (
               <View style={[
                 styles.upgradeCard, 
                 {marginTop: 16, backgroundColor: user?.riderStatus === 'rejected' ? '#991B1B' : '#4F46E5'}

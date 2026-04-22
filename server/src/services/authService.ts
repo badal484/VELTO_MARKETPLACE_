@@ -12,8 +12,8 @@ export class AuthService {
     const user = await User.create({ ...data, password: hashed });
 
     const token = jwt.sign(
-      { _id: user._id, role: user.role },
-      process.env.JWT_SECRET || 'secret',
+      { id: String(user._id), role: user.role },
+      process.env.JWT_SECRET || 'super_secret_velto_key_123',
       { expiresIn: '30d' } as any
     );
 
@@ -31,8 +31,8 @@ export class AuthService {
     if (!match) throw new AppError('Invalid credentials', 401);
 
     const token = jwt.sign(
-      { _id: user._id, role: user.role },
-      process.env.JWT_SECRET || 'secret',
+      { id: String(user._id), role: user.role },
+      process.env.JWT_SECRET || 'super_secret_velto_key_123',
       { expiresIn: '30d' } as any
     );
 

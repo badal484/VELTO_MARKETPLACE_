@@ -123,9 +123,9 @@ export const startConversation = async (req: Request, res: Response): Promise<vo
 
 export const startSupportConversation = async (req: Request, res: Response): Promise<void> => {
   try {
-    const admin = await User.findOne({ role: Role.ADMIN });
+    const admin = await User.findOne({ role: Role.ADMIN }).sort({ createdAt: 1 });
     if (!admin) {
-      res.status(404).json({ success: false, message: 'Support team is currently unavailable' });
+      res.status(503).json({ success: false, message: 'Support team is currently unavailable. Please try again later.' });
       return;
     }
     req.body.receiverId = admin._id;

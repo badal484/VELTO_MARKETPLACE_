@@ -193,9 +193,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
     try {
       const form = new FormData();
       form.append('image', {uri, type, name} as any);
-      const uploadRes = await axiosInstance.post('/api/upload/image', form, {
-        headers: {'Content-Type': 'multipart/form-data'},
-      });
+      const uploadRes = await axiosInstance.post('/api/upload/image', form);
       const imageUrl = uploadRes.data.data?.url || uploadRes.data.url;
       if (!imageUrl) return;
 
@@ -324,9 +322,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
 
       const form = new FormData();
       form.append('audio', {uri: fileUri, type: mime, name: `voice_${Date.now()}.${ext}`} as any);
-      const uploadRes = await axiosInstance.post('/api/upload/audio', form, {
-        headers: {'Content-Type': 'multipart/form-data'},
-      });
+      const uploadRes = await axiosInstance.post('/api/upload/audio', form);
       const audioUrl = uploadRes.data.url;
       if (!audioUrl) return;
 
@@ -395,10 +391,11 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
       );
     }
 
-    const isMe =
-      (typeof item.sender === 'string' ? item.sender : item.sender._id) ===
-      user?._id;
-    const updatedAt = new Date(item.createdAt);
+    const senderId = typeof item.sender === 'object' && item.sender !== null
+      ? (item.sender as any)._id
+      : item.sender;
+    const isMe = String(senderId) === user?._id;
+    const updatedAt = new Date(item.createdAt ?? Date.now());
     const time = updatedAt.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
@@ -423,14 +420,15 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
           ) : item.text.startsWith('__audio__') ? (
             (() => {
               const uri = item.text.replace('__audio__', '');
-              const isPlaying = playingMsgId === item._id;
-              const pos = playbackPos[item._id] ?? 0;
-              const dur = playbackDur[item._id] ?? 0;
+              const msgId = String(item._id ?? '');
+              const isPlaying = playingMsgId === msgId;
+              const pos = playbackPos[msgId] ?? 0;
+              const dur = playbackDur[msgId] ?? 0;
               const progress = dur > 0 ? pos / dur : 0;
               return (
                 <TouchableOpacity
                   style={styles.audioPlayer}
-                  onPress={() => toggleAudioPlayback(item._id, uri)}
+                  onPress={() => toggleAudioPlayback(msgId, uri)}
                   activeOpacity={0.8}>
                   <Icon
                     name={isPlaying ? 'pause-circle' : 'play-circle'}
@@ -525,15 +523,13 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                   <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
                     {otherUser?.role === Role.ADMIN ? 'Velto Support Team' : (shopName || otherUser?.name)}
                   </Text>
-                  {otherUser?.role && (
+                  {otherUser?.role && otherUser.role !== Role.ADMIN && (
                     <View style={[
                       styles.roleBadge,
-                      {backgroundColor: otherUser?.role === Role.ADMIN ? theme.colors.primary : (otherUser?.role === Role.SELLER || otherUser?.role === Role.SHOP_OWNER) ? '#3B82F6' : '#10B981'}
+                      {backgroundColor: (otherUser?.role === Role.SELLER || otherUser?.role === Role.SHOP_OWNER) ? '#3B82F6' : '#10B981'}
                     ]}>
-                      {otherUser?.role === Role.ADMIN && <Icon name="checkmark-circle" size={10} color="#fff" style={{marginRight: 4}} />}
                       <Text style={styles.roleText}>
-                        {otherUser?.role === Role.ADMIN ? 'OFFICIAL SUPPORT' : 
-                         otherUser?.role === Role.RIDER ? 'DELIVERY PARTNER' :
+                        {otherUser?.role === Role.RIDER ? 'DELIVERY PARTNER' :
                          (otherUser?.role === Role.SELLER || otherUser?.role === Role.SHOP_OWNER) ? 'MERCHANT' : 'BUYER'}
                       </Text>
                     </View>
@@ -549,18 +545,17 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
               </View>
             </View>
 
-            {/* ACTION BUTTON */}
-            <TouchableOpacity
-              style={styles.headerAction}
-              activeOpacity={0.7}
-              onPress={() => {
-                if (route.params.productId) {
-                  navigation.navigate('ProductDetail', {id: route.params.productId});
-                }
-              }}
-            >
-              <Icon name="information-circle" size={24} color={theme.colors.primary} />
-            </TouchableOpacity>
+            {/* ACTION BUTTON — only shown when chat is about a product */}
+            {route.params.productId ? (
+              <TouchableOpacity
+                style={styles.headerAction}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ProductDetail', {id: route.params.productId!})}>
+                <Icon name="information-circle" size={24} color={theme.colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              <View style={{width: 44}} />
+            )}
           </View>
         </SafeAreaView>
 
@@ -621,9 +616,9 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                  <TouchableOpacity 
                     style={styles.orderViewBtn}
                     onPress={() => {
-                       if (user?.role === Role.RIDER) navigation.navigate('RiderTab');
-                       else if (user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) navigation.navigate('DashboardTab', { screen: 'SellerOrders' });
-                       else navigation.navigate('ProfileTab', { screen: 'OrderHistory' });
+                       if (user?.role === Role.RIDER) (navigation as any).navigate('RiderTab');
+                       else if (user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) (navigation as any).navigate('DashboardTab', { screen: 'SellerOrders' });
+                       else (navigation as any).navigate('ProfileTab', { screen: 'OrderHistory' });
                     }}>
                     <Icon name="eye-outline" size={14} color={theme.colors.white} />
                  </TouchableOpacity>
@@ -646,7 +641,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
           <FlatList
             ref={flatlistRef}
             data={messages}
-            keyExtractor={item => item._id}
+            keyExtractor={item => item._id || ''}
             renderItem={renderMessage}
             contentContainerStyle={styles.messageList}
             onContentSizeChange={() =>

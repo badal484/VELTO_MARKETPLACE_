@@ -1,6 +1,6 @@
 import React, {createContext, useState, useEffect, useCallback} from 'react';
 import * as Keychain from 'react-native-keychain';
-import {axiosInstance} from '../api/axiosInstance';
+import {axiosInstance, setLogoutHandler} from '../api/axiosInstance';
 import {tokenStore} from '../api/tokenStore';
 import {IUser} from '@shared/types';
 
@@ -26,10 +26,20 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) 
   const [user, setUser] = useState<IUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const performLogout = useCallback(async () => {
+    tokenStore.clear();
+    await Keychain.resetGenericPassword();
+    setUser(null);
+  }, []);
+
+  useEffect(() => {
+    setLogoutHandler(() => { performLogout(); });
+  }, [performLogout]);
 
   // Load token from Keychain ONCE on startup, then keep it in memory
   useEffect(() => {
     const loadUser = async () => {
+      const startTime = Date.now();
       try {
         const credentials = await Keychain.getGenericPassword();
         if (credentials) {
@@ -44,21 +54,20 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) 
       } catch {
         await performLogout();
       } finally {
+        const elapsedTime = Date.now() - startTime;
+        const minimumSplashTime = 1500;
+        if (elapsedTime < minimumSplashTime) {
+          await new Promise(resolve => setTimeout(resolve, minimumSplashTime - elapsedTime));
+        }
         setIsLoading(false);
       }
     };
     loadUser();
-  }, []);
-
-  const performLogout = async () => {
-    tokenStore.clear();
-    await Keychain.resetGenericPassword();
-    setUser(null);
-  };
+  }, [performLogout]);
 
   const logout = useCallback(async () => {
     await performLogout();
-  }, []);
+  }, [performLogout]);
 
   const login = useCallback(async (token: string, userData: IUser) => {
     tokenStore.set(token);
