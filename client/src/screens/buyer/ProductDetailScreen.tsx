@@ -58,6 +58,20 @@ interface ProductDetailProps {
   navigation: ProductDetailNavigationProp;
 }
 
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 const ZoomableImage = ({uri}: {uri: string}) => {
   const scale = useSharedValue(1);
   const focalX = useSharedValue(0);
@@ -124,6 +138,7 @@ export default function ProductDetailScreen({
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [reviews, setReviews] = useState<IReview[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<IProduct[]>([]);
   const [stats, setStats] = useState({averageRating: 0, count: 0});
   const {user} = useAuth();
 
@@ -148,6 +163,7 @@ export default function ProductDetailScreen({
         setIsInCart(cartItems.some((item: any) => (item.product?._id || item.product) === id));
       }
       fetchReviews();
+      fetchRelated(productRes.data.data.category, productRes.data.data.shop?.location);
     } catch (err: unknown) {
       console.log('Error fetching product main details:', err);
       navigation.goBack();
@@ -163,6 +179,37 @@ export default function ProductDetailScreen({
       setStats(reviewRes.data.data.stats || {averageRating: 0, count: 0});
     } catch (err) {
       console.log('Review Fetch Error (Isolated):', err);
+    }
+  };
+
+  const fetchRelated = async (category: string, shopLocation?: any) => {
+    try {
+      let url = `/api/products?category=${category}&limit=6`;
+      if (shopLocation?.coordinates) {
+        url += `&lat=${shopLocation.coordinates[1]}&lng=${shopLocation.coordinates[0]}&radius=5`;
+      }
+      const res = await axiosInstance.get(url);
+      const items = res.data.data.filter((p: IProduct) => p._id !== id);
+      
+      // Strict frontend filter for 5km
+      if (shopLocation?.coordinates) {
+        const filtered = items.filter((p: IProduct) => {
+          const pCoords = p.shop?.location?.coordinates || p.location?.coordinates;
+          if (!pCoords) return true;
+          const d = calculateDistance(
+            shopLocation.coordinates[1],
+            shopLocation.coordinates[0],
+            pCoords[1],
+            pCoords[0]
+          );
+          return d <= 5;
+        });
+        setRelatedProducts(filtered);
+      } else {
+        setRelatedProducts(items);
+      }
+    } catch (err) {
+      console.log('Related Products Error:', err);
     }
   };
 
@@ -316,10 +363,6 @@ export default function ProductDetailScreen({
             <View style={styles.categoryBadge}>
               <Text style={styles.categoryText}>{product.category}</Text>
             </View>
-            <View style={styles.viewBadge}>
-              <Icon name="eye-outline" size={14} color={theme.colors.muted} />
-              <Text style={styles.viewText}>{product.views || 0} views</Text>
-            </View>
           </View>
 
           <View style={styles.titleRow}>
@@ -385,6 +428,42 @@ export default function ProductDetailScreen({
               Velto Safety: Inspect items at delivery and pay only when satisfied.
             </Text>
           </View>
+
+          {relatedProducts.length > 0 && (
+            <View style={styles.relatedSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>You Might Also Like</Text>
+                <Text style={styles.nearbyLabel}>Nearby</Text>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.relatedScroll}>
+                {relatedProducts.map((p) => (
+                  <TouchableOpacity 
+                    key={p._id} 
+                    style={styles.relatedCard}
+                    onPress={() => {
+                      navigation.push('ProductDetail', {id: p._id});
+                    }}>
+                    <View style={styles.relatedImgContainer}>
+                      <Image source={{uri: p.images[0]}} style={styles.relatedImg} />
+                    </View>
+                    <View style={styles.relatedInfo}>
+                      <Text style={styles.relatedTitle} numberOfLines={2}>{p.title}</Text>
+                      <View style={styles.relatedPriceRow}>
+                        <Text style={styles.relatedPrice}>₹{p.price.toLocaleString()}</Text>
+                        <View style={styles.tinyDistance}>
+                          <Icon name="location" size={8} color={theme.colors.primary} />
+                          <Text style={styles.tinyDistanceText}>Local</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           <View style={styles.divider} />
 
@@ -907,5 +986,78 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
+  },
+  relatedSection: {
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  nearbyLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#fff',
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    textTransform: 'uppercase',
+  },
+  relatedScroll: {
+    paddingRight: 24,
+    paddingVertical: 8,
+  },
+  relatedCard: {
+    width: 150,
+    marginRight: 12,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...theme.shadow.sm,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  relatedImgContainer: {
+    width: '100%',
+    height: 140,
+    backgroundColor: '#f8fafc',
+  },
+  relatedImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  relatedInfo: {
+    padding: 10,
+  },
+  relatedTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.text,
+    height: 36,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  relatedPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  relatedPrice: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: theme.colors.primary,
+  },
+  tinyDistance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  tinyDistanceText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: theme.colors.muted,
   },
 });

@@ -59,41 +59,57 @@ function CategoryChip({
   isActive,
   onPress,
 }: {
-  item: {id: string | null; icon: string; label: string};
+  item: any;
   isActive: boolean;
   onPress: () => void;
 }) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{scale: scale.value}],
-  }));
-
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View entering={FadeInLeft.delay(100).duration(500)}>
       <TouchableOpacity
-        style={[styles.catChip, isActive && styles.catChipActive]}
-        onPress={() => {
-          scale.value = withSpring(0.85, {damping: 6, stiffness: 300}, () => {
-            scale.value = withSpring(1, {damping: 8, stiffness: 200});
-          });
-          onPress();
-        }}
+        style={[
+          styles.catChip,
+          isActive && styles.catChipActive,
+        ]}
+        onPress={onPress}
         activeOpacity={0.9}>
         <Icon
-          name={isActive ? item.icon : `${item.icon}-outline`}
+          name={item.icon}
           size={16}
           color={isActive ? '#fff' : theme.colors.primary}
         />
         <Text style={[styles.catChipText, isActive && styles.catChipTextActive]}>
           {item.label}
         </Text>
-        {isActive && (
-          <Icon name="checkmark-circle" size={15} color="rgba(255,255,255,0.85)" />
-        )}
       </TouchableOpacity>
     </Animated.View>
   );
 }
+
+const RADIUS_OPTIONS = [1, 5, 10, 20, 50];
+
+const categoriesList = [
+  {id: null, icon: 'sparkles', label: 'For You'},
+  {id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics'},
+  {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
+  {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
+  {id: Category.HOME, icon: 'home', label: 'Home'},
+  {id: Category.BEAUTY, icon: 'color-palette', label: 'Beauty'},
+  {id: Category.SPORTS, icon: 'football', label: 'Sports'},
+];
+// Distance calculation helper (Haversine formula)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 export default function BrowseScreen({navigation}: BrowseScreenProps) {
   const insets = useSafeAreaInsets();
@@ -105,13 +121,13 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
     null,
   );
   const [region, setRegion] = useState<any>(null);
-  const [radius, setRadius] = useState(20);
+  const [radius, setRadius] = useState(5);
   const [canSearchThisArea, setCanSearchThisArea] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
   const [minPrice, setMinPrice] = useState<number>(0);
-  const [maxPrice, setMaxPrice] = useState<number>(500000);
+  const [maxPrice, setMaxPrice] = useState<number>(200000);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [addressName, setAddressName] = useState('Current Region');
@@ -120,15 +136,18 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
   const cameraRef = useRef<CameraRef>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const categoriesList: {id: Category | null; icon: string; label: string}[] = [
-    {id: null, icon: 'sparkles', label: 'For You'},
-    {id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics'},
-    {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
-    {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
-    {id: Category.HOME, icon: 'home', label: 'Home'},
-    {id: Category.HOME, icon: 'build', label: 'Construction'},
-    {id: Category.OTHER, icon: 'apps', label: 'Other'},
-  ];
+  const filteredProducts = products.filter(p => {
+    if (!location) return true;
+    const pCoords = p.shop?.location?.coordinates || p.location?.coordinates;
+    if (!pCoords) return true;
+    const d = calculateDistance(
+      location.lat,
+      location.lng,
+      pCoords[1],
+      pCoords[0]
+    );
+    return d <= radius;
+  });
 
   useEffect(() => {
     Geolocation.getCurrentPosition(
@@ -264,10 +283,10 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
     }
   };
 
-  const renderItem = ({item, index}: {item: IProduct; index: number}) => {
+  const renderItem = ({item}: {item: IProduct; index: number}) => {
     const shop = item.shop as unknown as IShop | null;
     return (
-      <Animated.View entering={FadeInUp.delay(index * 50)}>
+      <Animated.View entering={FadeInUp.duration(250)}>
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => navigation.navigate("ProductDetail", {id: String(item._id)})}>
@@ -307,7 +326,17 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
               </TouchableOpacity>
               <View style={styles.distanceBadge}>
                 <Text style={styles.distanceBadgeText}>
-                  {item.distance?.toFixed(1) || '0.0'} km
+                  {item.distance !== undefined || (location && item.shop?.location?.coordinates) 
+                    ? `${(item.distance !== undefined 
+                        ? item.distance 
+                        : calculateDistance(
+                            location!.lat, 
+                            location!.lng, 
+                            item.shop?.location?.coordinates[1], 
+                            item.shop?.location?.coordinates[0]
+                          )
+                      ).toFixed(1)} km`
+                    : 'Nearby'}
                 </Text>
               </View>
             </View>
@@ -352,10 +381,6 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
 
       <View style={styles.header}>
         <View style={styles.searchRow}>
-          <Image 
-            source={require('../../../assets/velto_logo.png')} 
-            style={styles.headerLogo} 
-          />
           <TouchableOpacity 
             style={styles.locationContainer}
             onPress={() => setShowLocationModal(true)}>
@@ -379,15 +404,17 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
               placeholderTextColor={theme.colors.muted}
             />
           </View>
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setShowFilterModal(true)}>
-            <Icon
-              name="options-outline"
-              size={22}
-              color={theme.colors.primary}
-            />
-          </TouchableOpacity>
+          <View style={styles.actionContainer}>
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => setShowFilterModal(true)}>
+              <Icon
+                name="options-outline"
+                size={22}
+                color={theme.colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.categoryScroll}>
@@ -398,13 +425,11 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
             keyExtractor={c => c.label}
             contentContainerStyle={styles.catContent}
             renderItem={({item, index}) => (
-              <Animated.View entering={FadeInLeft.delay(index * 80)}>
                 <CategoryChip
                   item={item}
                   isActive={selectedCategory === item.id}
                   onPress={() => setSelectedCategory(item.id)}
                 />
-              </Animated.View>
             )}
           />
         </View>
@@ -414,7 +439,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={[5, 10, 20, 50, 100]}
+            data={RADIUS_OPTIONS}
             keyExtractor={r => r.toString()}
             contentContainerStyle={styles.radiusContent}
             renderItem={({item}) => {
@@ -440,100 +465,109 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
         </View>
       </View>
 
-      {loading && products.length === 0 ? (
-        <Loader />
-      ) : viewMode === 'map' && location ? (
-        <View style={{flex: 1}}>
-          <MapLibreGL.MapView
-            ref={mapRef}
-            style={styles.map}
-            mapStyle={""} // Empty style to use RasterSource
-            onRegionDidChange={onRegionDidChange}
-            logoEnabled={false}
-            attributionEnabled={true}>
-            <MapLibreGL.Camera
-              ref={cameraRef}
-              defaultSettings={{
-                centerCoordinate: [location.lng, location.lat],
-                zoomLevel: 12,
-              }}
-            />
-            <MapLibreGL.RasterSource
-              id="osm"
-              tileUrlTemplates={["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]}
-              tileSize={256}
-              minZoomLevel={0}
-              maxZoomLevel={19}>
-              <MapLibreGL.RasterLayer id="osmLayer" sourceID="osm" />
-            </MapLibreGL.RasterSource>
-
-            <MapLibreGL.UserLocation visible={true} />
-
-            {products.map(p => (
-              <MapLibreGL.MarkerView
-                key={String(p._id)}
-                id={String(p._id)}
-                coordinate={[p.location.coordinates[0], p.location.coordinates[1]]}>
-                <TouchableOpacity 
-                   style={styles.markerWrapper}
-                   onPress={() => navigation.navigate('ProductDetail', {id: String(p._id)})}
-                   activeOpacity={0.9}>
-                  <View style={styles.markerShopNameContainer}>
-                    <Icon name="storefront" size={12} color={theme.colors.primary} />
-                    <Text style={styles.markerShopLabel} numberOfLines={1}>
-                      {(p.shop as unknown as IShop)?.name || 'Local Seller'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </MapLibreGL.MarkerView>
-            ))}
-          </MapLibreGL.MapView>
-
-          {canSearchThisArea && (
-            <TouchableOpacity
-              style={styles.floatingSearchBtn}
-              onPress={searchThisArea}
-              activeOpacity={0.9}>
-              <Icon
-                name="refresh-outline"
-                size={18}
-                color={theme.colors.white}
+      <View style={{flex: 1}}>
+        {loading && products.length === 0 ? (
+          <Loader />
+        ) : viewMode === 'map' && location ? (
+          <View style={{flex: 1}}>
+            <MapLibreGL.MapView
+              ref={mapRef}
+              style={styles.map}
+              mapStyle={""} // Empty style to use RasterSource
+              onRegionDidChange={onRegionDidChange}
+              logoEnabled={false}
+              attributionEnabled={true}>
+              <MapLibreGL.Camera
+                ref={cameraRef}
+                defaultSettings={{
+                  centerCoordinate: [location.lng, location.lat],
+                  zoomLevel: 12,
+                }}
               />
-              <Text style={styles.floatingSearchText}>Search this area</Text>
-            </TouchableOpacity>
-          )}
+              <MapLibreGL.RasterSource
+                id="osm"
+                tileUrlTemplates={["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]}
+                tileSize={256}
+                minZoomLevel={0}
+                maxZoomLevel={19}>
+                <MapLibreGL.RasterLayer id="osmLayer" sourceID="osm" />
+              </MapLibreGL.RasterSource>
 
-          <TouchableOpacity
-            style={styles.locateBtn}
-            onPress={handleLocate}
-            activeOpacity={0.8}>
-            <Icon name="navigate" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={products}
-          keyExtractor={item => String(item._id)}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listScroll}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
+              <MapLibreGL.UserLocation visible={true} />
+
+              {filteredProducts.map(p => {
+                const pCoords = p.shop?.location?.coordinates || p.location?.coordinates;
+                if (!pCoords) return null;
+                return (
+                  <MapLibreGL.MarkerView
+                    key={String(p._id)}
+                    id={String(p._id)}
+                    coordinate={[pCoords[0], pCoords[1]]}>
+                    <TouchableOpacity 
+                       style={styles.markerWrapper}
+                       onPress={() => navigation.navigate('ProductDetail', {id: String(p._id)})}
+                       activeOpacity={0.9}>
+                      <View style={styles.markerShopNameContainer}>
+                        <Icon name="storefront" size={12} color={theme.colors.primary} />
+                        <Text style={styles.markerShopLabel} numberOfLines={1}>
+                          {(p.shop as unknown as IShop)?.name || 'Local Seller'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </MapLibreGL.MarkerView>
+                );
+              })}
+            </MapLibreGL.MapView>
+
+            {canSearchThisArea && (
+              <TouchableOpacity
+                style={styles.floatingSearchBtn}
+                onPress={searchThisArea}
+                activeOpacity={0.9}>
                 <Icon
-                  name="search-outline"
-                  size={48}
-                  color={theme.colors.muted}
+                  name="refresh-outline"
+                  size={18}
+                  color={theme.colors.white}
                 />
+                <Text style={styles.floatingSearchText}>Search this area</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.locateBtn}
+              onPress={handleLocate}
+              activeOpacity={0.8}>
+              <Icon name="navigate" size={24} color={theme.colors.primary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredProducts}
+            keyExtractor={item => String(item._id)}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listScroll}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={50}
+            maxToRenderPerBatch={50}
+            windowSize={10}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Icon
+                    name="search-outline"
+                    size={48}
+                    color={theme.colors.muted}
+                  />
+                </View>
+                <Text style={styles.emptyTitle}>No products found</Text>
+                <Text style={styles.emptySub}>
+                  Try searching a different area or category.
+                </Text>
               </View>
-              <Text style={styles.emptyTitle}>No products found</Text>
-              <Text style={styles.emptySub}>
-                Try searching a different area or category.
-              </Text>
-            </View>
-          }
-        />
-      )}
+            }
+          />
+        )}
+      </View>
 
       {/* Floating View Toggle */}
       <TouchableOpacity 
@@ -555,15 +589,16 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
               <View style={styles.filterTitleRow}>
                 <Text style={styles.filterSectionTitle}>Price Range</Text>
                 <Text style={styles.priceRangeLabel}>
-                  ₹{minPrice.toLocaleString()} - ₹{maxPrice.toLocaleString()}{maxPrice === 500000 ? '+' : ''}
+                  ₹{minPrice.toLocaleString()} - ₹{maxPrice.toLocaleString()}{maxPrice === 200000 ? '+' : ''}
                 </Text>
               </View>
               
               <RangeSlider
                 min={0}
-                max={500000}
+                max={200000}
                 initialMin={minPrice}
                 initialMax={maxPrice}
+                step={100}
                 onValueChange={(min, max) => {
                   setMinPrice(min);
                   setMaxPrice(max);
@@ -584,7 +619,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
               type="outline"
               onPress={() => {
                 setMinPrice(0);
-                setMaxPrice(500000);
+                setMaxPrice(200000);
                 setSelectedCategory(null);
                 setShowFilterModal(false);
                 fetchProducts();
@@ -621,17 +656,27 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: theme.colors.background},
+  container: {
+    flex: 1, 
+    backgroundColor: theme.colors.background,
+  },
   header: {
     backgroundColor: theme.colors.white,
     ...theme.shadow.sm,
-    zIndex: 20,
+    zIndex: 100,
+    width: '100%',
   },
-  headerLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    marginLeft: 12,
+  logoText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: theme.colors.primary,
+    letterSpacing: 6,
+    marginTop: 2,
+    includeFontPadding: false,
+  },
+  actionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchRow: {
     flexDirection: 'row',
@@ -831,18 +876,22 @@ const styles = StyleSheet.create({
   listCard: {
     flexDirection: 'row',
     marginBottom: 16,
-    padding: 0,
+    backgroundColor: theme.colors.white,
+    borderRadius: 20,
     overflow: 'hidden',
-    borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#f1f5f9',
+    ...theme.shadow.sm,
   },
-  imageWrapper: {width: 140, height: 140, position: 'relative'},
-  listImage: {width: '100%', height: '100%'},
-  placeholderImg: {
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
+  imageWrapper: {
+    width: 130,
+    height: 130,
+    position: 'relative',
+    backgroundColor: '#f8fafc',
+  },
+  listImage: {
+    width: '100%',
+    height: '100%',
   },
   favBtnBrowse: {
     position: 'absolute',
@@ -860,7 +909,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     left: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(22, 163, 74, 0.9)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -868,14 +917,12 @@ const styles = StyleSheet.create({
   distanceBadgeText: {
     color: theme.colors.white,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
   },
-  listContent: {padding: 16, flex: 1, justifyContent: 'center'},
-  listHeader: {
-    flexDirection: 'row',
+  listContent: {
+    padding: 12,
+    flex: 1,
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
   },
   categoryLabel: {
     fontSize: 10,
@@ -885,21 +932,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   productTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: theme.colors.text,
     marginBottom: 4,
-  },
-  productPrice: {
-    fontSize: 18,
-    color: theme.colors.primary,
-    fontWeight: '900',
   },
   priceRatingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+  },
+  productPrice: {
+    fontSize: 18,
+    color: theme.colors.primary,
+    fontWeight: '900',
   },
   ratingRow: {
     flexDirection: 'row',

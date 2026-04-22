@@ -108,9 +108,11 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         setCoordinates({lat: latitude, lng: longitude});
         const result = await locationService.reverseGeocode(latitude, longitude);
         if (result) {
+          // Intelligent address parsing
+          const streetFallback = result.street || result.formatted.split(',')[0];
           setAddress({
-            street: result.street || '',
-            city: result.city || '',
+            street: streetFallback || '',
+            city: result.city || 'Bengaluru',
             state: result.state || 'Karnataka',
             pincode: result.postcode || '',
             landmark: '',

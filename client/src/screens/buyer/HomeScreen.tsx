@@ -53,18 +53,35 @@ interface HomeScreenProps {
   navigation: HomeScreenNavigationProp;
 }
 
+// Distance calculation helper (Haversine formula)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 const ProductCard = ({
   item,
-  index,
+  index: _index,
   navigation,
   handleToggleWishlist,
   customWidth,
+  currentCoords,
 }: {
   item: IProduct;
   index: number;
   navigation: any;
   handleToggleWishlist: (id: string) => void;
   customWidth?: number;
+  currentCoords?: {lat: number; lng: number} | null;
 }) => {
   const scale = useSharedValue(1);
 
@@ -81,7 +98,7 @@ const ProductCard = ({
   };
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 100).duration(600)}>
+    <Animated.View entering={FadeInDown.duration(250)}>
       <Animated.View
         style={[
           styles.cardWrapper,
@@ -134,34 +151,52 @@ const ProductCard = ({
           </View>
 
           <View style={styles.content}>
-            <Text style={styles.categoryLabel}>{item.category}</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.categoryLabel}>{item.category}</Text>
+              {item.distance !== undefined || (currentCoords && item.shop && (item.shop as any).location?.coordinates) ? (
+                <View style={styles.distanceBadgeSmall}>
+                  <Icon name="location" size={8} color={theme.colors.primary} />
+                  <Text style={styles.distanceText}>
+                    {(item.distance !== undefined 
+                      ? item.distance 
+                      : calculateDistance(
+                          currentCoords!.lat, 
+                          currentCoords!.lng, 
+                          (item.shop as any).location.coordinates[1], 
+                          (item.shop as any).location.coordinates[0]
+                        )
+                    ).toFixed(1)} km
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.distanceBadgeSmall}>
+                  <Text style={styles.distanceText}>Nearby</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.productTitle} numberOfLines={2}>
               {item.title}
             </Text>
             <View style={styles.priceRow}>
-              <View>
-                <Text style={styles.price}>
-                  ₹{item.price.toLocaleString('en-IN')}
-                </Text>
-              </View>
-              <View style={styles.cardRightColumn}>
-                {(item.numReviews ?? 0) > 0 && (
-                  <View style={styles.ratingRow}>
-                    <Icon name="star" size={12} color="#FBBF24" />
-                    <Text style={styles.ratingText}>{item.rating}</Text>
-                  </View>
-                )}
-                <View style={styles.shopInRow}>
-                  <Icon
-                    name="storefront-outline"
-                    size={10}
-                    color={theme.colors.muted}
-                  />
-                  <Text style={styles.shopInName} numberOfLines={1}>
-                    {(item.shop as any)?.name || 'City Seller'}
-                  </Text>
+              <Text style={styles.price}>
+                ₹{item.price.toLocaleString('en-IN')}
+              </Text>
+              {(item.numReviews ?? 0) > 0 && (
+                <View style={styles.ratingBox}>
+                  <Text style={styles.ratingText}>{item.rating}</Text>
+                  <Icon name="star" size={10} color="#fff" />
                 </View>
-              </View>
+              )}
+            </View>
+            <View style={styles.shopInRow}>
+              <Icon
+                name="storefront-outline"
+                size={12}
+                color={theme.colors.muted}
+              />
+              <Text style={styles.shopInName} numberOfLines={1}>
+                {(item.shop as any)?.name || 'City Seller'}
+              </Text>
             </View>
           </View>
         </Pressable>
@@ -191,10 +226,29 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
+  const [addressName, setAddressName] = useState('Locating...');
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [selectedArea, setSelectedArea] = useState<string>(
-    'Detecting location...',
-  );
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'VeltoMarketplace/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      if (data && data.address) {
+        const area = data.address.suburb || data.address.neighbourhood || data.address.road || data.address.city || 'Unknown Area';
+        setAddressName(area);
+      }
+    } catch (error) {
+      console.log('Reverse Geocoding Error:', error);
+      setAddressName('Current Location');
+    }
+  };
   const [currentCoords, setCurrentCoords] = useState<{
     lat: number;
     lng: number;
@@ -283,41 +337,44 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
 
   const getUserLocationAndFetch = async () => {
     setLoading(true);
-    let coords = null;
     try {
       if (Platform.OS === 'android' || Platform.OS === 'ios') {
         const hasPermission = await requestLocationPermission();
         if (hasPermission) {
-          const position = await new Promise<Geolocation.GeoPosition>(
-            (resolve, reject) => {
-              Geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 10000,
-              });
+          Geolocation.getCurrentPosition(
+            pos => {
+              const coords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+              setCurrentCoords(coords);
+              fetchProducts(coords);
+              reverseGeocode(coords.lat, coords.lng);
             },
+            error => {
+              console.log('Location Error:', error);
+              const fallback = {lat: 12.9716, lng: 77.5946};
+              setCurrentCoords(fallback);
+              fetchProducts(fallback);
+              setAddressName('Bangalore');
+            },
+            {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
           );
-          coords = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          setCurrentCoords(coords);
-          setSelectedArea('Current Location');
         } else {
-          setSelectedArea('Global Marketplace');
+          setAddressName('Global Marketplace');
+          fetchProducts(null);
         }
+      } else {
+        fetchProducts(null);
       }
     } catch (error) {
       console.log('Location error:', error);
-      setSelectedArea('Global Marketplace');
+      setAddressName('Global Marketplace');
+      fetchProducts(null);
     }
-    fetchProducts(coords);
   };
 
   const handleAreaSelect = (location: LocationResult) => {
     const coords = {lat: location.lat, lng: location.lon};
     setCurrentCoords(coords);
-    setSelectedArea(location.formatted.split(',')[0]); // Use first part of address
+    setAddressName(location.formatted.split(',')[0]); // Use first part of address
     setShowLocationModal(false);
     fetchProducts(coords);
   };
@@ -354,7 +411,11 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       if (coords && coords.lat && coords.lng) {
         params.push(`lat=${coords.lat}`);
         params.push(`lng=${coords.lng}`);
-        // Removed hardcoded radius=50 to allow "Verified Infinity" discovery
+        
+        // If "For You" (null category) or a local category is selected, limit to 5km
+        if (!isGlobalMode) {
+          params.push('radius=5');
+        }
       }
 
       if (params.length > 0) {
@@ -402,6 +463,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       index={index}
       navigation={navigation}
       handleToggleWishlist={handleToggleToggleWishlist}
+      currentCoords={currentCoords}
     />
   );
 
@@ -409,13 +471,13 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     handleToggleWishlist(productId);
   };
 
-  const categoriesList: {id: Category | null; icon: string; label: string}[] = [
+  const categoriesList: {id: Category | 'GLOBAL' | null; icon: string; label: string}[] = [
     {id: null, icon: 'sparkles', label: 'For You'},
+    {id: 'GLOBAL', icon: 'globe-outline', label: 'Global'},
     {id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics'},
     {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
     {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
     {id: Category.HOME, icon: 'home', label: 'Home'},
-    {id: Category.HOME, icon: 'build', label: 'Construction'},
     {id: Category.OTHER, icon: 'apps', label: 'Other'},
   ];
 
@@ -450,14 +512,14 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <Animated.View entering={FadeInUp.duration(600)} style={styles.topRow}>
+      <View style={styles.topRow}>
         <View style={styles.topRowLeft}>
           <TouchableOpacity
             style={styles.locationSelector}
             onPress={() => setShowLocationModal(true)}>
             <Icon name="location" size={12} color={theme.colors.primary} />
             <Text style={styles.areaText} numberOfLines={1}>
-              {selectedArea}
+              {addressName}
             </Text>
             <Icon name="chevron-down" size={14} color={theme.colors.muted} />
           </TouchableOpacity>
@@ -471,23 +533,26 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
             {isGlobalMode ? t('home.global_marketplace') : t('home.find_nearby')}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.notificationBtn}
-          onPress={() => navigation.navigate('Notifications')}>
-          <Icon
-            name="notifications-outline"
-            size={26}
-            color={theme.colors.text}
-          />
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
+        <View style={styles.topRowRight}>
+          <TouchableOpacity
+            style={styles.notificationBtn}
+            onPress={() => navigation.navigate('Notifications')}>
+            <Icon
+              name="notifications-outline"
+              size={26}
+              color={theme.colors.text}
+            />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.logoText}>VELTO</Text>
+        </View>
+      </View>
 
       <TouchableOpacity
         style={styles.searchBar}
@@ -514,12 +579,20 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           keyExtractor={item => item.label}
           contentContainerStyle={styles.quickNavContent}
           renderItem={({item}) => {
-            const isActive = selectedCategory === item.id;
+            const isActive = item.id === 'GLOBAL' ? isGlobalMode : (selectedCategory === item.id && !isGlobalMode);
             return (
               <TouchableOpacity
                 style={styles.quickNavBtn}
                 activeOpacity={0.8}
-                onPress={() => setSelectedCategory(item.id)}>
+                onPress={() => {
+                  if (item.id === 'GLOBAL') {
+                    setIsGlobalMode(true);
+                    setSelectedCategory(null);
+                  } else {
+                    setIsGlobalMode(false);
+                    setSelectedCategory(item.id as Category | null);
+                  }
+                }}>
                 <View
                   style={[
                     styles.quickNavIconBox,
@@ -610,22 +683,9 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t('home.trending')}</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('BrowseTab', {screen: 'Browse'})}>
-          <Text style={styles.viewAllText}>{t('common.view_all')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>
-          {isGlobalMode ? t('home.no_products_global') : t('home.near_you')}
+          {isGlobalMode ? 'Global Marketplace' : t('home.near_you')}
         </Text>
-        {isGlobalMode && (
-          <TouchableOpacity onPress={() => setIsGlobalMode(false)}>
-            <Text style={styles.switchText}>{t('home.switch_to_local')}</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -634,11 +694,24 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     return <Loader />;
   }
 
+  const displayedProducts = isGlobalMode 
+    ? products 
+    : products.filter(p => {
+        if (!currentCoords || !p.shop?.location?.coordinates) return true;
+        const d = calculateDistance(
+          currentCoords.lat,
+          currentCoords.lng,
+          p.shop.location.coordinates[1],
+          p.shop.location.coordinates[0]
+        );
+        return d <= 5;
+      });
+
   return (
     <View style={[styles.container, {paddingTop: insets.top}]}>
       <StatusBar barStyle="dark-content" />
       <FlatList
-        data={products}
+        data={displayedProducts}
         keyExtractor={item => item._id}
         renderItem={renderProduct}
         numColumns={2}
@@ -669,16 +742,6 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
                 : t('home.empty_nearby_text')}
             </Text>
             <View style={styles.emptyActions}>
-              {!isGlobalMode && (
-                <Button
-                  title={t('home.explore_global')}
-                  size="sm"
-                  onPress={() => {
-                    setIsGlobalMode(true);
-                  }}
-                  style={{marginTop: 16}}
-                />
-              )}
               <Button
                 title={t('common.clear_filters')}
                 type="outline"
@@ -741,10 +804,22 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 8,
   },
+  topRowRight: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  logoText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: theme.colors.primary,
+    letterSpacing: 6,
+    includeFontPadding: false,
+  },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
   topRowLeft: {
@@ -755,6 +830,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     fontWeight: '600',
+  },
+  locationSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  areaText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginHorizontal: 4,
+    maxWidth: 150,
+  },
+  greetingText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 8,
   },
   mainHeader: {
     fontSize: 22,
@@ -1075,37 +1172,41 @@ const styles = StyleSheet.create({
   },
   productTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: theme.colors.text,
-    marginBottom: 8,
+    lineHeight: 18,
     height: 36,
+    marginBottom: 8,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 4,
+    marginBottom: 8,
   },
   price: {
     fontSize: 17,
     fontWeight: '900',
     color: theme.colors.primary,
   },
-  ratingRow: {
+  ratingBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 2,
   },
   ratingText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#fff',
   },
   shopInRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#F8FAFC',

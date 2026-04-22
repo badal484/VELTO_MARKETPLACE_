@@ -68,16 +68,14 @@ export const NotificationProvider: React.FC<{children: React.ReactNode}> = ({chi
       fetchUnreadCount();
       fetchUnreadChatCount();
       
-      // Phase 4: Push Notification Handshake (Temporarily disabled for stability - Re-enable after native rebuild)
-      // FCMService.registerDevice();
+      // Phase 4: Push Notification Handshake
+      FCMService.registerDevice();
 
       // Listen for foreground push notifications
-      /*
       const unsubscribe = FCMService.listenForMessages(() => {
         setUnreadCount(prev => prev + 1);
       });
-      return () => unsubscribe();
-      */
+      if (unsubscribe) return () => unsubscribe();
     } else {
       setUnreadCount(0);
       setUnreadChatCount(0);

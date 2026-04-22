@@ -1,48 +1,35 @@
-import messaging from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  setBackgroundMessageHandler,
+  requestPermission,
+  registerDeviceForRemoteMessages,
+  AuthorizationStatus,
+} from '@react-native-firebase/messaging/lib/modular';
 import { axiosInstance } from '../api/axiosInstance';
 import { Platform } from 'react-native';
 
-/**
- * FCM Service - Systematic Device Handshake
- * 
- * Handles the registration of the mobile device for system-level 
- * push notifications (app-closed support).
- */
 export class FCMService {
-  /**
-   * Internal check for native module presence
-   */
-  private static async isSupported() {
-    try {
-      return !!messaging();
-    } catch (e) {
-      console.warn('⚠️ FCM Native Module not found. Push notifications disabled (Native Rebuild Required).');
-      return false;
-    }
-  }
-
-  /**
-   * Request notification permission and register token with the server.
-   */
   static async registerDevice() {
     try {
-      if (!(await this.isSupported())) return;
+      const m = getMessaging();
 
-      const authStatus = await messaging().requestPermission();
+      const authStatus = await requestPermission(m);
       const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        authStatus === AuthorizationStatus.AUTHORIZED ||
+        authStatus === AuthorizationStatus.PROVISIONAL;
 
       if (enabled) {
         console.log('🔔 Notification permission granted.');
-        
+
         if (Platform.OS === 'ios') {
-          await messaging().registerDeviceForRemoteMessages();
+          await registerDeviceForRemoteMessages(m);
         }
 
-        const token = await messaging().getToken();
+        const token = await getToken(m);
         if (token) {
-          await this.updateTokenOnServer(token);
+          await FCMService.updateTokenOnServer(token);
         }
       }
     } catch (error) {
@@ -50,40 +37,31 @@ export class FCMService {
     }
   }
 
-  /**
-   * Send the device token to our centralized notification foundation.
-   */
   private static async updateTokenOnServer(token: string) {
     try {
       await axiosInstance.post('/api/notifications/fcm-token', { token });
       console.log('✅ FCM Token synced with server.');
-    } catch (error) {
+    } catch {
       console.warn('❌ Failed to sync FCM token (User might be logged out or Offline)');
     }
   }
 
-  /**
-   * Set up message listeners for foreground alerts.
-   */
   static listenForMessages(callback: (message: any) => void) {
     try {
-      return messaging().onMessage(async remoteMessage => {
+      return onMessage(getMessaging(), async remoteMessage => {
         if (callback) callback(remoteMessage);
       });
-    } catch (e) {
-      return () => {}; // No-op unsubscribe
+    } catch {
+      return () => {};
     }
   }
 
-  /**
-   * Handler for notifications that arrive when the app is in the background.
-   */
   static setBackgroundHandler() {
     try {
-      messaging().setBackgroundMessageHandler(async remoteMessage => {
+      setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
         console.log('🌙 Background Notification Received:', remoteMessage);
       });
-    } catch (e) {
+    } catch {
       console.log('FCM Background Skip: Native module unavailable');
     }
   }

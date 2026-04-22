@@ -80,7 +80,7 @@ android {
 
     namespace "com.client"
     defaultConfig {
-        applicationId "com.client"
+        applicationId "velto_12.ve"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -93,15 +93,19 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            storeFile file('velto-release.keystore')
+            storePassword System.getenv("VELTO_STORE_PASSWORD") ?: "velto123"
+            keyAlias 'velto-key'
+            keyPassword System.getenv("VELTO_KEY_PASSWORD") ?: "velto123"
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
@@ -119,3 +123,4 @@ dependencies {
     }
 }
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+apply plugin: 'com.google.gms.google-services'

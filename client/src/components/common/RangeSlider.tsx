@@ -12,6 +12,7 @@ import Animated, {
   runOnJS,
   withSpring,
   interpolate,
+  Extrapolate,
 } from 'react-native-reanimated';
 import {theme} from '../../theme';
 
@@ -25,6 +26,7 @@ interface RangeSliderProps {
   initialMin?: number;
   initialMax?: number;
   onValueChange: (min: number, max: number) => void;
+  step?: number;
 }
 
 export const RangeSlider: React.FC<RangeSliderProps> = ({
@@ -33,13 +35,34 @@ export const RangeSlider: React.FC<RangeSliderProps> = ({
   initialMin = min,
   initialMax = max,
   onValueChange,
+  step = 1,
 }) => {
-  const xLeft = useSharedValue(
-    interpolate(initialMin, [min, max], [0, SLIDER_WIDTH - THUMB_SIZE]),
-  );
-  const xRight = useSharedValue(
-    interpolate(initialMax, [min, max], [0, SLIDER_WIDTH - THUMB_SIZE]),
-  );
+  const INTERMEDIATE_PRICE = 5000;
+  const SLIDER_MAX_POS = SLIDER_WIDTH - THUMB_SIZE;
+  const INTERMEDIATE_POS = SLIDER_MAX_POS / 2;
+
+  const priceToPos = (price: number) => {
+    'worklet';
+    return interpolate(
+      price,
+      [min, INTERMEDIATE_PRICE, max],
+      [0, INTERMEDIATE_POS, SLIDER_MAX_POS],
+      Extrapolate.CLAMP
+    );
+  };
+
+  const posToPrice = (pos: number) => {
+    'worklet';
+    return interpolate(
+      pos,
+      [0, INTERMEDIATE_POS, SLIDER_MAX_POS],
+      [min, INTERMEDIATE_PRICE, max],
+      Extrapolate.CLAMP
+    );
+  };
+
+  const xLeft = useSharedValue(priceToPos(initialMin));
+  const xRight = useSharedValue(priceToPos(initialMax));
 
   const leftGestureHandler = useAnimatedGestureHandler<
     PanGestureHandlerGestureEvent,
@@ -50,34 +73,22 @@ export const RangeSlider: React.FC<RangeSliderProps> = ({
     },
     onActive: (event, ctx) => {
       const nextX = ctx.startX + event.translationX;
-      if (nextX >= 0 && nextX <= xRight.value - THUMB_SIZE) {
+      if (nextX >= 0 && nextX <= xRight.value) {
         xLeft.value = nextX;
-        const minVal = interpolate(
-          nextX,
-          [0, SLIDER_WIDTH - THUMB_SIZE],
-          [min, max],
-        );
-        const maxVal = interpolate(
-          xRight.value,
-          [0, SLIDER_WIDTH - THUMB_SIZE],
-          [min, max],
-        );
-        runOnJS(onValueChange)(Math.round(minVal), Math.round(maxVal));
+        const minVal = posToPrice(nextX);
+        const maxVal = posToPrice(xRight.value);
+        const roundedMin = Math.round(minVal / step) * step;
+        const roundedMax = Math.round(maxVal / step) * step;
+        runOnJS(onValueChange)(roundedMin, roundedMax);
       }
     },
     onEnd: () => {
-      // Final update on end to ensure precision
-      const minVal = interpolate(
-        xLeft.value,
-        [0, SLIDER_WIDTH - THUMB_SIZE],
-        [min, max],
+      const minVal = posToPrice(xLeft.value);
+      const maxVal = posToPrice(xRight.value);
+      runOnJS(onValueChange)(
+        Math.round(minVal / step) * step,
+        Math.round(maxVal / step) * step
       );
-      const maxVal = interpolate(
-        xRight.value,
-        [0, SLIDER_WIDTH - THUMB_SIZE],
-        [min, max],
-      );
-      runOnJS(onValueChange)(Math.round(minVal), Math.round(maxVal));
     },
   });
 
@@ -90,34 +101,22 @@ export const RangeSlider: React.FC<RangeSliderProps> = ({
     },
     onActive: (event, ctx) => {
       const nextX = ctx.startX + event.translationX;
-      if (nextX <= SLIDER_WIDTH - THUMB_SIZE && nextX >= xLeft.value + THUMB_SIZE) {
+      if (nextX <= SLIDER_MAX_POS && nextX >= xLeft.value) {
         xRight.value = nextX;
-        const minVal = interpolate(
-          xLeft.value,
-          [0, SLIDER_WIDTH - THUMB_SIZE],
-          [min, max],
-        );
-        const maxVal = interpolate(
-          nextX,
-          [0, SLIDER_WIDTH - THUMB_SIZE],
-          [min, max],
-        );
-        runOnJS(onValueChange)(Math.round(minVal), Math.round(maxVal));
+        const minVal = posToPrice(xLeft.value);
+        const maxVal = posToPrice(nextX);
+        const roundedMin = Math.round(minVal / step) * step;
+        const roundedMax = Math.round(maxVal / step) * step;
+        runOnJS(onValueChange)(roundedMin, roundedMax);
       }
     },
     onEnd: () => {
-      // Final update on end
-      const minVal = interpolate(
-        xLeft.value,
-        [0, SLIDER_WIDTH - THUMB_SIZE],
-        [min, max],
+      const minVal = posToPrice(xLeft.value);
+      const maxVal = posToPrice(xRight.value);
+      runOnJS(onValueChange)(
+        Math.round(minVal / step) * step,
+        Math.round(maxVal / step) * step
       );
-      const maxVal = interpolate(
-        xRight.value,
-        [0, SLIDER_WIDTH - THUMB_SIZE],
-        [min, max],
-      );
-      runOnJS(onValueChange)(Math.round(minVal), Math.round(maxVal));
     },
   });
 
