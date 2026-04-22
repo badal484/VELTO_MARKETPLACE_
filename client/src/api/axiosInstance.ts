@@ -1,11 +1,6 @@
-import {Platform} from 'react-native';
 import {tokenStore} from './tokenStore';
 
-// 10.0.2.2 = Android emulator only. Real devices need the Mac's LAN IP.
-const ANDROID_HOST = __DEV__ ? '10.20.16.43' : '10.20.16.43';
-const BASE_URL = Platform.OS === 'android'
-  ? `http://${ANDROID_HOST}:8082`
-  : 'http://localhost:8082';
+const BASE_URL = 'https://velto-marketplace.onrender.com';
 
 type LogoutHandler = () => void;
 let _logoutHandler: LogoutHandler | null = null;

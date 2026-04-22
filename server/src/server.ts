@@ -55,6 +55,9 @@ app.get('/api/debug/count', async (req, res) => {
   });
 });
 
+app.get('/', (_req, res) => res.json({ success: true, message: 'Velto API is running', version: '1.0.0' }));
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/products', productRoutes);
