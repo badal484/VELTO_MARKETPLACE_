@@ -238,9 +238,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
     }
 
     setLoading(true);
-    setLoading(true);
     try {
-      // Step 4 Validation
       if (!description || description.length < 10) {
         showToast({message: 'Please provide a shop description of at least 10 characters', type: 'info'});
         setLoading(false);
@@ -257,23 +255,23 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         return;
       }
 
-      // Use clean JSON for 100% reliability in React Native
       const payload = {
         name,
         businessName,
         description: description || '',
         aadharCard,
         gstin: gstin || '',
-        address: formattedAddress,
+        address: formattedAddress || `${street}, ${city}`,
         detailedAddress: {
           street: street || '',
           city: city || '',
           state: state || '',
           pincode: pincode || '',
         },
-        // IMPORTANT: Backend expects lat/lng at top level, not nested in location
-        lat: coordinates?.lat || 0,
-        lng: coordinates?.lng || 0,
+        location: {
+          lat: coordinates?.lat ?? 0,
+          lng: coordinates?.lng ?? 0,
+        },
         bankDetails: {
           holderName: bankHolder || '',
           bankName: bankName || '',
@@ -286,26 +284,25 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         },
         category: selectedCategory || Category.OTHER,
         isTermsAccepted: true,
-        logo: '', // No logo picker implemented yet
       };
 
-      // Correctly prioritize PUT vs POST
-      const res = myShopId 
+      const res = myShopId
         ? await axiosInstance.put(`/api/shops/${myShopId}`, payload)
         : await axiosInstance.post('/api/shops', payload);
 
       if (res.data.success) {
         await refreshUser();
         showToast({
-          message: myShopId 
+          message: myShopId
             ? 'Shop application updated and sent for re-verification'
-            : 'Your shop application has been submitted!', 
-          type: 'success'
+            : 'Your shop application has been submitted!',
+          type: 'success',
         });
         navigation.goBack();
+      } else {
+        showToast({message: res.data.message || 'Submission failed. Please try again.', type: 'error'});
       }
     } catch (error: any) {
-      setLoading(false);
       const serverMessage = error.response?.data?.message;
       showToast({message: serverMessage || 'Failed to submit shop setup', type: 'error'});
     } finally {
@@ -523,12 +520,12 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
                   {id: Category.CLOTHING, icon: 'shirt'},
                   {id: Category.HOME, icon: 'home'},
                   {id: Category.OTHER, icon: 'build'},
-                  {id: Category.OTHER, icon: 'sparkles'},
-                ].map((cat) => {
+                  {id: Category.BEAUTY, icon: 'sparkles'},
+                ].map((cat, idx) => {
                   const isActive = selectedCategory === cat.id;
                   return (
                     <TouchableOpacity
-                      key={cat.id}
+                      key={`${cat.id}-${idx}`}
                       style={[styles.categoryChip, isActive && styles.categoryChipActive]}
                       onPress={() => setSelectedCategory(cat.id)}>
                       <Icon 
