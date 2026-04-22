@@ -33,6 +33,7 @@ export const Input: React.FC<InputProps> = ({
   leftIcon,
   onFocus,
   onBlur,
+  style: propStyle,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -78,12 +79,12 @@ export const Input: React.FC<InputProps> = ({
         ]}>
         {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
         <TextInput
-          style={[styles.input, disabled && {color: theme.colors.muted}]}
           placeholderTextColor={theme.colors.muted}
           onFocus={handleFocus}
           onBlur={handleBlur}
           editable={!disabled}
           {...props}
+          style={[styles.input, disabled && {color: theme.colors.muted}, propStyle]}
         />
       </Animated.View>
       {error && <Text style={styles.errorText}>{error}</Text>}

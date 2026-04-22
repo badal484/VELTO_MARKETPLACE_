@@ -455,7 +455,17 @@ export default function ProductDetailScreen({
                         <Text style={styles.relatedPrice}>₹{p.price.toLocaleString()}</Text>
                         <View style={styles.tinyDistance}>
                           <Icon name="location" size={8} color={theme.colors.primary} />
-                          <Text style={styles.tinyDistanceText}>Local</Text>
+                          <Text style={styles.tinyDistanceText}>
+                            {(p.distance !== undefined 
+                              ? p.distance 
+                              : calculateDistance(
+                                  product?.shop?.location?.coordinates[1] || 0,
+                                  product?.shop?.location?.coordinates[0] || 0,
+                                  (p.shop?.location?.coordinates || p.location?.coordinates)?.[1] || 0,
+                                  (p.shop?.location?.coordinates || p.location?.coordinates)?.[0] || 0
+                                )
+                            ).toFixed(1)} km
+                          </Text>
                         </View>
                       </View>
                     </View>

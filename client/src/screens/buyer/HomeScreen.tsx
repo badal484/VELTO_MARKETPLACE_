@@ -1377,4 +1377,24 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: '900',
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  distanceBadgeSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3,
+  },
+  distanceText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.primary,
+  },
 });
