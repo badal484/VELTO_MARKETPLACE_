@@ -128,7 +128,7 @@ export default function AdminProductsScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => handleDeleteProduct(item._id, item.title)}
+            onPress={() => handleDeleteProduct(String(item._id), item.title)}
             style={styles.modAction}
             activeOpacity={0.7}>
             <Icon name="ban" size={20} color={theme.colors.danger} />
@@ -154,7 +154,7 @@ export default function AdminProductsScreen() {
         </View>
         <FlatList
           data={products}
-          keyExtractor={item => item._id}
+          keyExtractor={item => String(item._id)}
           renderItem={renderProduct}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}

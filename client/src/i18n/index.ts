@@ -47,6 +47,7 @@ i18n
     react: {
       useSuspense: false,
     },
+    compatibilityJSON: 'v4', // Required for some React Native environments
   });
 
 export default i18n;

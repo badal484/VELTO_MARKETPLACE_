@@ -306,7 +306,7 @@ export class OrderService {
     const order = await Order.findById(orderId);
     if (!order || order.status !== OrderStatus.SEARCHING_RIDER || order.rider) return;
 
-    const pickupLocation = order.pickupLocation.coordinates; // [lng, lat]
+    const pickupLocation = order.pickupLocation!.coordinates; // [lng, lat]
     
     // 1. Find "Busy" riders (those with active assignments)
     const busyRiders = await Order.find({

@@ -244,7 +244,7 @@ export default function ProductDetailScreen({
             <Text style={styles.headerTitle} numberOfLines={1}>
               {product.title}
             </Text>
-            <View style={styles.headerRightActions}>
+            <View style={styles.galleryRightActions}>
               <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
                 <Icon name="share-social-outline" size={22} color={theme.colors.text} />
               </TouchableOpacity>
@@ -371,7 +371,7 @@ export default function ProductDetailScreen({
                 {shop?.location && (
                   <View style={styles.locationBadge}>
                     <Icon name="location" size={10} color={theme.colors.primary} />
-                    <Text style={styles.locationBadgeText}>{shop.location.address}</Text>
+                    <Text style={styles.locationBadgeText}>{shop.address || shop.detailedAddress?.city}</Text>
                   </View>
                 )}
               </View>
@@ -416,7 +416,7 @@ export default function ProductDetailScreen({
                     </View>
                   </View>
                   <Text style={styles.reviewDate}>
-                    {new Date(review.createdAt).toLocaleDateString()}
+                    {new Date(review.createdAt ?? Date.now()).toLocaleDateString()}
                   </Text>
                 </View>
                 <Text style={styles.reviewComment}>{review.comment}</Text>

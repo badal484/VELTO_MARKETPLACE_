@@ -64,7 +64,7 @@ export default function AdminOrdersScreen() {
               <View style={styles.iconBox}>
                 <Icon name="receipt-outline" size={14} color={theme.colors.primary} />
               </View>
-              <Text style={styles.orderId}>#NB-{item._id.slice(-6).toUpperCase()}</Text>
+              <Text style={styles.orderId}>#NB-{String(item._id).slice(-6).toUpperCase()}</Text>
             </View>
             <View style={[
               styles.statusBadge,
@@ -102,7 +102,7 @@ export default function AdminOrdersScreen() {
           <View style={styles.footer}>
             <View style={styles.footerInfo}>
               <Icon name="calendar-outline" size={12} color={theme.colors.muted} />
-              <Text style={styles.dateText}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+              <Text style={styles.dateText}>{new Date(item.createdAt ?? Date.now()).toLocaleDateString()}</Text>
             </View>
             <TouchableOpacity 
               style={styles.detailsBtn}
@@ -133,7 +133,7 @@ export default function AdminOrdersScreen() {
 
       <FlatList
         data={orders}
-        keyExtractor={item => item._id}
+        keyExtractor={item => String(item._id)}
         renderItem={renderOrder}
         contentContainerStyle={styles.list}
         refreshControl={

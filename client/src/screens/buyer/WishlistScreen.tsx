@@ -118,7 +118,7 @@ export default function WishlistScreen({navigation}: WishlistProps) {
             </Text>
             <Button
               title="Browse Shop"
-              onPress={() => navigation.navigate('HomeTab')}
+              onPress={() => (navigation as any).navigate('HomeTab')}
               style={styles.startBtn}
             />
           </View>

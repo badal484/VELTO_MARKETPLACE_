@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Platform,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -285,7 +286,7 @@ export default function CartScreen({navigation}: CartProps) {
             </Text>
             <Button
               title={t('cart.start_shopping')}
-              onPress={() => navigation.navigate('HomeTab')}
+              onPress={() => (navigation as any).navigate('HomeTab')}
               style={styles.startBtn}
             />
           </View>
@@ -456,6 +457,16 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
     marginTop: 60,
+  },
+  emptyCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...theme.shadow.sm,
+    marginBottom: 24,
   },
   emptyIconBox: {
     width: 120,

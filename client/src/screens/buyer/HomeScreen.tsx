@@ -415,7 +415,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
     {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
     {id: Category.HOME, icon: 'home', label: 'Home'},
-    {id: Category.CONSTRUCTION, icon: 'build', label: 'Construction'},
+    {id: Category.HOME, icon: 'build', label: 'Construction'},
     {id: Category.OTHER, icon: 'apps', label: 'Other'},
   ];
 
@@ -468,7 +468,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           )}
 
           <Text style={styles.mainHeader}>
-            {isGlobalMode ? 'Global Marketplace' : t('home.find_nearby')}
+            {isGlobalMode ? t('home.global_marketplace') : t('home.find_nearby')}
           </Text>
         </View>
         <TouchableOpacity
@@ -615,20 +615,20 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Trending Now</Text>
+        <Text style={styles.sectionTitle}>{t('home.trending')}</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('BrowseTab', {screen: 'Browse'})}>
-          <Text style={styles.viewAllText}>View All</Text>
+          <Text style={styles.viewAllText}>{t('common.view_all')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>
-          {isGlobalMode ? 'All Verified Products' : t('home.near_you')}
+          {isGlobalMode ? t('home.no_products_global') : t('home.near_you')}
         </Text>
         {isGlobalMode && (
           <TouchableOpacity onPress={() => setIsGlobalMode(false)}>
-            <Text style={styles.switchText}>Switch to Local</Text>
+            <Text style={styles.switchText}>{t('home.switch_to_local')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -666,17 +666,17 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
               <Icon name="search" size={48} color={theme.colors.muted} />
             </View>
             <Text style={styles.emptyTitle}>
-              {isGlobalMode ? 'No Products at All' : 'Nothing nearby'}
+              {isGlobalMode ? t('home.no_products_global') : t('common.nothing_nearby')}
             </Text>
             <Text style={styles.emptyText}>
               {isGlobalMode
-                ? 'The marketplace is currently empty. Check back later!'
-                : "We couldn't find any products in this area. Try our Global Marketplace?"}
+                ? t('home.empty_global_text')
+                : t('home.empty_nearby_text')}
             </Text>
             <View style={styles.emptyActions}>
               {!isGlobalMode && (
                 <Button
-                  title="Explore Global Mode"
+                  title={t('home.explore_global')}
                   size="sm"
                   onPress={() => {
                     setIsGlobalMode(true);
@@ -685,7 +685,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
                 />
               )}
               <Button
-                title="Clear Filters"
+                title={t('common.clear_filters')}
                 type="outline"
                 size="sm"
                 onPress={() => setSelectedCategory(null)}

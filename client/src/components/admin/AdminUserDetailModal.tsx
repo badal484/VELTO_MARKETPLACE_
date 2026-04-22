@@ -8,11 +8,19 @@ import {
   ScrollView,
   Dimensions,
   TextInput,
+  Alert,
 } from 'react-native';
 import {theme} from '../../theme';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeInDown, ZoomIn} from 'react-native-reanimated';
 import {IUser, Role} from '@shared/types';
+
+interface ExtendedUser extends IUser {
+  totalSpent?: number;
+  orderCount?: number;
+  shop?: { name: string; category: string };
+  createdAt: string | Date;
+}
 
 interface AdminUserDetailModalProps {
   visible: boolean;
@@ -144,7 +152,7 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                   <View style={styles.docGallery}>
                     <Text style={styles.subTitle}>Uploaded Documents</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.docScroll}>
-                      {user.riderDocuments.map((doc, i) => (
+                      {user.riderDocuments.map((doc: string, i: number) => (
                         <View key={i} style={styles.docPlaceholder}>
                            <Icon name="document-attach" size={24} color={theme.colors.primary} />
                            <Text style={styles.docLabel}>DOC {i+1}</Text>
@@ -158,7 +166,7 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                   <View style={styles.decisionRow}>
                     <TouchableOpacity 
                       style={[styles.verifyBtn, {flex: 2}]}
-                      onPress={() => onVerifyRider?.(user._id)}>
+                      onPress={() => onVerifyRider?.(String(user._id))}>
                       <Icon name="checkmark-shield" size={20} color={theme.colors.white} />
                       <Text style={styles.verifyBtnText}>Approve Rider</Text>
                     </TouchableOpacity>
@@ -188,7 +196,7 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                          style={[styles.verifyBtn, styles.rejectBtn, {flex: 1}]}
                          onPress={() => {
                            if (!rejectionReason) return Alert.alert('Error', 'Please provide a reason');
-                           onRejectRider?.(user._id, rejectionReason);
+                           onRejectRider?.(String(user._id), rejectionReason);
                          }}>
                          <Text style={styles.verifyBtnText}>Confirm Reject</Text>
                        </TouchableOpacity>

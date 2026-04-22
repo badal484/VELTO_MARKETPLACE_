@@ -28,7 +28,7 @@ export const RiderNavigator = () => {
       <Stack.Screen name="RiderDashboard" component={RiderDashboardScreen} />
       <Stack.Screen name="Wallet" component={WalletScreen} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
-      <Stack.Screen name="ChatRoom" component={ChatScreen} />
+      <Stack.Screen name="ChatRoom" component={ChatScreen as React.FC} />
     </Stack.Navigator>
   );
 };

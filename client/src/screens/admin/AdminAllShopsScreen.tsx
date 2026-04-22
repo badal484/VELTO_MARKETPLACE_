@@ -101,7 +101,7 @@ export default function AdminAllShopsScreen({navigation}: {navigation: any}) {
             </View>
             <Text style={styles.ownerText}>
               Owner:{' '}
-              {typeof item.owner === 'object' ? item.owner.name : 'Merchant'}
+              {typeof item.owner === 'object' ? (item.owner as any)?.name : 'Merchant'}
             </Text>
 
             <View style={styles.metaRow}>
@@ -156,7 +156,7 @@ export default function AdminAllShopsScreen({navigation}: {navigation: any}) {
         </View>
         <FlatList
           data={shops}
-          keyExtractor={item => item._id}
+          keyExtractor={item => String(item._id)}
           renderItem={renderShop}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}

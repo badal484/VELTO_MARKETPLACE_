@@ -1,0 +1,22 @@
+import { User } from '../models/User';
+import { AppError } from '../utils/errors';
+
+export class UserService {
+  static async registerAsRider(userId: string, data: {
+    licenseNumber: string;
+    vehicleDetails: { type?: string; model?: string; number?: string };
+    bankDetails?: { holderName: string; bankName: string; accountNumber: string; ifscCode: string };
+  }) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+    if (user.riderStatus === 'verified') throw new AppError('Already a verified rider', 400);
+
+    user.licenseNumber = data.licenseNumber;
+    user.vehicleDetails = data.vehicleDetails;
+    user.riderStatus = 'pending';
+    user.riderDocuments = user.riderDocuments || [];
+
+    await user.save();
+    return user.toObject();
+  }
+}

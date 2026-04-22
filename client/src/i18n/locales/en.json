@@ -4,13 +4,23 @@
     "categories": "Categories",
     "view_all": "View All",
     "add_to_cart": "Add to Bag",
-    "out_of_stock": "Sold Out"
+    "out_of_stock": "Sold Out",
+    "limited_stock": "Only {{count}} left",
+    "nothing_nearby": "Nothing nearby",
+    "clear_filters": "Clear Filters"
   },
   "home": {
     "welcome": "Welcome back",
     "find_nearby": "Find fresh products nearby",
     "featured": "Featured Shops",
-    "near_you": "Verified Shops Near You"
+    "near_you": "Verified Shops Near You",
+    "trending": "Trending Now",
+    "explore_global": "Explore Global Mode",
+    "global_marketplace": "Global Marketplace",
+    "switch_to_local": "Switch to Local",
+    "no_products_global": "No Products at All",
+    "empty_global_text": "The marketplace is currently empty. Check back later!",
+    "empty_nearby_text": "We couldn't find any products in this area. Try our Global Marketplace?"
   },
   "cart": {
     "title": "Shopping Bag",
@@ -28,6 +38,11 @@
     "success": "Order Placed Successfully!",
     "pickup_otp": "PICKUP OTP",
     "delivery_otp": "DELIVERY OTP",
-    "accept_delivery": "Accept Delivery"
+    "accept_delivery": "Accept Delivery",
+    "sales_history": "Sales History",
+    "delivery_history": "Delivery History",
+    "no_orders": "No Orders Yet",
+    "no_sales": "No Sales Yet",
+    "no_deliveries": "No Deliveries Yet"
   }
 }

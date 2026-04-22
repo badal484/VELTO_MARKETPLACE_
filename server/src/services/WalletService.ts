@@ -27,7 +27,7 @@ export class WalletService {
         throw new AppError('Order or rider not found', 404);
       }
 
-      if (order.deliveryCharge <= 0) {
+      if ((order.deliveryCharge || 0) <= 0) {
         await session.commitTransaction();
         return;
       }
@@ -278,7 +278,7 @@ export class WalletService {
       if (!order) throw new AppError('Order not found', 404);
 
       // Only refund if the order was paid (Confirmed or after)
-      if (order.status === 'pending' || order.status === 'cancelled') {
+      if ((order.status as string) === 'pending' || (order.status as string) === 'cancelled') {
         await session.commitTransaction();
         return;
       }
