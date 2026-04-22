@@ -22,6 +22,20 @@ export const handleError = (err: any, res: Response) => {
     });
   }
 
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      message: Object.values(err.errors).map((e: any) => e.message).join(', ')
+    });
+  }
+
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid ${err.path}: ${err.value}`
+    });
+  }
+
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,
@@ -30,6 +44,8 @@ export const handleError = (err: any, res: Response) => {
   }
 
   console.error('--- UNEXPECTED ERROR ---', err);
+  if (err.stack) console.error(err.stack);
+  
   return res.status(500).json({
     success: false,
     message: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message

@@ -2,12 +2,13 @@ import { Shop } from '../models/Shop';
 import { Product } from '../models/Product';
 import { Order } from '../models/Order';
 import { uploadImage } from '../utils/imagekit';
+import { AppError } from '../utils/errors';
 
 export class ShopService {
   static async createShop(owner: string, data: any, file?: any) {
     const existingShop = await Shop.findOne({ owner });
     if (existingShop) {
-      throw new Error('User already owns a shop');
+      throw new AppError('You already have a shop registered', 400);
     }
 
     let logoUrl = data.logo;
@@ -15,17 +16,19 @@ export class ShopService {
       logoUrl = await uploadImage(file.buffer, `shop_logo_${Date.now()}`);
     }
 
-    const { lat, lng, ...rest } = data;
+    const { location: locationData, ...rest } = data;
+    const lat = locationData?.lat ?? 0;
+    const lng = locationData?.lng ?? 0;
 
     const shop = await Shop.create({
       ...rest,
       location: {
         type: 'Point',
-        coordinates: [Number(lng), Number(lat)]
+        coordinates: [Number(lng), Number(lat)],
       },
       owner,
       logo: logoUrl,
-      isVerified: false
+      isVerified: false,
     });
 
     return shop;
@@ -64,17 +67,27 @@ export class ShopService {
 
   static async editShop(shopId: string, owner: string, data: any, file?: any) {
     const shop = await Shop.findById(shopId);
-    if (!shop) throw new Error('Shop not found');
-    if (shop.owner.toString() !== owner) throw new Error('Not authorized');
+    if (!shop) throw new AppError('Shop not found', 404);
+    if (shop.owner.toString() !== owner) throw new AppError('Not authorized to edit this shop', 403);
 
     if (file) {
       data.logo = await uploadImage(file.buffer, `shop_logo_${Date.now()}`);
     }
 
-    // Reset verification on significant changes
-    data.isVerified = false;
-    data.rejectionReason = undefined;
+    const { location: locationData, ...rest } = data;
+    const updateData: any = {
+      ...rest,
+      isVerified: false,
+      rejectionReason: undefined,
+    };
 
-    return await Shop.findByIdAndUpdate(shopId, data, { new: true });
+    if (locationData?.lat !== undefined && locationData?.lng !== undefined) {
+      updateData.location = {
+        type: 'Point',
+        coordinates: [Number(locationData.lng), Number(locationData.lat)],
+      };
+    }
+
+    return await Shop.findByIdAndUpdate(shopId, updateData, { new: true });
   }
 }

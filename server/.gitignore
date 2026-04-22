@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 *.log
+firebase-service-account.json
+src/config/firebase-service-account.json
