@@ -11,6 +11,7 @@ import {
   Dimensions,
   PermissionsAndroid,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {Input} from '../../components/common/Input';
 import {Button} from '../../components/common/Button';
@@ -580,68 +581,72 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
 
       {renderProgressBar()}
 
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        
-        {/* Status Indicator Banner */}
-        {myShopId && isVerified === false && (
-          <Animated.View 
-            entering={FadeInRight}
-            style={[
-              styles.statusBanner, 
-              rejectionReason ? styles.statusBannerRejected : styles.statusBannerPending
-            ]}>
-            <View style={styles.statusBannerHeader}>
-              <Icon 
-                name={rejectionReason ? "alert-circle" : "time"} 
-                size={20} 
-                color={rejectionReason ? '#991B1B' : '#854D0E'} 
-              />
-              <Text style={[
-                styles.statusBannerTitle, 
-                {color: rejectionReason ? '#991B1B' : '#854D0E'}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          
+          {/* Status Indicator Banner */}
+          {myShopId && isVerified === false && (
+            <Animated.View 
+              entering={FadeInRight}
+              style={[
+                styles.statusBanner, 
+                rejectionReason ? styles.statusBannerRejected : styles.statusBannerPending
               ]}>
-                {rejectionReason ? 'Application Rejected' : 'Application Under Review'}
+              <View style={styles.statusBannerHeader}>
+                <Icon 
+                  name={rejectionReason ? "alert-circle" : "time"} 
+                  size={20} 
+                  color={rejectionReason ? '#991B1B' : '#854D0E'} 
+                />
+                <Text style={[
+                  styles.statusBannerTitle, 
+                  {color: rejectionReason ? '#991B1B' : '#854D0E'}
+                ]}>
+                  {rejectionReason ? 'Application Rejected' : 'Application Under Review'}
+                </Text>
+              </View>
+              <Text style={[
+                styles.statusBannerText,
+                {color: rejectionReason ? '#B91C1C' : '#A16207'}
+              ]}>
+                {rejectionReason 
+                  ? `Reason: ${rejectionReason}. Please fix the details below and resubmit.`
+                  : "Your merchant details are currently being reviewed by our admin team. You can update your info if needed."}
               </Text>
-            </View>
-            <Text style={[
-              styles.statusBannerText,
-              {color: rejectionReason ? '#B91C1C' : '#A16207'}
-            ]}>
-              {rejectionReason 
-                ? `Reason: ${rejectionReason}. Please fix the details below and resubmit.`
-                : "Your merchant details are currently being reviewed by our admin team. You can update your info if needed."}
-            </Text>
-          </Animated.View>
-        )}
-
-        {renderStep()}
-
-        <View style={styles.navContainer}>
-          {step < 4 ? (
-            <Button
-              title="Save & Continue"
-              onPress={nextStep}
-              style={styles.nextBtn}
-            />
-          ) : (
-            <Button
-              title={myShopId ? "Resubmit for Verification" : "Submit Final Application"}
-              onPress={handleSubmit}
-              isLoading={loading}
-              style={styles.nextBtn}
-            />
+            </Animated.View>
           )}
-          {step > 1 && (
-            <TouchableOpacity onPress={prevStep} style={styles.backLink}>
-              <Text style={styles.backLinkText}>Go Back to Previous Step</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </ScrollView>
+
+          {renderStep()}
+
+          <View style={styles.navContainer}>
+            {step < 4 ? (
+              <Button
+                title="Save & Continue"
+                onPress={nextStep}
+                style={styles.nextBtn}
+              />
+            ) : (
+              <Button
+                title={myShopId ? "Resubmit for Verification" : "Submit Final Application"}
+                onPress={handleSubmit}
+                isLoading={loading}
+                style={styles.nextBtn}
+              />
+            )}
+            {step > 1 && (
+              <TouchableOpacity onPress={prevStep} style={styles.backLink}>
+                <Text style={styles.backLinkText}>Go Back to Previous Step</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -649,7 +654,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: theme.colors.white},
   container: {flex: 1, backgroundColor: theme.colors.background},
-  scrollContent: {padding: 24, paddingBottom: 40},
+  scrollContent: {padding: 24, paddingBottom: 80, flexGrow: 1},
   header: {
     flexDirection: 'row',
     alignItems: 'center',

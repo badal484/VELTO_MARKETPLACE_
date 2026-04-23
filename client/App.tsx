@@ -27,6 +27,8 @@ const NavigationWrapper = () => {
   );
 };
 
+import {Toast} from './src/components/common/Toast';
+
 const App = () => {
   return (
     <SafeAreaProvider>
@@ -36,6 +38,7 @@ const App = () => {
           <NotificationProvider>
             <ToastProvider>
               <NavigationWrapper />
+              <Toast />
             </ToastProvider>
           </NotificationProvider>
         </SocketProvider>

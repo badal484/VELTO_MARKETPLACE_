@@ -720,6 +720,11 @@ export default function RiderDashboardScreen({navigation}: any) {
   };
 
   const handleStatusUpdate = async (orderId: string, status: string) => {
+    if (status === OrderStatus.DELIVERED) {
+      handleVerifyDelivery(orderId);
+      return;
+    }
+
     try {
       await axiosInstance.patch(`/api/orders/${orderId}/status`, {status});
       showToast({ message: `Status updated to ${status}`, type: 'success' });

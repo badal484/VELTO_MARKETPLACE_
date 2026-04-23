@@ -163,21 +163,29 @@ export class OrderService {
       order.deliveryCode = Math.floor(1000 + Math.random() * 9000).toString();
     }
 
+    if (newStatus === OrderStatus.DELIVERED) {
+      order.deliveredAt = new Date();
+    }
+
     order.status = newStatus;
     await order.save();
 
     // 💸 FINANCIAL FULFILLMENT 💸
-    if (newStatus === OrderStatus.COMPLETED) {
-      // 1. Credit Seller
-      await WalletService.creditSellerEarnings(orderId).catch(err => console.error('Seller credit failed:', err));
-      
-      // 2. Credit Rider Delivery Earnings
-      await WalletService.creditEarnings(orderId).catch(err => console.error('Rider credit failed:', err));
+    // Riders are credited immediately upon any completion status
+    if (newStatus === OrderStatus.COMPLETED || newStatus === OrderStatus.COMPLETED_PENDING_RELEASE) {
+      if (order.rider) {
+        await WalletService.creditEarnings(orderId).catch(err => console.error('Rider credit failed:', err));
+      }
 
-      // 3. Handle COD Liability if applicable
+      // Handle COD Liability if applicable
       if (order.paymentMethod === 'Cash on Delivery') {
         await WalletService.processCODFulfillment(orderId).catch(err => console.error('COD processing failed:', err));
       }
+    }
+
+    // Sellers are credited only when status is COMPLETED
+    if (newStatus === OrderStatus.COMPLETED) {
+      await WalletService.creditSellerEarnings(orderId).catch(err => console.error('Seller credit failed:', err));
     }
 
     // Trigger Financial Refund if order was cancelled after payment
@@ -185,11 +193,6 @@ export class OrderService {
       await WalletService.refundToWallet(orderId);
     }
 
-    if (newStatus === OrderStatus.DELIVERED) {
-      // 🏁 Automatic Financial Settlement on Delivery
-      // This bypasses the need for OTP verification
-      await OrderService.completeOrderFulfillment(order);
-    }
 
     await WorkflowService.syncOrderState(order._id.toString(), newStatus);
     
@@ -609,32 +612,5 @@ export class OrderService {
     } finally {
       session.endSession();
     }
-  }
-
-  static async completeOrderFulfillment(order: any) {
-    const orderId = order._id.toString();
-    
-    // 1. Credit Seller Earnings
-    await WalletService.creditSellerEarnings(orderId);
-    
-    // 2. Credit Rider Earnings (if a rider is assigned)
-    if (order.rider) {
-      await WalletService.creditEarnings(orderId);
-      
-      // 3. Process COD Liability if applicable
-      if (order.paymentMethod === 'Cash on Delivery') {
-        await WalletService.processCODFulfillment(orderId);
-      }
-    }
-
-    // 4. Update final status
-    const finalStatus = order.paymentMethod === 'Cash on Delivery' 
-      ? OrderStatus.COMPLETED 
-      : OrderStatus.COMPLETED_PENDING_RELEASE;
-      
-    order.status = finalStatus;
-    await order.save();
-
-    await WorkflowService.syncOrderState(orderId, finalStatus, `✅ Delivery Confirmed: Fulfillment complete.`);
   }
 }
