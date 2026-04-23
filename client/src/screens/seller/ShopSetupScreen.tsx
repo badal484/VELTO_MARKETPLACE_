@@ -12,7 +12,9 @@ import {
   PermissionsAndroid,
   Platform,
   KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {Input} from '../../components/common/Input';
 import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
@@ -47,6 +49,7 @@ interface ShopSetupProps {
 }
 
 export default function ShopSetupScreen({navigation}: ShopSetupProps) {
+  const insets = useSafeAreaInsets();
   const {showToast} = useToast();
   const [step, setStep] = useState(1);
   const {refreshUser} = useAuth();
@@ -233,6 +236,8 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
   };
 
   const handleSubmit = async () => {
+    Alert.alert('DEBUG', 'Submit button clicked!');
+    console.log('--- SUBMIT CLICKED ---');
     if (!isTermsAccepted) {
       showToast({message: 'Please accept the Terms & Conditions to proceed', type: 'info'});
       return;
@@ -564,7 +569,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <TouchableOpacity
@@ -647,7 +652,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -760,7 +765,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
   },
-  navContainer: {marginTop: 40, gap: 16},
+  navContainer: {marginTop: 40, gap: 16, marginBottom: 40},
   nextBtn: {height: 56, borderRadius: 16},
   backLink: {alignItems: 'center', paddingVertical: 8},
   backLinkText: {fontSize: 14, color: theme.colors.muted, fontWeight: '700'},

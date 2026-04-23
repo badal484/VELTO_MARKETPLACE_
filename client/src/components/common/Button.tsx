@@ -117,13 +117,11 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <AnimatedTouchableOpacity
+    <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       disabled={disabled || isLoading || loading}
-      style={[getButtonStyles(), animatedStyle, style]}>
+      style={[getButtonStyles(), style]}>
       {(isLoading || loading) ? (
         <ActivityIndicator
           color={
@@ -139,7 +137,7 @@ export const Button: React.FC<ButtonProps> = ({
           {icon && <View style={{marginLeft: 8}}>{icon}</View>}
         </>
       )}
-    </AnimatedTouchableOpacity>
+    </TouchableOpacity>
   );
 };
 
