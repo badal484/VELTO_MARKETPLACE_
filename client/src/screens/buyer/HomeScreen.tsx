@@ -246,7 +246,6 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
         setAddressName(area);
       }
     } catch (error) {
-      console.log('Reverse Geocoding Error:', error);
       setAddressName('Current Location');
     }
   };
@@ -293,7 +292,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       const res = await axiosInstance.get('/api/banners');
       setBanners(res.data.data);
     } catch (error) {
-      console.log('Error fetching banners:', error);
+      // Failed to fetch banners
     }
   };
 
@@ -350,7 +349,6 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
               reverseGeocode(coords.lat, coords.lng);
             },
             error => {
-              console.log('Location Error:', error);
               const fallback = {lat: 12.9716, lng: 77.5946};
               setCurrentCoords(fallback);
               fetchProducts(fallback);
@@ -366,7 +364,6 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
         fetchProducts(null);
       }
     } catch (error) {
-      console.log('Location error:', error);
       setAddressName('Global Marketplace');
       fetchProducts(null);
     }

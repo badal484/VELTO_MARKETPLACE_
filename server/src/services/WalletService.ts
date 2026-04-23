@@ -353,7 +353,7 @@ export class WalletService {
   }
 
   static async getWalletData(userId: string) {
-    const user = await User.findById(userId).select('walletBalance cashInHand cashLimit');
+    const user = await User.findById(userId).select('walletBalance cashInHand');
     const transactions = await WalletTransaction.find({ user: userId })
       .sort({ createdAt: -1 })
       .limit(50);
@@ -361,7 +361,6 @@ export class WalletService {
     return {
       balance: user?.walletBalance || 0,
       cashInHand: user?.cashInHand || 0,
-      cashLimit: user?.cashLimit || 2000,
       transactions
     };
   }

@@ -21,6 +21,7 @@ import {Button} from '../../components/common/Button';
 import Animated, {FadeInUp} from 'react-native-reanimated';
 import {Loader} from '../../components/common/Loader';
 import {Role, OrderStatus} from '../../../../shared/types';
+import { ACTIVE_DELIVERY_STATUSES, FINISHED_DELIVERY_STATUSES } from '../../../../shared/constants/orderStatus';
 import {useAuth} from '../../hooks/useAuth';
 import {useSocket} from '../../hooks/useSocket';
 import {useToast} from '../../hooks/useToast';
@@ -29,6 +30,7 @@ import Geolocation from 'react-native-geolocation-service';
 import {Platform, PermissionsAndroid} from 'react-native';
 import {useNotifications} from '../../context/NotificationContext';
 import {openMap} from '../../utils/mapUtils';
+import OrderCard from '../../components/rider/OrderCard';
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F8FAFC'},
@@ -538,6 +540,23 @@ export default function RiderDashboardScreen({navigation}: any) {
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [selectedShop, setSelectedShop] = useState<any>(null);
   const [isShopModalVisible, setIsShopModalVisible] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+
+  const handleToggleOnline = async () => {
+    try {
+      setIsToggling(true);
+      await axiosInstance.patch('/api/user/toggle-online');
+      await refreshUser();
+      showToast({ 
+        message: `You are now ${!user?.isOnline ? 'Online' : 'Offline'}`, 
+        type: 'success' 
+      });
+    } catch (error: any) {
+      showToast({ message: 'Failed to update status', type: 'error' });
+    } finally {
+      setIsToggling(false);
+    }
+  };
 
   useEffect(() => {
     if (socket && isConnected) {
@@ -655,34 +674,15 @@ export default function RiderDashboardScreen({navigation}: any) {
         // Also fetch active/history in background for badges
         const riderRes = await axiosInstance.get('/api/orders/rider');
         const riderData = riderRes.data.data || [];
-        const activeStatuses = [
-          OrderStatus.RIDER_ASSIGNED, 
-          OrderStatus.AT_SHOP, 
-          OrderStatus.PICKED_UP, 
-          OrderStatus.IN_TRANSIT,
-          'rider_assigned', 'at_shop', 'picked_up', 'in_transit' // Support legacy lowercase
-        ];
-        setActiveJobs(riderData.filter((o: any) => activeStatuses.includes(o.status)));
-        setHistoryJobs(riderData.filter((o: any) => ![...activeStatuses, OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER].includes(o.status)));
+        
+        setActiveJobs(riderData.filter((o: any) => ACTIVE_DELIVERY_STATUSES.includes(o.status)));
+        setHistoryJobs(riderData.filter((o: any) => ![...ACTIVE_DELIVERY_STATUSES, OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER].includes(o.status)));
         if (riderRes.data.stats) {
           setStats(riderRes.data.stats);
         }
       } else {
-        const activeStatuses = [
-          OrderStatus.RIDER_ASSIGNED, 
-          OrderStatus.AT_SHOP, 
-          OrderStatus.PICKED_UP, 
-          OrderStatus.IN_TRANSIT,
-          'rider_assigned', 'at_shop', 'picked_up', 'in_transit' // Support legacy lowercase
-        ];
-        const active = fetchedData.filter((o: any) => activeStatuses.includes(o.status));
-        const history = fetchedData.filter((o: any) => 
-          o.status === OrderStatus.DELIVERED || 
-          o.status === OrderStatus.COMPLETED_PENDING_RELEASE || 
-          o.status === OrderStatus.COMPLETED || 
-          o.status === OrderStatus.CANCELLED ||
-          o.status === 'delivered' || o.status === 'completed' // Support legacy
-        );
+        const active = fetchedData.filter((o: any) => ACTIVE_DELIVERY_STATUSES.includes(o.status));
+        const history = fetchedData.filter((o: any) => FINISHED_DELIVERY_STATUSES.includes(o.status));
         
         setActiveJobs(active);
         setHistoryJobs(history);
@@ -760,127 +760,14 @@ export default function RiderDashboardScreen({navigation}: any) {
     }
   };
 
-  const renderActiveCard = ({item}: {item: any}) => {
-    try {
-      const isTransit = item.status === OrderStatus.IN_TRANSIT;
-      const isDelivered = [OrderStatus.DELIVERED, OrderStatus.COMPLETED_PENDING_RELEASE, OrderStatus.COMPLETED].includes(item.status);
-      
-      return (
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-             <View style={styles.shopInfo}>
-                <View style={styles.storeIconBg}>
-                   <Icon name="cube" size={18} color={theme.colors.primary} />
-                </View>
-                <View>
-                  <Text style={styles.shopName}>Order #{item._id.toString().slice(-6).toUpperCase()}</Text>
-                  <Text style={styles.orderId}>{item.paymentMethod}</Text>
-                </View>
-             </View>
-             <View style={[
-               styles.statusBadge, 
-               {backgroundColor: isDelivered ? '#DCFCE7' : isTransit ? '#F3E8FF' : '#FEF9C3'}
-             ]}>
-               <Text style={[
-                 styles.statusText, 
-                 {color: isDelivered ? '#166534' : isTransit ? '#6B21A8' : '#854D0E'}
-               ]}>
-                 {isDelivered ? 'DELIVERED' : item.status === OrderStatus.IN_TRANSIT ? 'OUT FOR DELIVERY' : item.status.toUpperCase()}
-               </Text>
-             </View>
-          </View>
-
-          <View style={styles.addressSection}>
-            <View style={styles.addressLine}>
-              <View style={[styles.dot, {backgroundColor: '#94A3B8'}]} />
-              <View style={{flex: 1}}>
-                <Text style={styles.addressText}>Pickup: {item.shop?.name}</Text>
-                <TouchableOpacity style={styles.inlineNavigateRow} onPress={() => openMap(item.shop?.location?.coordinates[1], item.shop?.location?.coordinates[0], item.shop?.name, item.shop?.address)}>
-                   <Icon name="navigate-circle" size={14} color={theme.colors.primary} />
-                   <Text style={styles.inlineNavigateText}>NAVIGATE TO SHOP</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <View style={styles.line} />
-
-            <View style={styles.addressLine}>
-              <View style={styles.dot} />
-              <View style={{flex: 1}}>
-                <Text style={styles.addressText}>Deliver: {item.deliveryAddress?.street}, {item.deliveryAddress?.city}</Text>
-                <TouchableOpacity style={styles.inlineNavigateRow} onPress={() => openMap(item.deliveryLocation?.coordinates[1], item.deliveryLocation?.coordinates[0], 'Customer Location', item.deliveryAddress?.street)}>
-                   <Icon name="navigate-circle" size={14} color={theme.colors.primary} />
-                   <Text style={styles.inlineNavigateText}>NAVIGATE TO CUSTOMER</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {(item.status === OrderStatus.RIDER_ASSIGNED || item.status === OrderStatus.AT_SHOP) && item.pickupCode && (
-            <View style={styles.pickupCodeBox}>
-              <View style={styles.pickupCodeContent}>
-                 <Text style={styles.pickupCodeLabel}>PICKUP VERIFICATION CODE</Text>
-                 <Text style={styles.pickupCodeValue}>{item.pickupCode}</Text>
-                 <Text style={styles.pickupCodeHint}>Show this to the merchant to confirm handover</Text>
-              </View>
-              <View style={styles.pickupCodeIcon}>
-                 <Icon name="shield-checkmark" size={32} color="#059669" />
-              </View>
-            </View>
-          )}
-
-          <View style={styles.chatRow}>
-             <TouchableOpacity style={styles.chatBtnSmall} onPress={() => navigation.navigate('Chat', {orderId: item._id, recipientId: item.seller?._id || item.seller})}>
-                <Icon name="storefront-outline" size={16} color={theme.colors.primary} />
-                <Text style={styles.chatBtnTxt}>Chat Shop</Text>
-             </TouchableOpacity>
-             <TouchableOpacity style={styles.chatBtnSmall} onPress={() => navigation.navigate('Chat', {orderId: item._id, recipientId: item.buyer?._id || item.buyer})}>
-                <Icon name="person-outline" size={16} color={theme.colors.primary} />
-                <Text style={styles.chatBtnTxt}>Chat Customer</Text>
-             </TouchableOpacity>
-             <TouchableOpacity style={styles.chatBtnSmall} onPress={() => navigation.navigate('Support')}>
-                <Icon name="help-buoy-outline" size={16} color={theme.colors.primary} />
-                <Text style={styles.chatBtnTxt}>Support</Text>
-             </TouchableOpacity>
-          </View>
-
-          <View style={styles.actionRow}>
-            {item.status === OrderStatus.RIDER_ASSIGNED && (
-              <TouchableOpacity 
-                style={styles.actionBtn}
-                onPress={() => handleStatusUpdate(item._id, OrderStatus.AT_SHOP)}>
-                <Text style={styles.actionBtnText}>Arrived at Shop</Text>
-              </TouchableOpacity>
-            )}
-            {item.status === OrderStatus.AT_SHOP && (
-              <TouchableOpacity 
-                style={styles.actionBtn}
-                onPress={() => handleStatusUpdate(item._id, OrderStatus.PICKED_UP)}>
-                <Text style={styles.actionBtnText}>Picked Up & Start Delivery</Text>
-              </TouchableOpacity>
-            )}
-            {item.status === OrderStatus.PICKED_UP && (
-              <TouchableOpacity 
-                style={styles.actionBtn}
-                onPress={() => handleStatusUpdate(item._id, OrderStatus.IN_TRANSIT)}>
-                <Text style={styles.actionBtnText}>Out for Delivery</Text>
-              </TouchableOpacity>
-            )}
-            {item.status === OrderStatus.IN_TRANSIT && (
-              <TouchableOpacity 
-                style={[styles.actionBtn, {backgroundColor: theme.colors.success}]}
-                onPress={() => handleVerifyDelivery(item._id)}>
-                <Text style={styles.actionBtnText}>Verify OTP & Deliver</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      );
-    } catch (error) {
-      console.error('Error rendering active card:', error);
-      return null;
-    }
-  };
+  const renderActiveCard = ({item}: {item: any}) => (
+    <OrderCard 
+      item={item} 
+      activeTab={activeTab} 
+      handleStatusUpdate={handleStatusUpdate} 
+      navigation={navigation}
+    />
+  );
 
   const renderJobCard = ({item}: {item: any}) => (
     <View style={styles.card}>
@@ -1021,11 +908,23 @@ export default function RiderDashboardScreen({navigation}: any) {
           <Text style={styles.headerSubtitle}>Fleet Management</Text>
           <Text style={styles.headerTitle}>Rider Console</Text>
           <View style={styles.liveIndicatorRow}>
-            <View style={styles.livePulseDot} />
-            <Text style={styles.liveSearchText}>LIVE SEARCH ACTIVE</Text>
+            <View style={[styles.livePulseDot, !user?.isOnline && {backgroundColor: theme.colors.muted}]} />
+            <Text style={[styles.liveSearchText, !user?.isOnline && {color: theme.colors.muted}]}>
+              {user?.isOnline ? 'LIVE SEARCH ACTIVE' : 'OFFLINE'}
+            </Text>
           </View>
         </View>
         <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={[styles.iconBtn, {backgroundColor: user?.isOnline ? '#DCFCE7' : '#F1F5F9'}]} 
+            onPress={handleToggleOnline}
+            disabled={isToggling}>
+            <Icon 
+              name={user?.isOnline ? "radio-button-on" : "radio-button-off"} 
+              size={22} 
+              color={user?.isOnline ? '#059669' : theme.colors.muted} 
+            />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Notifications')}>
             <Icon name="notifications-outline" size={24} color={theme.colors.text} />
             {unreadCount > 0 && <View style={styles.notificationDot} />}

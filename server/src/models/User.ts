@@ -46,7 +46,7 @@ const userSchema = new Schema<IUserDocument>({
   },
   walletBalance: { type: Number, default: 0 },
   cashInHand: { type: Number, default: 0 },  // Cash collected from COD
-  cashLimit: { type: Number, default: 2000 }, // Default safety limit
+  isOnline: { type: Boolean, default: false },
   isBlocked: { type: Boolean, default: false }
 }, { timestamps: true });
 

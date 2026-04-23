@@ -26,7 +26,7 @@ export const SocketProvider: React.FC<{children: React.ReactNode}> = ({
   const {user, refreshUser, logout} = useAuth();
 
   useEffect(() => {
-    const BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8082' : 'http://localhost:8082';
+    const BASE_URL = 'https://velto-marketplace.onrender.com'; // Production socket server
     // Using hardcoded URL to rule out react-native-config issues
     const newSocket = io(BASE_URL);
 

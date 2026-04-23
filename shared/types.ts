@@ -84,10 +84,10 @@ export interface IUser {
   };
   walletBalance?: number;
   cashInHand?: number;
-  cashLimit?: number;
   isBlocked?: boolean;
   shopRejectionReason?: string;
   hasShop?: boolean;
+  isOnline?: boolean;
   createdAt?: string | Date;
 }
 

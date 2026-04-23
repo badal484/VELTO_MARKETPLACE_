@@ -177,6 +177,7 @@ export const getAvailableJobs = async (req: Request, res: Response): Promise<voi
     }
 
     const jobs = await OrderService.getAvailableJobs(
+      req.user?._id.toString()!,
       [Number(lng), Number(lat)],
       radius ? Number(radius) : 5000
     );

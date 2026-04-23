@@ -122,18 +122,20 @@ export const deleteAddress = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const getAdminContact = async (req: Request, res: Response): Promise<any> => {
+export const toggleOnlineStatus = async (req: Request, res: Response): Promise<any> => {
   try {
-    // Find the most recently active admin
-    const admin = await User.findOne({ role: 'admin' })
-      .sort({ updatedAt: -1 })
-      .select('_id name email avatar');
-    
-    if (!admin) {
-      return res.status(404).json({ success: false, message: 'Support team is currently offline' });
-    }
-    return res.status(200).json({ success: true, data: admin });
+    const user = await User.findById((req as any).user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    user.isOnline = !user.isOnline;
+    await user.save();
+
+    return res.status(200).json({ 
+      success: true, 
+      data: { isOnline: user.isOnline }, 
+      message: `You are now ${user.isOnline ? 'Online' : 'Offline'}` 
+    });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    handleError(error, res);
   }
 };

@@ -30,7 +30,24 @@ export const getStatusDisplay = (status: OrderStatus) => {
       return { label: 'Cancelled', color: '#EF4444' }; // danger
     case OrderStatus.PRICE_LOCKED:
       return { label: 'Price Locked', color: '#94A3B8' }; // muted
-    default:
-      return { label: status, color: '#94A3B8' };
   }
 };
+
+/**
+ * Statuses that represent an active delivery in progress
+ */
+export const ACTIVE_DELIVERY_STATUSES: OrderStatus[] = [
+  OrderStatus.RIDER_ASSIGNED,
+  OrderStatus.AT_SHOP,
+  OrderStatus.PICKED_UP,
+  OrderStatus.IN_TRANSIT,
+];
+
+/**
+ * Statuses that represent a finished or completed delivery
+ */
+export const FINISHED_DELIVERY_STATUSES: OrderStatus[] = [
+  OrderStatus.DELIVERED,
+  OrderStatus.COMPLETED_PENDING_RELEASE,
+  OrderStatus.COMPLETED,
+];

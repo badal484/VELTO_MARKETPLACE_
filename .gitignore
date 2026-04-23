@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.DS_Store
+
+# Mobile Build Files
+*.apk
+*.aab
+*.log
+client/android/app/build/
+client/ios/build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/

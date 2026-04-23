@@ -13,7 +13,6 @@ import { WorkflowService } from './workflowService';
 import { RazorpayService } from './RazorpayService';
 
 export class OrderService {
-  private static readonly MAX_COD_AMOUNT = 5000; // Safety cap for physical cash risk
 
   /**
    * Status Transition Matrix
@@ -188,19 +187,26 @@ export class OrderService {
 
     await WorkflowService.syncOrderState(order._id.toString(), newStatus);
     
-    // 🚚 Auto-Assignment Trigger for 20-Minute Delivery
+    // 🚚 Auto-Assignment disabled per user request for manual testing/demo purposes
+    /*
     if (newStatus === OrderStatus.SEARCHING_RIDER) {
       console.log(`[AUTO-ASSIGN] Order ${orderId} is looking for a rider. Attempting auto-match...`);
-      // Run auto-assignment in the background to avoid blocking the API response
       OrderService.autoAssignRider(orderId).catch(err => {
         console.error('[AUTO-ASSIGN] Error during matching:', err);
       });
     }
+    */
 
     return order;
   }
 
-  static async getAvailableJobs(riderLocation: [number, number], radiusMetres: number = 5000) {
+  static async getAvailableJobs(riderId: string, riderLocation: [number, number], radiusMetres: number = 5000) {
+    const rider = await User.findById(riderId);
+    if (!rider || !rider.isOnline) {
+      console.log(`[GEO] Rider ${riderId} is offline. No jobs returned.`);
+      return [];
+    }
+
     console.log(`[GEO] Searching jobs for rider at: lng=${riderLocation[0]}, lat=${riderLocation[1]} (radius: ${radiusMetres}m)`);
     
     const results = await Order.aggregate([
@@ -214,7 +220,8 @@ export class OrderService {
           query: { 
             status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
             fulfillmentMethod: 'delivery',
-            rider: { $exists: false }
+            rider: { $exists: false },
+            seller: { $ne: new mongoose.Types.ObjectId(riderId) }
           }
         }
       },
@@ -274,6 +281,15 @@ export class OrderService {
     const rider = await User.findById(riderId);
     if (!rider || !rider.isRiderVerified) {
       throw new AppError('You must be a verified rider to claim orders', 403);
+    }
+    
+    if (!rider.isOnline) {
+      throw new AppError('You are currently offline. Please go online to claim jobs.', 403);
+    }
+
+    const orderToClaim = await Order.findById(orderId);
+    if (orderToClaim && orderToClaim.seller.toString() === riderId) {
+      throw new AppError('Security Alert: You cannot claim your own shop orders for delivery.', 403);
     }
 
     // Liability limit check removed as per user request to allow larger single-order cash handling.
@@ -364,7 +380,7 @@ export class OrderService {
               role: Role.RIDER,
               isRiderVerified: true,
               isBlocked: { $ne: true },
-              _id: { $nin: maxedRiders }
+              _id: { $nin: [...maxedRiders, order.seller] }
             }
           }
         },
@@ -494,11 +510,6 @@ export class OrderService {
             coordinates: [data.lng, data.lat]
           } : undefined
         }], { session });
-
-        // 🚨 SECURE COD GUARDRAIL: Check Price Cap 🚨
-        if (paymentMethod === 'Cash on Delivery' && itemTotalPrice > OrderService.MAX_COD_AMOUNT) {
-          throw new AppError(`High-Value Protection: COD is not available for orders above ₹${OrderService.MAX_COD_AMOUNT}. Please use Razorpay.`, 400);
-        }
 
         // 4. Atomic Stock Update
         const updatedProduct = await Product.findOneAndUpdate(
