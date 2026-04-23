@@ -185,6 +185,12 @@ export class OrderService {
       await WalletService.refundToWallet(orderId);
     }
 
+    if (newStatus === OrderStatus.DELIVERED) {
+      // 🏁 Automatic Financial Settlement on Delivery
+      // This bypasses the need for OTP verification
+      await OrderService.completeOrderFulfillment(order);
+    }
+
     await WorkflowService.syncOrderState(order._id.toString(), newStatus);
     
     // 🚚 Auto-Assignment disabled per user request for manual testing/demo purposes
@@ -603,5 +609,32 @@ export class OrderService {
     } finally {
       session.endSession();
     }
+  }
+
+  static async completeOrderFulfillment(order: any) {
+    const orderId = order._id.toString();
+    
+    // 1. Credit Seller Earnings
+    await WalletService.creditSellerEarnings(orderId);
+    
+    // 2. Credit Rider Earnings (if a rider is assigned)
+    if (order.rider) {
+      await WalletService.creditEarnings(orderId);
+      
+      // 3. Process COD Liability if applicable
+      if (order.paymentMethod === 'Cash on Delivery') {
+        await WalletService.processCODFulfillment(orderId);
+      }
+    }
+
+    // 4. Update final status
+    const finalStatus = order.paymentMethod === 'Cash on Delivery' 
+      ? OrderStatus.COMPLETED 
+      : OrderStatus.COMPLETED_PENDING_RELEASE;
+      
+    order.status = finalStatus;
+    await order.save();
+
+    await WorkflowService.syncOrderState(orderId, finalStatus, `✅ Delivery Confirmed: Fulfillment complete.`);
   }
 }

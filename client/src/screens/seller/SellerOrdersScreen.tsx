@@ -295,18 +295,10 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
             )}
 
             {item.status === OrderStatus.RIDER_ASSIGNED && (
-               <Button 
-                title="Handover to Rider" 
-                type="success" 
-                onPress={() => {
-                   Alert.alert('Rider Pickup', 'Verify that the rider has shown you the correct pickup code on their app before handing over the package.', [
-                     { text: 'Cancel', style: 'cancel' },
-                     { text: 'Handed Over', onPress: () => handleUpdateStatus(item._id, OrderStatus.PICKED_UP) }
-                   ]);
-                }}
-                icon={<Icon name="bicycle-outline" size={18} color="white" />}
-                style={styles.fullBtn}
-              />
+               <View style={styles.searchingBox}>
+                 <Icon name="bicycle" size={16} color="#059669" />
+                 <Text style={[styles.searchingTxt, {color: '#059669'}]}>Rider is picking up the package...</Text>
+               </View>
             )}
 
             {isCompleted && (
