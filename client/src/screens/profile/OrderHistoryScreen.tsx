@@ -204,7 +204,8 @@ export default function OrderHistoryScreen({
   };
 
   const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
-    const { label, color } = getStatusDisplay(item.status as OrderStatus);
+    const statusDisplay = getStatusDisplay(item.status as OrderStatus) || { label: (item.status || 'Active').replace(/_/g, ' '), color: theme.colors.primary };
+    const { label, color } = statusDisplay;
     const orderDate = new Date(item.createdAt ?? Date.now()).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
@@ -362,7 +363,7 @@ export default function OrderHistoryScreen({
           {/* OTP Section for current state */}
           {item.status === OrderStatus.READY_FOR_PICKUP && item.fulfillmentMethod === 'pickup' && (
              <View style={styles.otpCard}>
-                <Text style={styles.otpLabel}>STORE PICKUP PIN</Text>
+                <Text style={styles.otpLabel}>PICKUP PIN</Text>
                <Text style={styles.otpValue}>{item.pickupCode}</Text>
                <Text style={styles.otpTip}>Share this with the seller at the shop</Text>
              </View>
@@ -471,8 +472,18 @@ export default function OrderHistoryScreen({
             </Text>
             <TouchableOpacity
               style={styles.exploreButton}
-              onPress={() => (navigation.navigate as any)('HomeTab')}>
-              <Text style={styles.exploreButtonText}>{t('cart.start_shopping')}</Text>
+              onPress={() => {
+                if (user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) {
+                  (navigation.navigate as any)('DashboardTab');
+                } else if (user?.role === Role.RIDER) {
+                   (navigation.navigate as any)('RiderTab');
+                } else {
+                  (navigation.navigate as any)('HomeTab');
+                }
+              }}>
+              <Text style={styles.exploreButtonText}>
+                {user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER ? 'Go to Dashboard' : t('cart.start_shopping')}
+              </Text>
               <Icon name="arrow-forward" size={18} color={theme.colors.white} />
             </TouchableOpacity>
           </Animated.View>

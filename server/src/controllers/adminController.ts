@@ -15,7 +15,6 @@ import { handleError, AppError } from '../utils/errors';
 
 export const getPendingShops = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Robust check for shops that are NOT verified AND don't have a valid rejection reason
     const shops = await Shop.find({ 
       isVerified: false, 
       $or: [
@@ -23,17 +22,16 @@ export const getPendingShops = async (req: Request, res: Response): Promise<void
         { rejectionReason: null },
         { rejectionReason: "" }
       ]
-    }).populate('owner', 'name email');
+    }).populate('owner', 'name email phoneNumber').lean();
     res.json({ success: true, data: shops });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
 export const getAllShops = async (req: Request, res: Response): Promise<void> => {
   try {
     const shops = await Shop.aggregate([
-      // Lookup listings count
       {
         $lookup: {
           from: 'products',
@@ -42,7 +40,6 @@ export const getAllShops = async (req: Request, res: Response): Promise<void> =>
           as: 'listings'
         }
       },
-      // Lookup total revenue from orders
       {
         $lookup: {
           from: 'orders',
@@ -51,7 +48,6 @@ export const getAllShops = async (req: Request, res: Response): Promise<void> =>
           as: 'orders'
         }
       },
-      // Lookup owner details
       {
         $lookup: {
           from: 'users',
@@ -64,12 +60,20 @@ export const getAllShops = async (req: Request, res: Response): Promise<void> =>
       {
         $project: {
           name: 1,
+          businessName: 1,
+          description: 1,
           category: 1,
           isVerified: 1,
           rejectionReason: 1,
           address: 1,
+          detailedAddress: 1,
+          bankDetails: 1,
+          contactInfo: 1,
+          logo: 1,
+          isTermsAccepted: 1,
           createdAt: 1,
-          owner: { _id: 1, name: 1, email: 1 },
+          verifiedAt: 1,
+          owner: { _id: 1, name: 1, email: 1, phoneNumber: 1 },
           listingCount: { $size: '$listings' },
           totalRevenue: {
             $sum: {
@@ -92,13 +96,12 @@ export const getAllShops = async (req: Request, res: Response): Promise<void> =>
 
     res.json({ success: true, data: shops });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
 export const approveShop = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log(`--- APPROVING SHOP: ${req.params.id} ---`);
     const shop = await Shop.findByIdAndUpdate(
       req.params.id,
       { isVerified: true, verifiedAt: new Date(), rejectionReason: undefined },
@@ -106,10 +109,8 @@ export const approveShop = async (req: Request, res: Response): Promise<void> =>
     );
     
     if (shop) {
-      // Step 1: Update the user's role to shop owner
       await User.findByIdAndUpdate(shop.owner, { role: 'shop_owner' });
 
-      // Step 2: Push real-time event to the owner's active session
       io.to(shop.owner.toString()).emit('shop_status_update', { 
         success: true, 
         isVerified: true, 
@@ -117,31 +118,24 @@ export const approveShop = async (req: Request, res: Response): Promise<void> =>
       });
       io.to(shop.owner.toString()).emit(SocketEvent.USER_STATE_UPDATED, { role: 'shop_owner', isVerified: true });
 
-      // Step 3: Save formal notification and dispatch push alert
-      try {
-        await NotificationService.send({
-          recipient: shop.owner.toString(),
-          type: NotificationType.SHOP,
-          title: 'Shop Verified',
-          message: 'Success: Your shop has been officially verified. You are now authorized to list products and accept orders from the community. Welcome to Velto.',
-          data: { shopId: shop._id }
-        });
-      } catch (notifyErr) {
-        console.error('Notification Error:', notifyErr);
-      }
+      await NotificationService.send({
+        recipient: shop.owner.toString(),
+        type: NotificationType.SHOP,
+        title: 'Shop Verified',
+        message: 'Success: Your shop has been officially verified. You are now authorized to list products and accept orders from the community. Welcome to Velto.',
+        data: { shopId: shop._id }
+      }).catch(notifyErr => console.error('Notification Error:', notifyErr));
     }
 
     res.json({ success: true, data: shop });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
 export const rejectShop = async (req: Request, res: Response): Promise<void> => {
   try {
     const { reason } = req.body;
-    console.log(`--- REJECTING SHOP: ${req.params.id} ---`);
-    console.log('REASON:', reason);
     
     const shop = await Shop.findByIdAndUpdate(
       req.params.id,
@@ -149,7 +143,6 @@ export const rejectShop = async (req: Request, res: Response): Promise<void> => 
       { new: true }
     );
     if (shop) {
-      // Step 1: Push real-time rejection event
       io.to(shop.owner.toString()).emit('shop_status_update', { 
         success: true, 
         isVerified: false, 
@@ -158,23 +151,18 @@ export const rejectShop = async (req: Request, res: Response): Promise<void> => 
       });
       io.to(shop.owner.toString()).emit(SocketEvent.USER_STATE_UPDATED, { isVerified: false, rejectionReason: reason });
 
-      // Step 2: Save formal notification and dispatch push alert
-      try {
-        await NotificationService.send({
-          recipient: shop.owner.toString(),
-          type: NotificationType.SHOP,
-          title: 'Verification Update',
-          message: `Application Update: Your shop verification could not be completed at this time. Reason: ${reason}. Please update your profile with valid details to re-apply.`,
-          data: { shopId: shop._id, rejectionReason: reason }
-        });
-      } catch (notifyErr) {
-        console.error('Notification Error:', notifyErr);
-      }
+      await NotificationService.send({
+        recipient: shop.owner.toString(),
+        type: NotificationType.SHOP,
+        title: 'Verification Update',
+        message: `Application Update: Your shop verification could not be completed at this time. Reason: ${reason}. Please update your profile with valid details to re-apply.`,
+        data: { shopId: shop._id, rejectionReason: reason }
+      }).catch(notifyErr => console.error('Notification Error:', notifyErr));
     }
 
     res.json({ success: true, data: shop });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -182,7 +170,6 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await User.aggregate([
       { $match: {} },
-      // Lookup orders as buyer
       {
         $lookup: {
           from: 'orders',
@@ -191,7 +178,6 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
           as: 'buyerOrders'
         }
       },
-      // Lookup shop if they own one
       {
         $lookup: {
           from: 'shops',
@@ -209,7 +195,6 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
            totalSpent: { $sum: '$buyerOrders.totalPrice' },
            orderCount: { $size: '$buyerOrders' },
            shop: { $arrayElemAt: ['$shop', 0] },
-           // Rider Fields
             isRiderVerified: 1,
             riderStatus: 1,
             riderRejectionReason: 1,
@@ -223,7 +208,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     
     res.json({ success: true, data: users });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -231,32 +216,29 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   try {
     const { id } = req.params;
 
-    // 1. Prevent self-deletion or platform-admin deletion
     if (req.user?._id.toString() === id) {
-      throw new Error('Self-deletion is not permitted. Contact a platform administrator.');
+      throw new AppError('Self-deletion is not permitted. Contact a platform administrator.', 400);
     }
 
     const userToDelete = await User.findById(id);
     if (userToDelete?.email === 'admin@velto.com') {
-      throw new Error('The primary platform administrator account cannot be deleted.');
+      throw new AppError('The primary platform administrator account cannot be deleted.', 400);
     }
 
-    // 2. Check for active orders as buyer or seller
     const activeOrder = await Order.findOne({
       $or: [{ buyer: id }, { seller: id }],
       status: { $nin: ['completed', 'cancelled'] }
     });
 
     if (activeOrder) {
-      throw new Error('Cannot delete user with active orders. Complete or cancel orders first.');
+      throw new AppError('Cannot delete user with active orders. Complete or cancel orders first.', 400);
     }
 
-    // 2. Check if user owns a shop with products
     const shop = await Shop.findOne({ owner: id });
     if (shop) {
       const productCount = await Product.countDocuments({ shop: shop._id });
       if (productCount > 0) {
-        throw new Error('Cannot delete user who owns a shop with listed products. Delete products first.');
+        throw new AppError('Cannot delete user who owns a shop with listed products. Delete products first.', 400);
       }
       await shop.deleteOne();
     }
@@ -264,14 +246,14 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     await User.findByIdAndDelete(id);
     res.json({ success: true, message: 'User and associated shop (if empty) deleted successfully' });
   } catch (error) {
-    res.status(400).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
 export const toggleUserBlock = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new AppError('User not found', 404);
     
     user.isBlocked = !user.isBlocked;
     await user.save();
@@ -282,13 +264,12 @@ export const toggleUserBlock = async (req: Request, res: Response): Promise<void
       data: { isBlocked: user.isBlocked }
     });
 
-    // Real-time Push
     io.to(user._id.toString()).emit(SocketEvent.USER_STATE_UPDATED, { isBlocked: user.isBlocked });
     if (user.isBlocked) {
       io.to(user._id.toString()).emit('force_logout', { message: 'Your account has been restricted by an administrator.' });
     }
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -299,14 +280,13 @@ export const verifyRider = async (req: Request, res: Response): Promise<void> =>
       { 
         isRiderVerified: true, 
         riderStatus: 'verified',
-        role: 'rider', // Assign the Rider role upon verification
+        role: 'rider',
         riderRejectionReason: undefined 
       },
       { new: true }
     );
     
     if (user) {
-      // Push real-time event
       io.to(user._id.toString()).emit('rider_status_update', { 
         success: true, 
         isRiderVerified: true, 
@@ -315,19 +295,18 @@ export const verifyRider = async (req: Request, res: Response): Promise<void> =>
       });
       io.to(user._id.toString()).emit(SocketEvent.USER_STATE_UPDATED, { role: 'rider', isRiderVerified: true });
 
-      // Formal notification and push alert
       await NotificationService.send({
         recipient: user._id.toString(),
         type: NotificationType.INFO,
         title: 'Platform Access: Rider Verified',
         message: 'Success: Your documentation has been verified. You can now accept deliveries on the Velto platform.',
         data: { userId: user._id }
-      });
+      }).catch(err => console.error('Rider notify error:', err));
     }
 
     res.json({ success: true, data: user });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -345,7 +324,6 @@ export const rejectRider = async (req: Request, res: Response): Promise<void> =>
     );
     
     if (user) {
-      // Push real-time rejection event
       io.to(user._id.toString()).emit('rider_status_update', { 
         success: true, 
         isRiderVerified: false, 
@@ -355,19 +333,18 @@ export const rejectRider = async (req: Request, res: Response): Promise<void> =>
       });
       io.to(user._id.toString()).emit(SocketEvent.USER_STATE_UPDATED, { isRiderVerified: false, riderStatus: 'rejected', rejectionReason: reason });
 
-      // Formal notification and push alert
       await NotificationService.send({
         recipient: user._id.toString(),
         type: NotificationType.INFO,
         title: 'Verification Update',
         message: `Application Update: Your rider verification could not be completed at this time. Reason: ${reason}. Please update your profile with valid documents to re-apply.`,
         data: { userId: user._id, rejectionReason: reason }
-      });
+      }).catch(err => console.error('Rider reject notify error:', err));
     }
 
     res.json({ success: true, data: user });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -384,20 +361,19 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
 
-    // Check if product is part of any active order
     const activeOrder = await Order.findOne({
       product: id,
       status: { $nin: ['completed', 'cancelled'] }
     });
 
     if (activeOrder) {
-      throw new Error('Cannot delete product with active orders. Complete or cancel orders first.');
+      throw new AppError('Cannot delete product with active orders. Complete or cancel orders first.', 400);
     }
 
     await Product.findByIdAndDelete(id);
     res.json({ success: true, message: 'Product deleted' });
   } catch (error) {
-    res.status(400).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -412,7 +388,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     const totalOrders = await Order.countDocuments();
     const totalConversations = await Conversation.countDocuments({});
 
-    // Aggregation for Total Revenue
     const revenueData = await Order.aggregate([
       { $match: { status: { $ne: 'cancelled' } } },
       { $group: { _id: null, total: { $sum: '$totalPrice' } } }
@@ -420,7 +395,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
 
     const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
 
-    // Aggregation for Daily Sales (Last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -436,7 +410,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       { $sort: { "_id": 1 } }
     ]);
 
-    // Aggregation for Monthly Sales (Last 6 months)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
@@ -452,7 +425,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       { $sort: { "_id": 1 } }
     ]);
 
-    // High-Precision Platform Commission Calculation (5% Item Cut + 10% Delivery Cut)
     const commissionStats = await Order.aggregate([
       { $match: { status: 'completed' } },
       {
@@ -468,7 +440,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       ? (commissionStats[0].sellerComm + commissionStats[0].riderComm) 
       : 0;
 
-    // Aggregation for Top 5 Shops by Revenue
     const topShops = await Order.aggregate([
       { $match: { status: { $ne: 'cancelled' } } },
       {
@@ -499,7 +470,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       }
     ]);
 
-    // Order Distribution
     const orderDistribution = await Order.aggregate([
       {
         $group: {
@@ -509,7 +479,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       }
     ]);
 
-    // Rider Funnel
     const totalRiders = await User.countDocuments({ role: 'rider' });
     const pendingRiders = await User.countDocuments({ riderStatus: 'pending' });
 
@@ -535,7 +504,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -558,12 +527,11 @@ export const forceReleaseOrder = async (req: Request, res: Response): Promise<vo
     const { id } = req.params;
     const order = await Order.findById(id);
     
-    if (!order) throw new Error('Order not found');
+    if (!order) throw new AppError('Order not found', 404);
     
-    // Only allow releasing if the order is currently assigned to a rider and not completed
-    if (!order.rider) throw new Error('Order is not currently assigned to any rider');
+    if (!order.rider) throw new AppError('Order is not currently assigned to any rider', 400);
     if (['completed', 'cancelled'].includes(order.status as string)) {
-      throw new Error('Cannot release a finalized order');
+      throw new AppError('Cannot release a finalized order', 400);
     }
 
     const previousRiderId = order.rider;
@@ -571,13 +539,11 @@ export const forceReleaseOrder = async (req: Request, res: Response): Promise<vo
     order.status = OrderStatus.SEARCHING_RIDER;
     await order.save();
 
-    // Notify the previous rider that they've been unassigned
     io.to(previousRiderId.toString()).emit('order_unassigned', {
       orderId: order._id,
       message: 'You have been unassigned from this order by an administrator.'
     });
 
-    // Notify buyer and seller
     await WorkflowService.syncOrderState(
       order._id.toString(), 
       OrderStatus.SEARCHING_RIDER, 
@@ -586,7 +552,7 @@ export const forceReleaseOrder = async (req: Request, res: Response): Promise<vo
 
     res.json({ success: true, message: 'Order released and reset to searching rider' });
   } catch (error) {
-    res.status(400).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 

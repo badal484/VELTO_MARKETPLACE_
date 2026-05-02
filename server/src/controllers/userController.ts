@@ -2,24 +2,24 @@ import { Request, Response } from 'express';
 import { User } from '../models/User';
 import { UserService } from '../services/userService';
 import { updateProfileSchema, addressSchema, riderRegisterSchema } from '../utils/validation';
-import { handleError } from '../utils/errors';
+import { handleError, AppError } from '../utils/errors';
 import { imageKitService } from '../services/imageKitService';
 
-export const updateAvatar = async (req: Request, res: Response): Promise<any> => {
+export const updateAvatar = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please upload an image' });
+      throw new AppError('Please upload an image', 400);
     }
 
     const avatarUrl = await imageKitService.uploadImage(req.file, 'avatars');
     
-    const user = await User.findById((req as any).user._id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const user = await User.findById(req.user?._id);
+    if (!user) throw new AppError('User not found', 404);
 
     user.avatar = avatarUrl;
     await user.save();
 
-    return res.status(200).json({ 
+    res.status(200).json({ 
       success: true, 
       data: { avatar: avatarUrl }, 
       message: 'Avatar updated successfully' 
@@ -29,13 +29,13 @@ export const updateAvatar = async (req: Request, res: Response): Promise<any> =>
   }
 };
 
-export const updateProfile = async (req: Request, res: Response): Promise<any> => {
+export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
-    const validatedData = updateProfileSchema.parse(req.body);
-    const user = await User.findById((req as any).user._id);
+    const validatedData = req.body;
+    const user = await User.findById(req.user?._id);
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      throw new AppError('User not found', 404);
     }
 
     if (validatedData.name) user.name = validatedData.name;
@@ -43,7 +43,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<any> =
 
     await user.save();
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       data: {
         _id: user._id,
@@ -53,28 +53,28 @@ export const updateProfile = async (req: Request, res: Response): Promise<any> =
         phoneNumber: user.phoneNumber,
         addresses: user.addresses
       },
-       message: 'Profile updated successfully'
+      message: 'Profile updated successfully'
     });
   } catch (error: any) {
     handleError(error, res);
   }
 };
 
-export const registerRider = async (req: Request, res: Response): Promise<any> => {
+export const registerRider = async (req: Request, res: Response): Promise<void> => {
   try {
-    const validatedData = riderRegisterSchema.parse(req.body);
-    const user = await UserService.registerAsRider((req as any).user?._id.toString()!, validatedData);
-    return res.json({ success: true, data: user, message: 'Rider application submitted' });
+    const validatedData = req.body;
+    const user = await UserService.registerAsRider(req.user?._id.toString()!, validatedData);
+    res.json({ success: true, data: user, message: 'Rider application submitted' });
   } catch (error) {
     handleError(error, res);
   }
 };
 
-export const addAddress = async (req: Request, res: Response): Promise<any> => {
+export const addAddress = async (req: Request, res: Response): Promise<void> => {
   try {
-    const validatedData = addressSchema.parse(req.body);
-    const user = await User.findById((req as any).user._id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const validatedData = req.body;
+    const user = await User.findById(req.user?._id);
+    if (!user) throw new AppError('User not found', 404);
 
     if (!user.addresses) {
       user.addresses = [];
@@ -98,39 +98,40 @@ export const addAddress = async (req: Request, res: Response): Promise<any> => {
     user.addresses.push(newAddress);
     await user.save();
 
-    return res.status(201).json({ success: true, data: user.addresses, message: 'Address added successfully' });
+    res.status(201).json({ success: true, data: user.addresses, message: 'Address added successfully' });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    handleError(error, res);
   }
 };
 
-export const deleteAddress = async (req: Request, res: Response): Promise<any> => {
+export const deleteAddress = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById((req as any).user._id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const user = await User.findById(req.user?._id);
+    if (!user) throw new AppError('User not found', 404);
 
     if (!user.addresses) {
-      return res.status(200).json({ success: true, data: [], message: 'No addresses to remove' });
+      res.status(200).json({ success: true, data: [], message: 'No addresses to remove' });
+      return;
     }
 
     user.addresses = user.addresses.filter(addr => addr._id?.toString() !== req.params.id);
     await user.save();
 
-    return res.status(200).json({ success: true, data: user.addresses, message: 'Address removed' });
+    res.status(200).json({ success: true, data: user.addresses, message: 'Address removed' });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    handleError(error, res);
   }
 };
 
-export const toggleOnlineStatus = async (req: Request, res: Response): Promise<any> => {
+export const toggleOnlineStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById((req as any).user._id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const user = await User.findById(req.user?._id);
+    if (!user) throw new AppError('User not found', 404);
 
     user.isOnline = !user.isOnline;
     await user.save();
 
-    return res.status(200).json({ 
+    res.status(200).json({ 
       success: true, 
       data: { isOnline: user.isOnline }, 
       message: `You are now ${user.isOnline ? 'Online' : 'Offline'}` 

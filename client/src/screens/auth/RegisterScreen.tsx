@@ -20,6 +20,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeInUp, FadeIn} from 'react-native-reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {AuthStackParamList} from '../../navigation/AuthNavigator';
+import {registerSchema} from '@shared/validation';
 
 type RegisterScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -42,8 +43,10 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
   const handleRegister = async () => {
     if (loading) return;
     
-    if (!name || !email || !password) {
-      setError('Please fill in all fields');
+    // Zod Validation
+    const validation = registerSchema.safeParse({name, email, password});
+    if (!validation.success) {
+      setError(validation.error.errors[0].message);
       return;
     }
 

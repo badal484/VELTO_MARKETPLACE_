@@ -39,7 +39,7 @@ interface AdminStats {
   };
 }
 
-export default function AdminOverviewScreen() {
+export default function AdminOverviewScreen({navigation}: {navigation: any}) {
   const {showToast} = useToast();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [pendingShops, setPendingShops] = useState<IShop[]>([]);
@@ -278,48 +278,52 @@ export default function AdminOverviewScreen() {
               <Animated.View
                 key={String(shop._id)}
                 entering={FadeInRight.delay(index * 150)}>
-                <Card style={styles.shopCard} variant="elevated">
-                  <View style={styles.shopContent}>
-                    <View style={styles.shopInfo}>
-                      <Text style={styles.shopName} numberOfLines={1}>
-                        {shop.name}
-                      </Text>
-                      <View style={styles.locRow}>
-                        <Icon
-                          name="location-outline"
-                          size={12}
-                          color={theme.colors.muted}
-                        />
-                        <Text style={styles.shopAddress} numberOfLines={1}>
-                          {shop.address}
+                <TouchableOpacity 
+                  activeOpacity={0.9} 
+                  onPress={() => navigation.navigate('Pending')}>
+                  <Card style={styles.shopCard} variant="elevated">
+                    <View style={styles.shopContent}>
+                      <View style={styles.shopInfo}>
+                        <Text style={styles.shopName} numberOfLines={1}>
+                          {shop.name}
+                        </Text>
+                        <View style={styles.locRow}>
+                          <Icon
+                            name="location-outline"
+                            size={12}
+                            color={theme.colors.muted}
+                          />
+                          <Text style={styles.shopAddress} numberOfLines={1}>
+                            {shop.address}
+                          </Text>
+                        </View>
+                        <Text style={styles.ownerText}>
+                          Owner:{' '}
+                          {(shop.owner as unknown as IUser)?.name || 'Merchant'}
                         </Text>
                       </View>
-                      <Text style={styles.ownerText}>
-                        Owner:{' '}
-                        {(shop.owner as unknown as IUser)?.name || 'Merchant'}
-                      </Text>
+                      <View style={styles.catBadge}>
+                        <Text style={styles.catText}>{shop.category}</Text>
+                      </View>
                     </View>
-                    <View style={styles.catBadge}>
-                      <Text style={styles.catText}>{shop.category}</Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.actions}>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, styles.approveBtn]}
-                      onPress={() => handleApprove(String(shop._id))}>
-                      <Text style={styles.btnText}>Quick Verify</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, styles.rejectBtn]}
-                      onPress={() => handleReject(String(shop._id))}>
-                      <Text
-                        style={[styles.btnText, {color: theme.colors.danger}]}>
-                        Refuse
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </Card>
+                    <View style={styles.actions}>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.approveBtn]}
+                        onPress={() => handleApprove(String(shop._id))}>
+                        <Text style={styles.btnText}>Quick Verify</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.rejectBtn]}
+                        onPress={() => handleReject(String(shop._id))}>
+                        <Text
+                          style={[styles.btnText, {color: theme.colors.danger}]}>
+                          Refuse
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </Card>
+                </TouchableOpacity>
               </Animated.View>
             ))
           )}

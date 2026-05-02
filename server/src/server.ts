@@ -130,6 +130,7 @@ mongoose.connect(MONGO_URI)
         // Start background jobs & Seed
         await seedBanners();
         FundReleaseJob.init();
+        console.log('🚀 Velto Server fully initialized and ready.');
       } catch (err) {
         console.error('❌ CRITICAL ERROR DURING STARTUP JOBS:', err);
       }

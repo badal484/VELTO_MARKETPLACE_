@@ -22,8 +22,9 @@ if (!getApps().length) {
   console.log('ℹ️ [DEBUG] Firebase already initialized (apps length:', getApps().length, ')');
 }
 
-// Phase 4: Handle background push notifications (Temporarily disabled for stability - Re-enable after native rebuild)
-// FCMService.setBackgroundHandler();
+// Phase 4: Handle background push notifications
+import { FCMService } from './src/services/FCMService';
+FCMService.setBackgroundHandler();
 
 AppRegistry.registerComponent(appName, () => App);
 AppRegistry.registerComponent('NexBuy', () => App);

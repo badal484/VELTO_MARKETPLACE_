@@ -100,24 +100,34 @@ export default function WalletScreen({navigation}: any) {
     }
   };
 
-  const renderTransaction = ({item}: {item: any}) => (
-    <View style={styles.transactionCard}>
-      <View style={styles.txIconContainer}>
-        <Icon 
-          name={item.type === 'credit' ? 'arrow-down-circle' : 'arrow-up-circle'} 
-          size={24} 
-          color={item.type === 'credit' ? theme.colors.success : theme.colors.danger} 
-        />
+  const renderTransaction = ({item}: {item: any}) => {
+    const isCredit = item.type === 'credit';
+    const isLiability = item.description?.includes('COD') || item.description?.includes('Offset');
+    
+    return (
+      <View style={styles.transactionCard}>
+        <View style={[styles.txIconContainer, {backgroundColor: isLiability ? '#F1F5F9' : (isCredit ? theme.colors.success + '10' : theme.colors.danger + '10')}]}>
+          <Icon 
+            name={isLiability ? 'swap-horizontal' : (isCredit ? 'arrow-down-circle' : 'arrow-up-circle')} 
+            size={24} 
+            color={isLiability ? theme.colors.muted : (isCredit ? theme.colors.success : theme.colors.danger)} 
+          />
+        </View>
+        <View style={styles.txInfo}>
+          <Text style={styles.txDescription} numberOfLines={1}>{item.description}</Text>
+          <Text style={styles.txDate}>{format(new Date(item.createdAt), 'dd MMM yyyy, hh:mm a')}</Text>
+        </View>
+        <View style={{alignItems: 'flex-end'}}>
+          <Text style={[styles.txAmount, {color: isLiability ? theme.colors.text : (isCredit ? theme.colors.success : theme.colors.danger)}]}>
+            {isCredit ? '+' : '-'}₹{item.amount}
+          </Text>
+          {isLiability && (
+            <Text style={{fontSize: 9, fontWeight: '700', color: theme.colors.muted}}>CASH TRK</Text>
+          )}
+        </View>
       </View>
-      <View style={styles.txInfo}>
-        <Text style={styles.txDescription}>{item.description}</Text>
-        <Text style={styles.txDate}>{format(new Date(item.createdAt), 'dd MMM yyyy, hh:mm a')}</Text>
-      </View>
-      <Text style={[styles.txAmount, {color: item.type === 'credit' ? theme.colors.success : theme.colors.danger}]}>
-        {item.type === 'credit' ? '+' : '-'}₹{item.amount}
-      </Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -139,7 +149,16 @@ export default function WalletScreen({navigation}: any) {
             title="Withdraw Funds" 
             type="accent" 
             style={styles.withdrawBtn}
-            onPress={() => setShowPayoutModal(true)}
+            onPress={() => {
+              // Pre-fill from user profile
+              if (user?.bankDetails) {
+                setHolderName(user.bankDetails.holderName || '');
+                setBankName(user.bankDetails.bankName || '');
+                setAccountNumber(user.bankDetails.accountNumber || '');
+                setIfscCode(user.bankDetails.ifscCode || '');
+              }
+              setShowPayoutModal(true);
+            }}
             disabled={walletData.balance < 500}
           />
           {walletData.balance < 500 && (

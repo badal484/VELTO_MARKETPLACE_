@@ -7,15 +7,14 @@ import { AppError } from '../utils/errors';
 import { PayoutRequestStatus } from '@shared/types';
 import { io } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
+import { round } from '../utils/math';
+import { NotificationService } from './notificationService';
+import { NotificationType } from '../models/Notification';
 
 export class WalletService {
   private static readonly COMMISSION_RATE = parseFloat(process.env.VELTO_COMMISSION_RATE || '0.10');
   private static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.05');
   private static readonly MIN_PAYOUT_AMOUNT = 500;
-
-  private static round(value: number): number {
-    return Math.round(value * 100) / 100;
-  }
 
   static async creditEarnings(orderId: string) {
     const session = await mongoose.startSession();
@@ -40,14 +39,13 @@ export class WalletService {
       }
 
       const deliveryCharge = order.deliveryCharge || 0;
-      const commission = this.round(deliveryCharge * this.COMMISSION_RATE);
-      const earnings = this.round(deliveryCharge - commission);
+      const commission = round(deliveryCharge * this.COMMISSION_RATE);
+      const earnings = round(deliveryCharge - commission);
 
       const rider = await User.findById(order.rider).session(session);
       if (!rider) throw new AppError('Rider not found', 404);
 
       // 🚨 AUTOMATED OFFSETTING LOGIC 🚨
-      // If rider has cash liability, use these earnings to pay it off instead of increasing wallet balance.
       let finalCredit = earnings;
       let offsetReduction = 0;
       
@@ -60,17 +58,23 @@ export class WalletService {
           { $inc: { cashInHand: -offsetReduction } },
           { session }
         );
-        console.log(`[WALLET] Offset ₹${offsetReduction} from rider liability. Remaining liability: ${(rider.cashInHand || 0) - offsetReduction}`);
+
+        // 🚨 Record Offset Transaction 🚨
+        await WalletTransaction.create([{
+          user: order.rider,
+          amount: offsetReduction,
+          type: 'debit',
+          description: `Liability Offset: Settled COD cash against earnings for order #${orderId.toString().slice(-6).toUpperCase()}`,
+          orderId: order._id
+        }], { session });
       }
 
       // Update Rider Balance with remaining earnings
-      if (finalCredit > 0) {
-        await User.findByIdAndUpdate(
-          order.rider,
-          { $inc: { walletBalance: finalCredit } },
-          { session }
-        );
-      }
+      const updatedRider = await User.findByIdAndUpdate(
+        order.rider,
+        { $inc: { walletBalance: finalCredit } },
+        { session, new: true, select: 'walletBalance cashInHand' }
+      );
 
       // Create Transaction Record
       await WalletTransaction.create([{
@@ -86,15 +90,16 @@ export class WalletService {
       await session.commitTransaction();
       
       // Real-time Push
-      const updatedRider = await User.findById(order.rider).select('walletBalance cashInHand');
-      io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, { 
-        balance: updatedRider?.walletBalance || 0,
-        cashInHand: updatedRider?.cashInHand || 0
-      });
+      if (updatedRider) {
+        io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, { 
+          balance: updatedRider.walletBalance || 0,
+          cashInHand: updatedRider.cashInHand || 0
+        });
+      }
 
       console.log(`[WALLET] Processed ₹${earnings} for rider ${order.rider}. Credit: ₹${finalCredit}, Offset: ₹${offsetReduction}`);
     } catch (error) {
-      await session.abortTransaction();
+      if (session.inTransaction()) await session.abortTransaction();
       console.error('[WALLET] Credit failed:', error);
       throw error;
     } finally {
@@ -118,14 +123,14 @@ export class WalletService {
       }
 
       const itemTotal = order.totalPrice - (order.deliveryCharge || 0);
-      const commission = Math.round((itemTotal * this.SELLER_COMMISSION_RATE) * 100) / 100;
-      const earnings = Math.round((itemTotal - commission) * 100) / 100;
+      const commission = round(itemTotal * this.SELLER_COMMISSION_RATE);
+      const earnings = round(itemTotal - commission);
 
       // Update Seller Balance
-      await User.findByIdAndUpdate(
+      const updatedSeller = await User.findByIdAndUpdate(
         order.seller,
         { $inc: { walletBalance: earnings } },
-        { session }
+        { session, new: true, select: 'walletBalance' }
       );
 
       // Create Transaction Record
@@ -140,12 +145,13 @@ export class WalletService {
       await session.commitTransaction();
 
       // Real-time Push
-      const updatedSeller = await User.findById(order.seller).select('walletBalance');
-      io.to(order.seller.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedSeller?.walletBalance || 0 });
+      if (updatedSeller) {
+        io.to(order.seller.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedSeller.walletBalance || 0 });
+      }
 
       console.log(`[WALLET] Credited Seller ₹${earnings} (after ${this.SELLER_COMMISSION_RATE * 100}% comm) to ${order.seller}`);
     } catch (error) {
-      await session.abortTransaction();
+      if (session.inTransaction()) await session.abortTransaction();
       console.error('[WALLET] Seller Credit failed:', error);
       throw error;
     } finally {
@@ -153,10 +159,6 @@ export class WalletService {
     }
   }
 
-  /**
-   * Specifically handles the completion of a COD order.
-   * Increments Rider liability and debits platform commission.
-   */
   static async processCODFulfillment(orderId: string) {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -169,28 +171,35 @@ export class WalletService {
          return;
       }
 
-      // 1. Increment Rider Liability (The physical cash they now hold)
-      await User.findByIdAndUpdate(
+      // 1. Increment Rider Liability
+      const updatedRider = await User.findByIdAndUpdate(
         order.rider,
         { $inc: { cashInHand: order.totalPrice } },
-        { session }
+        { session, new: true, select: 'walletBalance cashInHand' }
       );
 
-      // 2. Platform commission debit removed as per user request. 
-      // Admin will calculate and collect commission physically when the rider hands over the cash at end-of-day.
+      // 🚨 Record COD Collection Liability 🚨
+      await WalletTransaction.create([{
+        user: order.rider,
+        amount: order.totalPrice,
+        type: 'debit',
+        description: `COD Cash Collected: Order #${orderId.toString().slice(-6).toUpperCase()}`,
+        orderId: order._id
+      }], { session });
 
       await session.commitTransaction();
 
       // Real-time Push
-      const updatedRider = await User.findById(order.rider).select('walletBalance cashInHand');
-      io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, { 
-        balance: updatedRider?.walletBalance || 0,
-        cashInHand: updatedRider?.cashInHand || 0
-      });
+      if (updatedRider) {
+        io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, { 
+          balance: updatedRider.walletBalance || 0,
+          cashInHand: updatedRider.cashInHand || 0
+        });
+      }
 
       console.log(`[WALLET] COD Fulfilled. Rider ${order.rider} Liability +₹${order.totalPrice}`);
     } catch (error) {
-       await session.abortTransaction();
+       if (session.inTransaction()) await session.abortTransaction();
        console.error('[WALLET] COD Processing failed:', error);
        throw error;
     } finally {
@@ -199,10 +208,19 @@ export class WalletService {
   }
 
   static async requestPayout(riderId: string, data: any) {
-    const { amount, bankDetails } = data;
+    let { amount, bankDetails } = data;
 
     const rider = await User.findById(riderId);
     if (!rider) throw new AppError('Rider not found', 404);
+
+    // If bankDetails missing in request, fallback to saved profile details
+    if (!bankDetails || !bankDetails.accountNumber) {
+      if (rider.bankDetails && rider.bankDetails.accountNumber) {
+        bankDetails = rider.bankDetails;
+      } else {
+        throw new AppError('Bank details required for payout', 400);
+      }
+    }
 
     if (amount < this.MIN_PAYOUT_AMOUNT) {
       throw new AppError(`Minimum payout amount is ₹${this.MIN_PAYOUT_AMOUNT}`, 400);
@@ -218,7 +236,11 @@ export class WalletService {
 
     try {
       // 1. Deduct from balance immediately
-      await User.findByIdAndUpdate(riderId, { $inc: { walletBalance: -amount } }, { session });
+      const updatedRider = await User.findByIdAndUpdate(
+        riderId, 
+        { $inc: { walletBalance: -amount } }, 
+        { session, new: true, select: 'walletBalance' }
+      );
 
       // 2. Create Payout Request
       const request = await PayoutRequest.create([{
@@ -240,11 +262,25 @@ export class WalletService {
       await session.commitTransaction();
 
       // Real-time Push
-      io.to(riderId.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: (rider.walletBalance || 0) - amount });
+      if (updatedRider) {
+        io.to(riderId.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedRider.walletBalance || 0 });
+      }
+
+      // 4. Notify Admins
+      const admins = await User.find({ role: 'admin' }).select('_id');
+      for (const admin of admins) {
+        await NotificationService.send({
+          recipient: admin._id.toString(),
+          type: NotificationType.PAYOUT,
+          title: 'New Payout Request',
+          message: `${rider.name} requested a payout of ₹${amount}`,
+          relatedId: request[0]._id.toString(),
+        });
+      }
 
       return request[0];
     } catch (error) {
-      await session.abortTransaction();
+      if (session.inTransaction()) await session.abortTransaction();
       throw error;
     } finally {
       session.endSession();
@@ -259,13 +295,11 @@ export class WalletService {
       const order = await Order.findById(orderId).session(session);
       if (!order) throw new AppError('Order not found', 404);
 
-      // Only refund if the order was paid (Confirmed or after)
       if ((order.status as string) === 'pending' || (order.status as string) === 'cancelled') {
         await session.commitTransaction();
         return;
       }
 
-      // Check if already refunded
       const existingRefund = await WalletTransaction.findOne({ orderId, user: order.buyer, type: 'credit', description: /Refund/ }).session(session);
       if (existingRefund) {
         await session.commitTransaction();
@@ -274,14 +308,12 @@ export class WalletService {
 
       const refundAmount = order.totalPrice;
 
-      // Credit the Buyer's balance
-      await User.findByIdAndUpdate(
+      const updatedBuyer = await User.findByIdAndUpdate(
         order.buyer,
         { $inc: { walletBalance: refundAmount } },
-        { session }
+        { session, new: true, select: 'walletBalance' }
       );
 
-      // Create Transaction Record
       await WalletTransaction.create([{
         user: order.buyer,
         amount: refundAmount,
@@ -292,13 +324,13 @@ export class WalletService {
 
       await session.commitTransaction();
 
-      // Real-time Push
-      const updatedBuyer = await User.findById(order.buyer).select('walletBalance');
-      io.to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedBuyer?.walletBalance || 0 });
+      if (updatedBuyer) {
+        io.to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedBuyer.walletBalance || 0 });
+      }
 
       console.log(`[WALLET] Refunded ₹${refundAmount} back to buyer ${order.buyer} for order ${orderId}`);
     } catch (error) {
-      await session.abortTransaction();
+      if (session.inTransaction()) await session.abortTransaction();
       console.error('[WALLET] Refund failed:', error);
       throw error;
     } finally {
@@ -314,20 +346,17 @@ export class WalletService {
       const request = await PayoutRequest.findById(payoutId).session(session);
       if (!request) throw new AppError('Payout request not found', 404);
 
-      // Only revert if it's currently pending or processing (not already completed/reverted)
       if (request.status !== PayoutRequestStatus.PENDING && request.status !== PayoutRequestStatus.PROCESSING) {
         await session.commitTransaction();
         return;
       }
 
-      // Restore the user's balance
-      await User.findByIdAndUpdate(
+      const updatedRider = await User.findByIdAndUpdate(
         request.rider,
         { $inc: { walletBalance: request.amount } },
-        { session }
+        { session, new: true, select: 'walletBalance' }
       );
 
-      // Create Credit Transaction (Reversion)
       await WalletTransaction.create([{
         user: request.rider,
         amount: request.amount,
@@ -338,13 +367,13 @@ export class WalletService {
 
       await session.commitTransaction();
 
-      // Real-time Push
-      const updatedRider = await User.findById(request.rider).select('walletBalance');
-      io.to(request.rider.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedRider?.walletBalance || 0 });
+      if (updatedRider) {
+        io.to(request.rider.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedRider.walletBalance || 0 });
+      }
 
       console.log(`[WALLET] Reverted Payout Request ₹${request.amount} for rider ${request.rider}`);
     } catch (error) {
-      await session.abortTransaction();
+      if (session.inTransaction()) await session.abortTransaction();
       console.error('[WALLET] Reversion failed:', error);
       throw error;
     } finally {
@@ -353,10 +382,11 @@ export class WalletService {
   }
 
   static async getWalletData(userId: string) {
-    const user = await User.findById(userId).select('walletBalance cashInHand');
+    const user = await User.findById(userId).select('walletBalance cashInHand').lean();
     const transactions = await WalletTransaction.find({ user: userId })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     return {
       balance: user?.walletBalance || 0,

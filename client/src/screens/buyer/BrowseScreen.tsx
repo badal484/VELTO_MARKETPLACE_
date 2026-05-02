@@ -12,9 +12,6 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
-import MapLibreGL, { MapViewRef, CameraRef } from '@maplibre/maplibre-react-native';
-MapLibreGL.setAccessToken(null);
-MapLibreGL.addCustomHeader('User-Agent', 'VeltoLocalMarket/1.0 (contact@velto.com)');
 import Geolocation from 'react-native-geolocation-service';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {theme} from '../../theme';
@@ -113,16 +110,13 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export default function BrowseScreen({navigation}: BrowseScreenProps) {
   const insets = useSafeAreaInsets();
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('list');
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<IProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState<{lat: number; lng: number} | null>(
     null,
   );
-  const [region, setRegion] = useState<any>(null);
   const [radius, setRadius] = useState(5);
-  const [canSearchThisArea, setCanSearchThisArea] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
@@ -132,8 +126,6 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [addressName, setAddressName] = useState('Current Region');
 
-  const mapRef = useRef<MapViewRef>(null);
-  const cameraRef = useRef<CameraRef>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filteredProducts = products.filter(p => {
@@ -180,7 +172,6 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
 
     try {
       setLoading(true);
-      setCanSearchThisArea(false);
       let url = `/api/products?lat=${lat}&lng=${lng}&radius=${radius}`;
       if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
@@ -219,33 +210,10 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
     }
   };
 
-  const onRegionDidChange = async () => {
-    if (mapRef.current && location) {
-      const center = await mapRef.current.getCenter();
-      const dist = Math.sqrt(
-        Math.pow(center[1] - location.lat, 2) +
-          Math.pow(center[0] - location.lng, 2),
-      );
-      if (dist > 0.01) {
-        setCanSearchThisArea(true);
-      }
-    }
-  };
-
-  const searchThisArea = async () => {
-    if (mapRef.current) {
-      const center = await mapRef.current.getCenter();
-      fetchProducts(center[1], center[0]);
-    }
-  };
-
   const handleAreaSelect = (locationResult: LocationResult) => {
     setLocation({lat: locationResult.lat, lng: locationResult.lon});
     setAddressName(locationResult.formatted.split(',')[0]);
     setShowLocationModal(false);
-    
-    // Animate map to new location
-    cameraRef.current?.flyTo([locationResult.lon, locationResult.lat], 1000);
   };
 
   const handleLocate = () => {
@@ -253,34 +221,12 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
       position => {
         const {latitude, longitude} = position.coords;
         setLocation({lat: latitude, lng: longitude});
-        cameraRef.current?.flyTo([longitude, latitude], 1000);
       },
       error => {
         console.log('Location Refresh Error:', error);
-        // Fallback to zoom out to existing products if any
-        fitToProducts();
       },
       {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
     );
-  };
-
-  const fitToProducts = () => {
-    if (products.length > 0 && cameraRef.current) {
-      const lons = products.map(p => p.location.coordinates[0]);
-      const lats = products.map(p => p.location.coordinates[1]);
-      
-      const minLon = Math.min(...lons);
-      const maxLon = Math.max(...lons);
-      const minLat = Math.min(...lats);
-      const maxLat = Math.max(...lats);
-
-      cameraRef.current.fitBounds(
-        [minLon, minLat],
-        [maxLon, maxLat],
-        [100, 100, 100, 100],
-        1000
-      );
-    }
   };
 
   const renderItem = ({item}: {item: IProduct; index: number}) => {
@@ -472,78 +418,6 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
       <View style={{flex: 1}}>
         {loading && products.length === 0 ? (
           <Loader />
-        ) : viewMode === 'map' && location ? (
-          <View style={{flex: 1}}>
-            <MapLibreGL.MapView
-              ref={mapRef}
-              style={styles.map}
-              mapStyle={""} // Empty style to use RasterSource
-              onRegionDidChange={onRegionDidChange}
-              logoEnabled={false}
-              attributionEnabled={true}>
-              <MapLibreGL.Camera
-                ref={cameraRef}
-                defaultSettings={{
-                  centerCoordinate: [location.lng, location.lat],
-                  zoomLevel: 12,
-                }}
-              />
-              <MapLibreGL.RasterSource
-                id="osm"
-                tileUrlTemplates={["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]}
-                tileSize={256}
-                minZoomLevel={0}
-                maxZoomLevel={19}>
-                <MapLibreGL.RasterLayer id="osmLayer" sourceID="osm" />
-              </MapLibreGL.RasterSource>
-
-              <MapLibreGL.UserLocation visible={true} />
-
-              {filteredProducts.map(p => {
-                const pCoords = p.shop?.location?.coordinates || p.location?.coordinates;
-                if (!pCoords) return null;
-                return (
-                  <MapLibreGL.MarkerView
-                    key={String(p._id)}
-                    id={String(p._id)}
-                    coordinate={[pCoords[0], pCoords[1]]}>
-                    <TouchableOpacity 
-                       style={styles.markerWrapper}
-                       onPress={() => navigation.navigate('ProductDetail', {id: String(p._id)})}
-                       activeOpacity={0.9}>
-                      <View style={styles.markerShopNameContainer}>
-                        <Icon name="storefront" size={12} color={theme.colors.primary} />
-                        <Text style={styles.markerShopLabel} numberOfLines={1}>
-                          {(p.shop as unknown as IShop)?.name || 'Local Seller'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </MapLibreGL.MarkerView>
-                );
-              })}
-            </MapLibreGL.MapView>
-
-            {canSearchThisArea && (
-              <TouchableOpacity
-                style={styles.floatingSearchBtn}
-                onPress={searchThisArea}
-                activeOpacity={0.9}>
-                <Icon
-                  name="refresh-outline"
-                  size={18}
-                  color={theme.colors.white}
-                />
-                <Text style={styles.floatingSearchText}>Search this area</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.locateBtn}
-              onPress={handleLocate}
-              activeOpacity={0.8}>
-              <Icon name="navigate" size={24} color={theme.colors.primary} />
-            </TouchableOpacity>
-          </View>
         ) : (
           <FlatList
             data={filteredProducts}
@@ -572,13 +446,6 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
           />
         )}
       </View>
-
-      {/* Floating View Toggle */}
-      <TouchableOpacity 
-        style={styles.floatingToggle}
-        onPress={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}>
-        <Icon name={viewMode === 'map' ? 'list' : 'map'} size={24} color={theme.colors.white} />
-      </TouchableOpacity>
 
       {/* Filter Modal */}
       <Modal
@@ -998,54 +865,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontWeight: '500',
     lineHeight: 22,
-  },
-  floatingSearchBtn: {
-    position: 'absolute',
-    top: 20,
-    alignSelf: 'center',
-    backgroundColor: theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 30,
-    ...theme.shadow.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  floatingSearchText: {
-    color: theme.colors.white,
-    fontWeight: '800',
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  locateBtn: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.shadow.lg,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  floatingToggle: {
-    position: 'absolute',
-    bottom: 30,
-    alignSelf: 'center',
-    backgroundColor: theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    ...theme.shadow.lg,
-    zIndex: 100,
   },
   modalOverlay: {
     flex: 1,

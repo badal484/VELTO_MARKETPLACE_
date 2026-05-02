@@ -74,27 +74,6 @@ export const startConversation = async (req: Request, res: Response): Promise<vo
         order: orderId,
       });
 
-      // Automated greeting for support / delivery channels
-      let protocolMsg = '';
-      if (rRole === Role.ADMIN || sRole === Role.ADMIN) {
-        protocolMsg =
-          'Welcome to Velto Official Support. Please describe your issue in detail.';
-      } else if (rRole === Role.RIDER || sRole === Role.RIDER) {
-        protocolMsg =
-          'Delivery Channel Active. You are now connected with your delivery partner.';
-      }
-
-      if (protocolMsg) {
-        await Message.create({
-          conversationId: conversation._id,
-          sender: receiverId,
-          receiver: req.user?._id,
-          text: protocolMsg,
-          isSystem: true,
-        });
-        conversation.lastMessage = protocolMsg;
-        await conversation.save();
-      }
     } else {
       if (productId && !conversation.product) conversation.product = productId;
       if (orderId && !conversation.order) conversation.order = orderId;

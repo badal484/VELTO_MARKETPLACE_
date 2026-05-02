@@ -15,6 +15,7 @@ const config = {
     ],
     extraNodeModules: {
       '@shared': path.resolve(__dirname, '../shared'),
+      'zod': path.resolve(__dirname, 'node_modules/zod'),
     },
   },
 };

@@ -15,8 +15,18 @@ import {SplashScreen} from './src/components/common/SplashScreen';
 
 const NavigationWrapper = () => {
   const {user, isLoading} = useAuth();
+  const [isSplashVisible, setIsSplashVisible] = React.useState(true);
 
-  if (isLoading) {
+  useEffect(() => {
+    // Force splash screen to stay for exactly 5 seconds
+    const timer = setTimeout(() => {
+      setIsSplashVisible(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading || isSplashVisible) {
     return <SplashScreen />;
   }
 

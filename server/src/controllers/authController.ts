@@ -1,14 +1,12 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
-import { registerSchema, loginSchema } from '../utils/validation';
 import { handleError } from '../utils/errors';
 import { User } from '../models/User';
 import { Shop } from '../models/Shop';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const validatedData = registerSchema.parse(req.body);
-    const result = await AuthService.register(validatedData);
+    const result = await AuthService.register(req.body);
     res.status(201).json({ success: true, ...result });
   } catch (error) {
     handleError(error, res);
@@ -17,8 +15,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const validatedData = loginSchema.parse(req.body);
-    const result = await AuthService.login(validatedData);
+    const result = await AuthService.login(req.body);
     res.json({ success: true, ...result });
   } catch (error) {
     handleError(error, res);

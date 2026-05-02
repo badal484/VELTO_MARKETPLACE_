@@ -32,30 +32,7 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
   const navigation = useNavigation<any>();
   if (!order) return null;
 
-  const handleOpenChat = async () => {
-    try {
-      // Find or start a support conversation for this order
-      const res = await axiosInstance.post('/api/chat/support', {
-        orderId: order._id,
-        productId: (order.product as any)?._id || order.product
-      });
 
-      if (res.data.success) {
-        onClose();
-        navigation.navigate('Chat', {
-          screen: 'ChatRoom',
-          params: {
-            conversationId: res.data.data._id,
-            otherUser: buyer,
-            productTitle: (product as any)?.title || 'Service',
-            orderId: order._id
-          }
-        });
-      }
-    } catch (err) {
-      console.log('Open Admin Chat Error:', err);
-    }
-  };
 
   const handleVerifyPayment = async () => {
     try {
@@ -193,7 +170,7 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
               <Text style={styles.verifyTitle}>Fulfillment Codes</Text>
               <View style={styles.codeRow}>
                 <View style={styles.codeItem}>
-                  <Text style={styles.codeLabel}>PICKUP OTP</Text>
+                  <Text style={styles.codeLabel}>PICKUP PIN</Text>
                   <Text style={styles.codeValue}>{order.pickupCode}</Text>
                 </View>
                 {order.deliveryCode && (
@@ -206,15 +183,9 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
               <Text style={styles.verifyNote}>Admin override visibility for manual closure verification.</Text>
             </View>
 
-            <View style={styles.actionRow}>
-              <TouchableOpacity 
-                style={[styles.actionBtn, {backgroundColor: theme.colors.primary}]}
-                onPress={handleOpenChat}
-              >
-                <Icon name="chatbubbles-outline" size={20} color={theme.colors.white} />
-                <Text style={styles.actionBtnText}>SUPPORT CHAT</Text>
-              </TouchableOpacity>
 
+
+            <View style={styles.actionRow}>
               {order.status === OrderStatus.PAYMENT_UNDER_REVIEW && (
                 <View style={[styles.actionBtn, {backgroundColor: theme.colors.muted + '20'}]}>
                   <Icon name="time-outline" size={20} color={theme.colors.muted} />

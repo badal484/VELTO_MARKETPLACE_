@@ -41,7 +41,6 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
   const {user} = useAuth();
   const {resetUnreadChatCount} = useNotifications();
   const {socket} = useSocket();
-  const [activeTab, setActiveTab] = useState<'deliveries' | 'support'>('deliveries');
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -91,16 +90,8 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
       setRefreshing(false);
     }
   };
-
   const filteredConversations = conversations.filter(conv => {
     const participants = conv.participants.filter(p => typeof p === 'object') as IUser[];
-    const hasAdmin = participants.some(p => p.role === Role.ADMIN);
-    const hasRider = participants.some(p => p.role === Role.RIDER);
-
-    // Systematic filtering based on active tab
-    if (activeTab === 'support' && !hasAdmin) return false;
-    if (activeTab === 'deliveries' && !hasRider) return false;
-
     const otherParticipant = participants.find(p => p._id !== user?._id);
     const product = (typeof conv.product === 'object' ? conv.product : null) as any;
     
@@ -116,7 +107,11 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
     const participants = item.participants.filter(p => typeof p !== 'string') as IUser[];
     const otherParticipant = participants.find(p => p._id !== user?._id);
     const order = (typeof item.order === 'object' ? item.order : null) as any;
+    
     const isSupport = otherParticipant?.role === Role.ADMIN;
+    const isRider = otherParticipant?.role === Role.RIDER;
+    const isSeller = otherParticipant?.role === Role.SELLER || otherParticipant?.role === Role.SHOP_OWNER;
+    const isBuyer = otherParticipant?.role === Role.BUYER;
 
     const updatedAt = new Date(item.updatedAt ?? Date.now());
     const time = updatedAt.toLocaleDateString([], {
@@ -137,14 +132,19 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
             })
           }>
           <View style={styles.avatarBox}>
-            <View style={[styles.initialsCircle, isSupport && {backgroundColor: '#FEF3C7'}]}>
+            <View style={[
+              styles.initialsCircle, 
+              isSupport && {backgroundColor: '#FEF3C7'},
+              isRider && {backgroundColor: '#EEF2FF'},
+              isSeller && {backgroundColor: '#ECFDF5'},
+            ]}>
               {otherParticipant?.avatar ? (
                 <Image source={{uri: otherParticipant.avatar}} style={styles.avatarImg} />
               ) : (
                 <Icon 
-                  name={isSupport ? "shield-checkmark" : "bicycle"} 
+                  name={isSupport ? "shield-checkmark" : isRider ? "bicycle" : isBuyer ? "person" : "storefront"} 
                   size={24} 
-                  color={isSupport ? "#D97706" : theme.colors.primary} 
+                  color={isSupport ? "#D97706" : isRider ? "#4F46E5" : isBuyer ? "#10B981" : "#059669"} 
                 />
               )}
             </View>
@@ -156,12 +156,17 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
                 <Text style={styles.participantName} numberOfLines={1}>
                   {isSupport ? "Official Support" : otherParticipant?.name}
                 </Text>
-                {isSupport && (
-                   <View style={styles.verifiedBadge}>
-                     <Icon name="checkmark-circle" size={12} color={theme.colors.success} />
-                     <Text style={styles.verifiedText}>VERIFIED</Text>
-                   </View>
-                )}
+                 <View style={[
+                   styles.roleBadge,
+                   {backgroundColor: isSupport ? '#FEF3C7' : isRider ? '#EEF2FF' : isBuyer ? '#ECFDF5' : '#ECFDF5'}
+                 ]}>
+                   <Text style={[
+                     styles.roleBadgeText,
+                     {color: isSupport ? '#D97706' : isRider ? '#4F46E5' : isBuyer ? '#059669' : '#059669'}
+                   ]}>
+                     {isSupport ? 'SUPPORT' : isRider ? 'RIDER' : isBuyer ? 'CUSTOMER' : 'MERCHANT'}
+                   </Text>
+                 </View>
               </View>
               <Text style={styles.timestamp}>{time}</Text>
             </View>
@@ -206,7 +211,7 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
               source={require('../../../assets/velto_logo.png')} 
               style={styles.headerLogo} 
             />
-            <Text style={styles.headerTitle}>Messages</Text>
+            <Text style={styles.headerTitle}>Inbox</Text>
           </View>
           <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
             <Icon
@@ -217,26 +222,11 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.tabContainer}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'deliveries' && styles.activeTab]} 
-            onPress={() => setActiveTab('deliveries')}>
-            <Icon name="bicycle" size={16} color={activeTab === 'deliveries' ? theme.colors.white : theme.colors.muted} />
-            <Text style={[styles.tabText, activeTab === 'deliveries' && styles.activeTabText]}>Deliveries</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'support' && styles.activeTab]} 
-            onPress={() => setActiveTab('support')}>
-            <Icon name="shield-checkmark" size={16} color={activeTab === 'support' ? theme.colors.white : theme.colors.muted} />
-            <Text style={[styles.tabText, activeTab === 'support' && styles.activeTabText]}>Support History</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.searchPanel}>
           <View style={styles.inputWrapper}>
             <Icon name="search-outline" size={18} color={theme.colors.muted} />
             <TextInput
-              placeholder="Search by name or item..."
+              placeholder="Search by name, item or order..."
               style={styles.boxInput}
               value={search}
               onChangeText={setSearch}
@@ -414,6 +404,17 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
     gap: 4,
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  roleBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   verifiedText: {
     fontSize: 8,

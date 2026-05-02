@@ -934,6 +934,9 @@ export default function RiderDashboardScreen({navigation}: any) {
             <Icon name="notifications-outline" size={24} color={theme.colors.text} />
             {unreadCount > 0 && <View style={styles.notificationDot} />}
           </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Support')}>
+            <Icon name="help-buoy-outline" size={24} color={theme.colors.primary} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Wallet')}>
             <Icon name="wallet-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>

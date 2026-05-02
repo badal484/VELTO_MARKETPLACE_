@@ -278,29 +278,8 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
 
 
 
-        {/* Specialized Tools */}
-        {user?.role === Role.ADMIN && (
-          <>
-            <Text style={styles.sectionLabel}>Administrative Controls</Text>
-            <View style={styles.menuGroup}>
-              {renderMenuItem(
-                'shield-checkmark-outline',
-                'Moderator Console',
-                () => navigation.navigate('AdminTab'),
-                theme.colors.text,
-                300,
-              )}
-              {renderMenuItem(
-                'bar-chart-outline',
-                'Platform Analytics',
-                () => navigation.navigate('AdminTab'),
-                theme.colors.text,
-                350,
-              )}
-            </View>
+        {/* Specialized Tools for non-admins if any in future */}
 
-          </>
-        )}
 
         {(user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) && (
           <>
@@ -444,17 +423,20 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
           </>
         )}
 
-        <Text style={styles.sectionLabel}>Support</Text>
-        <View style={styles.menuGroup}>
-
-        {renderMenuItem(
-            'chatbubbles-outline',
-            'Support',
-            () => navigation.navigate('Support'),
-            '#10B981',
-            530,
-          )}
-        </View>
+        {user?.role !== Role.ADMIN && (
+          <>
+            <Text style={styles.sectionLabel}>Support</Text>
+            <View style={styles.menuGroup}>
+              {renderMenuItem(
+                'chatbubbles-outline',
+                'Support',
+                () => navigation.navigate('Support'),
+                '#10B981',
+                530,
+              )}
+            </View>
+          </>
+        )}
 
         <View
           style={[

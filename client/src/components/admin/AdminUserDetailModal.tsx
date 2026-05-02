@@ -28,9 +28,42 @@ interface AdminUserDetailModalProps {
   user: ExtendedUser | null;
   onVerifyRider?: (id: string) => void;
   onRejectRider?: (id: string, reason: string) => void;
+  onToggleBlock?: (id: string, isBlocked: boolean) => void;
 }
 
 const {height} = Dimensions.get('window');
+
+const maskSensitive = (val: string) => {
+  if (!val || val.length < 6) return val;
+  return val.slice(0, 4) + '•••••' + val.slice(-3);
+};
+
+const DetailRow = ({
+  icon, label, value, sensitive, muted, highlight,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  sensitive?: boolean;
+  muted?: boolean;
+  highlight?: boolean;
+}) => (
+  <View style={styles.detailRow}>
+    <Icon
+      name={icon}
+      size={13}
+      color={highlight ? theme.colors.success : theme.colors.muted}
+      style={styles.detailIcon}
+    />
+    <Text style={styles.detailLabel}>{label}</Text>
+    <Text
+      style={[styles.detailValue, muted && styles.detailValueMuted, highlight && styles.detailValueHighlight]}
+      numberOfLines={2}
+      selectable={!sensitive}>
+      {sensitive ? maskSensitive(value) : value}
+    </Text>
+  </View>
+);
 
 export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
   visible,
@@ -38,6 +71,7 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
   user,
   onVerifyRider,
   onRejectRider,
+  onToggleBlock,
 }) => {
   const [rejectionReason, setRejectionReason] = React.useState('');
   const [showRejectInput, setShowRejectInput] = React.useState(false);
@@ -90,6 +124,29 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
               {renderStat('Total Orders', user.orderCount || 0, 'cart-outline', theme.colors.primary)}
             </View>
 
+            {/* ── Section: Contact Details ── */}
+            <View style={styles.businessSection}>
+              <Text style={styles.sectionTitle}>Contact Information</Text>
+              <View style={styles.businessCard}>
+                <DetailRow icon="call-outline" label="Phone" value={user.phoneNumber || 'Not provided'} />
+                <DetailRow icon="mail-outline" label="Email" value={user.email} />
+                {user.addresses && user.addresses.length > 0 && (
+                  <View style={{marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9'}}>
+                    <Text style={styles.subTitle}>Saved Addresses</Text>
+                    {user.addresses.map((addr: any, idx: number) => (
+                      <DetailRow 
+                        key={idx}
+                        icon="location-outline" 
+                        label={addr.label || 'Address'} 
+                        value={`${addr.street}, ${addr.city}, ${addr.pincode}`} 
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* ── Section: Merchant / Shop Details ── */}
             {user.shop && (
               <View style={styles.businessSection}>
                 <Text style={styles.sectionTitle}>Merchant Profile</Text>
@@ -101,19 +158,76 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                       <Text style={styles.businessCat}>{user.shop.category}</Text>
                     </View>
                   </View>
+
+                  {/* Business Description */}
+                  {(user.shop as any).description && (
+                    <View style={styles.descriptionBox}>
+                      <Text style={styles.descriptionText}>{(user.shop as any).description}</Text>
+                    </View>
+                  )}
+
+                  {/* Business Contact */}
+                  <View style={styles.detailSubset}>
+                    <Text style={styles.subsetLabel}>BUSINESS CONTACT</Text>
+                    {(user.shop as any).contactInfo?.businessEmail && (
+                      <DetailRow icon="mail-outline" label="Bizz Email" value={(user.shop as any).contactInfo.businessEmail} />
+                    )}
+                    {(user.shop as any).contactInfo?.businessPhone && (
+                      <DetailRow icon="phone-portrait-outline" label="Bizz Phone" value={(user.shop as any).contactInfo.businessPhone} />
+                    )}
+                  </View>
+
+                  {/* Shop Address */}
+                  <View style={styles.detailSubset}>
+                    <Text style={styles.subsetLabel}>LOCATION</Text>
+                    <DetailRow icon="map-outline" label="Address" value={user.shop.address} />
+                    {(user.shop as any).detailedAddress?.city && (
+                      <DetailRow 
+                        icon="location-outline" 
+                        label="City/State" 
+                        value={`${(user.shop as any).detailedAddress.city}, ${(user.shop as any).detailedAddress.state || ''}`} 
+                      />
+                    )}
+                  </View>
+
+                  {/* Shop KYC */}
+                  <View style={styles.detailSubset}>
+                    <Text style={styles.subsetLabel}>KYC & IDENTITY</Text>
+                    {(user.shop as any).aadharCard && (
+                      <DetailRow icon="card-outline" label="Aadhaar No." value={(user.shop as any).aadharCard} sensitive />
+                    )}
+                    <DetailRow 
+                      icon="document-text-outline" 
+                      label="GSTIN" 
+                      value={(user.shop as any).gstin || 'Not provided'} 
+                      muted={!(user.shop as any).gstin} 
+                    />
+                  </View>
+
+                  {/* Shop Bank */}
+                  {(user.shop as any).bankDetails && (
+                    <View style={styles.detailSubset}>
+                      <Text style={styles.subsetLabel}>BANKING INFO</Text>
+                      <DetailRow icon="business-outline" label="Bank" value={(user.shop as any).bankDetails.bankName || 'N/A'} />
+                      <DetailRow icon="wallet-outline" label="Account No." value={(user.shop as any).bankDetails.accountNumber || 'N/A'} sensitive />
+                      <DetailRow icon="code-outline" label="IFSC Code" value={(user.shop as any).bankDetails.ifscCode || 'N/A'} />
+                    </View>
+                  )}
+
                   <View style={styles.businessMetrics}>
                     <Text style={styles.metricText}>
-                      Member since {new Date(user.createdAt).toLocaleDateString()}
+                      Onboarded {new Date((user.shop as any).createdAt || user.createdAt).toLocaleDateString()}
                     </Text>
                     <View style={styles.verifiedTag}>
                        <Icon name="checkmark-circle" size={12} color={theme.colors.success} />
-                       <Text style={styles.verifiedText}>STAKEHOLDER</Text>
+                       <Text style={styles.verifiedText}>VERIFIED MERCHANT</Text>
                     </View>
                   </View>
                 </View>
               </View>
             )}
 
+            {/* ── Section: Rider Details ── */}
             {(user.role === Role.RIDER || user.riderStatus === 'pending' || user.riderStatus === 'rejected') && (
               <View style={styles.businessSection}>
                 <Text style={styles.sectionTitle}>Rider Documentation</Text>
@@ -130,7 +244,7 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                 <View style={styles.riderMeta}>
                     <View style={styles.riderDetailRow}>
                       <Text style={styles.riderDetailLabel}>License No:</Text>
-                      <Text style={styles.riderDetailValue}>{user.licenseNumber || 'Not Provided'}</Text>
+                      <Text style={styles.riderDetailValue}>{user.licenseNumber ? maskSensitive(user.licenseNumber) : 'Not Provided'}</Text>
                     </View>
                     <View style={styles.riderDetailRow}>
                       <Text style={styles.riderDetailLabel}>Plate No:</Text>
@@ -146,6 +260,16 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                       </Text>
                     </View>
                   </View>
+
+                  {/* Rider Bank Info */}
+                  {(user as any).bankDetails && (
+                    <View style={styles.detailSubset}>
+                      <Text style={styles.subsetLabel}>BANKING INFO (For Payouts)</Text>
+                      <DetailRow icon="business-outline" label="Bank" value={(user as any).bankDetails.bankName || 'N/A'} />
+                      <DetailRow icon="wallet-outline" label="Account No." value={(user as any).bankDetails.accountNumber || 'N/A'} sensitive />
+                      <DetailRow icon="code-outline" label="IFSC Code" value={(user as any).bankDetails.ifscCode || 'N/A'} />
+                    </View>
+                  )}
                 </View>
 
                 {user.riderDocuments && user.riderDocuments.length > 0 && (
@@ -212,13 +336,34 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
             )}
 
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Icon name="mail-outline" size={20} color={theme.colors.text} />
-                <Text style={styles.actionText}>Email User</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, styles.dangerBtn]}>
-                <Icon name="ban-outline" size={20} color={theme.colors.danger} />
-                <Text style={[styles.actionText, {color: theme.colors.danger}]}>Restrict Access</Text>
+              <TouchableOpacity 
+                style={[styles.actionBtn, (user as any).isBlocked ? styles.unblockBtn : styles.dangerBtn]}
+                onPress={() => {
+                  if (user.role === Role.ADMIN) return;
+                  const isBlocked = (user as any).isBlocked;
+                  Alert.alert(
+                    isBlocked ? 'Unblock User' : 'Block User',
+                    isBlocked
+                      ? `Restore access for ${user.name}?`
+                      : `Restrict ${user.name} from using the platform?`,
+                    [
+                      {text: 'Cancel', style: 'cancel'},
+                      {
+                        text: isBlocked ? 'Unblock' : 'Block',
+                        style: 'destructive',
+                        onPress: () => onToggleBlock?.(String(user._id), isBlocked),
+                      },
+                    ],
+                  );
+                }}>
+                <Icon 
+                  name={(user as any).isBlocked ? 'lock-open-outline' : 'ban-outline'} 
+                  size={20} 
+                  color={(user as any).isBlocked ? theme.colors.success : theme.colors.danger} 
+                />
+                <Text style={[styles.actionText, {color: (user as any).isBlocked ? theme.colors.success : theme.colors.danger}]}>
+                  {(user as any).isBlocked ? 'Unblock User' : 'Block User'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -406,6 +551,9 @@ const styles = StyleSheet.create({
   dangerBtn: {
     backgroundColor: '#FFF1F2',
   },
+  unblockBtn: {
+    backgroundColor: '#F0FDF4',
+  },
   actionText: {
     fontSize: 14,
     fontWeight: '700',
@@ -526,5 +674,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text,
     padding: 0,
-  }
+  },
+  detailRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 7},
+  detailIcon: {marginTop: 2},
+  detailLabel: {fontSize: 11, color: theme.colors.muted, fontWeight: '700', width: 90, flexShrink: 0},
+  detailValue: {fontSize: 12, color: theme.colors.text, fontWeight: '600', flex: 1},
+  detailValueMuted: {color: theme.colors.muted, fontStyle: 'italic'},
+  detailValueHighlight: {color: theme.colors.success, fontWeight: '800'},
+  detailSubset: {marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9'},
+  subsetLabel: {fontSize: 8, fontWeight: '900', color: theme.colors.muted, letterSpacing: 1, marginBottom: 8},
+  descriptionBox: {backgroundColor: '#F8FAFC', borderRadius: 10, padding: 10, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: theme.colors.primary},
+  descriptionText: {fontSize: 12, color: theme.colors.textSecondary, lineHeight: 18},
 });

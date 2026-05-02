@@ -12,6 +12,7 @@ import {
   StatusBar,
   Platform,
   Animated as RNAnimated,
+  Share,
 } from 'react-native';
 import {GestureDetector, Gesture} from 'react-native-gesture-handler';
 import {withSpring} from 'react-native-reanimated';
@@ -268,6 +269,22 @@ export default function ProductDetailScreen({
     navigation.navigate('Checkout', { products: [{ product, quantity: 1 }] });
   };
 
+  const handleShare = async () => {
+    if (!product) return;
+    try {
+      const shareOptions = {
+        title: product.title,
+        message: `Check out this ${product.title} on Velto Marketplace! 
+Price: ₹${product.price.toLocaleString()}
+Link: https://velto.app/product/${product._id}`,
+        url: product.images?.[0],
+      };
+      await Share.share(shareOptions);
+    } catch (error: any) {
+      console.log('Share error:', error.message);
+    }
+  };
+
   if (loading || !product) {
     return <Loader />;
   }
@@ -292,7 +309,10 @@ export default function ProductDetailScreen({
               {product.title}
             </Text>
             <View style={styles.galleryRightActions}>
-              <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
+              <TouchableOpacity 
+                style={styles.headerBtn} 
+                activeOpacity={0.7}
+                onPress={handleShare}>
                 <Icon name="share-social-outline" size={22} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
@@ -329,7 +349,10 @@ export default function ProductDetailScreen({
             </TouchableOpacity>
             
             <View style={styles.galleryRightActions}>
-               <TouchableOpacity style={styles.overlayBtn} activeOpacity={0.8}>
+               <TouchableOpacity 
+                style={styles.overlayBtn} 
+                onPress={handleShare}
+                activeOpacity={0.8}>
                  <Icon name="share-social-outline" size={20} color={theme.colors.text} />
                </TouchableOpacity>
                <TouchableOpacity 

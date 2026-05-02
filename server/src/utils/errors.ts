@@ -22,6 +22,14 @@ export const handleError = (err: any, res: Response) => {
     });
   }
 
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(400).json({
+      success: false,
+      message: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists`
+    });
+  }
+
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       success: false,
@@ -43,8 +51,7 @@ export const handleError = (err: any, res: Response) => {
     });
   }
 
-  console.error('--- UNEXPECTED ERROR ---', err);
-  if (err.stack) console.error(err.stack);
+  console.error('\x1b[31m%s\x1b[0m', '[ERROR] Unexpected Error:', err);
   
   return res.status(500).json({
     success: false,

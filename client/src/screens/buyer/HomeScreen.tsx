@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useRef} from 'react';
+import React, {useEffect, useState, useRef, useMemo, memo} from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   PermissionsAndroid,
   Modal,
   Pressable,
+  Share,
 } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
 import {theme} from '../../theme';
@@ -68,7 +69,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 };
 
-const ProductCard = ({
+const ProductCard = memo(({
   item,
   index: _index,
   navigation,
@@ -84,6 +85,20 @@ const ProductCard = ({
   currentCoords?: {lat: number; lng: number} | null;
 }) => {
   const scale = useSharedValue(1);
+
+  const handleShare = async (e: any) => {
+    e.stopPropagation();
+    try {
+      await Share.share({
+        title: item.title,
+        message: `Check out this ${item.title} on Velto Marketplace! 
+Price: ₹${item.price.toLocaleString()}
+Link: https://velto.app/product/${item._id}`,
+      });
+    } catch (error: any) {
+      console.log('Share error:', error.message);
+    }
+  };
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{scale: scale.value}],
@@ -204,7 +219,7 @@ const ProductCard = ({
       </Animated.View>
     </Animated.View>
   );
-};
+});
 
 interface IBanner {
   _id: string;
@@ -509,6 +524,13 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     );
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       <View style={styles.topRow}>
@@ -524,7 +546,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           </TouchableOpacity>
           {user && (
             <Text style={styles.greetingText}>
-              {t('home.welcome')}, {user.name.split(' ')[0]}
+              {getGreeting()}, {user.name.split(' ')[0]}
             </Text>
           )}
 
@@ -557,7 +579,6 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
         style={styles.searchBar}
         onPress={() => navigation.navigate('BrowseTab', {screen: 'Browse'})}
         activeOpacity={0.9}>
-        <Icon name="search-outline" size={20} color={theme.colors.muted} />
         <Text style={styles.searchText}>{t('common.search')}</Text>
       </TouchableOpacity>
 
@@ -689,22 +710,24 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     </View>
   );
 
+  const displayedProducts = useMemo(() => {
+    return isGlobalMode 
+      ? products 
+      : products.filter(p => {
+          if (!currentCoords || !p.shop?.location?.coordinates) return true;
+          const d = calculateDistance(
+            currentCoords.lat,
+            currentCoords.lng,
+            p.shop.location.coordinates[1],
+            p.shop.location.coordinates[0]
+          );
+          return d <= 5;
+        });
+  }, [isGlobalMode, products, currentCoords]);
+
   if (loading && !refreshing && !currentCoords) {
     return <Loader />;
   }
-
-  const displayedProducts = isGlobalMode 
-    ? products 
-    : products.filter(p => {
-        if (!currentCoords || !p.shop?.location?.coordinates) return true;
-        const d = calculateDistance(
-          currentCoords.lat,
-          currentCoords.lng,
-          p.shop.location.coordinates[1],
-          p.shop.location.coordinates[0]
-        );
-        return d <= 5;
-      });
 
   return (
     <View style={[styles.container, {paddingTop: insets.top}]}>

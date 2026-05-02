@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export enum NotificationType {
   ORDER = 'ORDER',
   SHOP = 'SHOP',
+  PAYOUT = 'PAYOUT',
   INFO = 'INFO',
   SYSTEM = 'SYSTEM'
 }

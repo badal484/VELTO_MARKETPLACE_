@@ -84,6 +84,12 @@ export interface IUser {
   };
   walletBalance?: number;
   cashInHand?: number;
+  bankDetails?: {
+    holderName: string;
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+  };
   isBlocked?: boolean;
   shopRejectionReason?: string;
   hasShop?: boolean;
@@ -167,15 +173,15 @@ export interface IProduct {
 
 export interface IOrder {
   _id: MongoId;
-  buyer: MongoId;
-  seller: MongoId;
-  shop: MongoId;
+  buyer: MongoId | IUser;
+  seller: MongoId | IUser;
+  shop: MongoId | IShop;
   product: MongoId | IProduct;
   quantity: number;
   totalPrice: number;
   status: OrderStatus;
   paymentMethod: 'Cash on Pickup' | 'Cash on Delivery' | 'Razorpay';
-  rider?: MongoId;
+  rider?: MongoId | IUser;
   pickupCode: string;
   deliveryCode?: string;
   cancellationReason?: string;

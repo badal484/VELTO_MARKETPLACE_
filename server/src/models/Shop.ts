@@ -43,5 +43,6 @@ const shopSchema = new Schema<IShopDocument>({
 }, { timestamps: true });
 
 shopSchema.index({ location: '2dsphere' });
+shopSchema.index({ isVerified: 1 });
 
 export const Shop = mongoose.model<IShopDocument>('Shop', shopSchema);

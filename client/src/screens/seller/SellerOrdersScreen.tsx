@@ -40,15 +40,10 @@ interface SellerOrdersProps {
 export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
   const {showToast} = useToast();
   const {socket, isConnected} = useSocket();
+  // State
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Handover OTP State
-  const [isOtpModalVisible, setIsOtpModalVisible] = useState(false);
-  const [otpValue, setOtpValue] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (socket && isConnected) {
@@ -137,26 +132,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     }
   };
 
-  const handleVerifyHandover = async () => {
-    if (otpValue.length !== 4) {
-      showToast({message: 'Please enter a valid 4-digit code', type: 'info'});
-      return;
-    }
 
-    try {
-      setVerifying(true);
-      await axiosInstance.post(`/api/orders/${activeOrderId}/verify-otp`, { otp: otpValue });
-      setIsOtpModalVisible(false);
-      setOtpValue('');
-      setActiveOrderId(null);
-      fetchOrders();
-      showToast({message: 'Handover verified. Order completed!', type: 'success'});
-    } catch (error: any) {
-      showToast({message: error.response?.data?.message || 'Invalid code.', type: 'error'});
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
     const product = item.product as unknown as IProduct;
@@ -276,13 +252,10 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
 
             {item.status === OrderStatus.READY_FOR_PICKUP && item.fulfillmentMethod === 'pickup' && (
               <Button 
-                title="Verify Handshake & Complete" 
+                title="Complete Pickup" 
                 type="success" 
-                onPress={() => {
-                  setActiveOrderId(item._id);
-                  setIsOtpModalVisible(true);
-                }}
-                icon={<Icon name="ticket-outline" size={18} color="white" />}
+                onPress={() => handleUpdateStatus(item._id, OrderStatus.COMPLETED)}
+                icon={<Icon name="checkmark-circle-outline" size={18} color="white" />}
                 style={styles.fullBtn}
               />
             )}
@@ -319,41 +292,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Handover Verification Modal */}
-      <Modal
-        visible={isOtpModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsOtpModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <Animated.View entering={FadeInUp} style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Seller Handover</Text>
-              <TouchableOpacity onPress={() => setIsOtpModalVisible(false)}>
-                <Icon name="close" size={24} color={theme.colors.muted} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalSubtitle}>
-              Ask the buyer for their 4-digit handover code to complete the fulfillment.
-            </Text>
-            <TextInput
-              style={styles.otpInput}
-              placeholder="0000"
-              keyboardType="number-pad"
-              maxLength={4}
-              value={otpValue}
-              onChangeText={setOtpValue}
-              autoFocus
-            />
-            <Button
-              title={verifying ? "Processing..." : "Verify & Release Payment"}
-              type="primary"
-              onPress={handleVerifyHandover}
-              loading={verifying}
-            />
-          </Animated.View>
-        </View>
-      </Modal>
+
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>

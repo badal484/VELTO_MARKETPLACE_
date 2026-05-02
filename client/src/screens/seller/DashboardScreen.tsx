@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState, useCallback, useMemo, memo} from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -179,79 +179,84 @@ export default function DashboardScreen({navigation}: DashboardProps) {
     }
   };
 
-  const renderOrderCard = ({item}: {item: IOrder}) => {
-    const product = item.product as unknown as IProduct;
-    const buyer = item.buyer as unknown as IUser;
-    const isPending = item.status === OrderStatus.PENDING;
-    const isConfirmed = item.status === OrderStatus.CONFIRMED;
-    const isCompleted = item.status === OrderStatus.COMPLETED;
+// Memoized List Items to prevent unnecessary re-renders during dashboard updates
+const OrderCard = memo(({ item, onAccept, onVerify }: { item: IOrder, onAccept: (id: string) => void, onVerify: (id: string) => void }) => {
+  const product = item.product as unknown as IProduct;
+  const buyer = item.buyer as unknown as IUser;
+  const isPending = item.status === OrderStatus.PENDING;
+  const isConfirmed = item.status === OrderStatus.CONFIRMED;
+  const isCompleted = item.status === OrderStatus.COMPLETED;
 
-    return (
-      <Card style={styles.orderCard} variant="elevated">
-        <View style={styles.orderHeader}>
-          <Text style={styles.orderId}>#NB-{item._id?.slice(-6).toUpperCase() || 'ORDER'}</Text>
-          <View style={[
-            styles.statusBadge, 
-            {backgroundColor: isCompleted ? theme.colors.success + '15' : isPending ? theme.colors.warning + '15' : theme.colors.primary + '15'}
+  return (
+    <Card style={styles.orderCard} variant="elevated">
+      <View style={styles.orderHeader}>
+        <Text style={styles.orderId}>#NB-{item._id?.slice(-6).toUpperCase() || 'ORDER'}</Text>
+        <View style={[
+          styles.statusBadge, 
+          {backgroundColor: isCompleted ? theme.colors.success + '15' : isPending ? theme.colors.warning + '15' : theme.colors.primary + '15'}
+        ]}>
+          <Text style={[
+            styles.statusText, 
+            {color: isCompleted ? theme.colors.success : isPending ? theme.colors.warning : theme.colors.primary}
           ]}>
-            <Text style={[
-              styles.statusText, 
-              {color: isCompleted ? theme.colors.success : isPending ? theme.colors.warning : theme.colors.primary}
-            ]}>
-              {item.status.toUpperCase()}
-            </Text>
-          </View>
+            {item.status.toUpperCase()}
+          </Text>
         </View>
-        
-        <Text style={styles.orderAmount}>₹{item.totalPrice.toLocaleString()}</Text>
-        <Text style={styles.orderQty} numberOfLines={1}>{item.quantity}x {product?.title || 'Product'}</Text>
-        <Text style={styles.buyerName}>Buyer: {buyer?.name || 'Customer'}</Text>
-
-        <View style={styles.orderActions}>
-          {isPending && (
-            <TouchableOpacity 
-              style={styles.actionBtnAccept} 
-              onPress={() => handleAcceptOrder(item._id)}>
-              <Text style={styles.actionBtnText}>Confirm Order</Text>
-            </TouchableOpacity>
-          )}
-          {isConfirmed && item.fulfillmentMethod === 'pickup' && (
-            <TouchableOpacity 
-              style={styles.actionBtnVerify} 
-              onPress={() => {
-                setActiveOrderId(item._id);
-                setIsOtpModalVisible(true);
-              }}>
-              <Icon name="hand-right-outline" size={14} color={theme.colors.white} />
-              <Text style={styles.actionBtnText}>Verify Handover</Text>
-            </TouchableOpacity>
-          )}
-          {isCompleted && (
-            <View style={styles.completedBadge}>
-              <Icon name="checkmark-done" size={14} color={theme.colors.success} />
-              <Text style={styles.completedText}>Done</Text>
-            </View>
-          )}
-        </View>
-      </Card>
-    );
-  };
-
-  const renderProductCard = ({item}: {item: IProduct}) => (
-    <TouchableOpacity 
-      style={styles.productCard} 
-      onPress={() => navigation.navigate('AddEditListing', {product: item})}>
-      <Image 
-        source={{uri: item.images && item.images.length > 0 ? item.images[0] : 'https://via.placeholder.com/150'}} 
-        style={styles.productThumb} 
-      />
-      <View style={styles.productMeta}>
-        <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.productPrice}>₹{item.price}</Text>
-        <Text style={styles.productStock}>{item.stock} in stock</Text>
       </View>
-    </TouchableOpacity>
+      
+      <Text style={styles.orderAmount}>₹{item.totalPrice.toLocaleString()}</Text>
+      <Text style={styles.orderQty} numberOfLines={1}>{item.quantity}x {product?.title || 'Product'}</Text>
+      <Text style={styles.buyerName}>Buyer: {buyer?.name || 'Customer'}</Text>
+
+      <View style={styles.orderActions}>
+        {isPending && (
+          <TouchableOpacity 
+            style={styles.actionBtnAccept} 
+            onPress={() => onAccept(item._id)}>
+            <Text style={styles.actionBtnText}>Confirm Order</Text>
+          </TouchableOpacity>
+        )}
+        {isConfirmed && item.fulfillmentMethod === 'pickup' && (
+          <TouchableOpacity 
+            style={styles.actionBtnVerify} 
+            onPress={() => onVerify(item._id)}>
+            <Icon name="hand-right-outline" size={14} color={theme.colors.white} />
+            <Text style={styles.actionBtnText}>Verify Handover</Text>
+          </TouchableOpacity>
+        )}
+        {isCompleted && (
+          <View style={styles.completedBadge}>
+            <Icon name="checkmark-done" size={14} color={theme.colors.success} />
+            <Text style={styles.completedText}>Done</Text>
+          </View>
+        )}
+      </View>
+    </Card>
   );
+});
+
+const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => void }) => (
+  <TouchableOpacity 
+    style={styles.productCard} 
+    onPress={onPress}>
+    <Image 
+      source={{uri: item.images && item.images.length > 0 ? item.images[0] : 'https://via.placeholder.com/150'}} 
+      style={styles.productThumb} 
+    />
+    <View style={styles.productMeta}>
+      <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
+      <Text style={styles.productPrice}>₹{item.price}</Text>
+      <Text style={styles.productStock}>{item.stock} in stock</Text>
+    </View>
+  </TouchableOpacity>
+));
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
 
   if (loading && !refreshing) return <Loader />;
 
@@ -301,7 +306,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
 
       <View style={[styles.topHeader, {paddingTop: Math.max(insets.top, 20)}]}>
         <View>
-          <Text style={styles.brandTitle}>VELTO MERCHANT</Text>
+          <Text style={styles.brandTitle}>{getGreeting()}, {shop?.name || 'Partner'}</Text>
           <View style={styles.liveIndicatorRow}>
             <View style={styles.livePulseDot} />
             <Text style={styles.liveSearchText}>ACCEPTING ORDERS</Text>
@@ -442,7 +447,16 @@ export default function DashboardScreen({navigation}: DashboardProps) {
               horizontal
               data={orders.filter(o => o.status !== OrderStatus.CANCELLED)}
               keyExtractor={item => item._id}
-              renderItem={renderOrderCard}
+              renderItem={({item}) => (
+                <OrderCard 
+                  item={item} 
+                  onAccept={handleAcceptOrder} 
+                  onVerify={(id) => {
+                    setActiveOrderId(id);
+                    setIsOtpModalVisible(true);
+                  }} 
+                />
+              )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizPadding}
               ListEmptyComponent={<Text style={styles.emptyTxt}>No active orders</Text>}
@@ -457,7 +471,10 @@ export default function DashboardScreen({navigation}: DashboardProps) {
             <View style={styles.listingGrid}>
               {products.slice(0, 4).map(p => (
                 <View key={p._id} style={styles.gridItem}>
-                  {renderProductCard({item: p})}
+                  <ProductCard 
+                    item={p} 
+                    onPress={() => navigation.navigate('AddEditListing', {product: p})} 
+                  />
                 </View>
               ))}
               {products.length === 0 && <Text style={styles.emptyTxtCenter}>No listings yet. Add your first product!</Text>}

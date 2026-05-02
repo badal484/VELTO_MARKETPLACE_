@@ -33,7 +33,13 @@ export class NotificationService {
       // Push via FCM if tokens exist
       const user = await User.findById(params.recipient).select('fcmTokens');
       if (user?.fcmTokens?.length) {
-        // FCM sending handled separately by fcmService
+        const { FCMService } = require('./fcmService');
+        await FCMService.sendToUser(
+          params.recipient,
+          params.title,
+          params.message,
+          params.data
+        );
       }
     } catch (err) {
       console.error('[NotificationService] send error:', err);

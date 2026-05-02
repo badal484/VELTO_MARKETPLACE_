@@ -184,7 +184,7 @@ export default function OrderSuccessScreen({navigation, route}: any) {
               )}
               {(route.params?.fulfillmentMethod === 'pickup' && (paymentMethod !== 'Razorpay' || paymentConfirmed)) && (
                 <View style={styles.codeBox}>
-                   <Text style={styles.codeTitle}>STORE PICKUP PIN</Text>
+                   <Text style={styles.codeTitle}>PICKUP PIN</Text>
                    {route.params?.pickupCode ? (
                      <Text style={styles.codeValue}>{route.params?.pickupCode}</Text>
                    ) : (

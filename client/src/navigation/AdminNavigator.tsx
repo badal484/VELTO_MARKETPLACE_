@@ -66,11 +66,7 @@ export const AdminNavigator = () => {
         },
       })}>
       <Tab.Screen name="Overview" component={AdminOverviewScreen} />
-      <Tab.Screen
-        name="Pending"
-        component={AdminPendingShopsScreen}
-        options={{tabBarBadge: undefined, title: 'Pending'}} // In a real app we'd dynamically fetch the badge count
-      />
+      <Tab.Screen name="Pending" component={AdminPendingShopsScreen} />
       <Tab.Screen name="All Shops" component={AdminAllShopsScreen} />
       <Tab.Screen name="Users" component={AdminUsersScreen} />
       <Tab.Screen name="Products" component={AdminProductsScreen} />

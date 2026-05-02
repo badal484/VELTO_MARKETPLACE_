@@ -1,674 +1,781 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useCallback, useRef} from 'react';
+import {LayoutAnimation, Platform, UIManager} from 'react-native';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  Alert,
+  SectionList,
   RefreshControl,
+  TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  TouchableOpacity,
-  Modal,
-  TextInput,
+  Alert,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {Loader} from '../../components/common/Loader';
 import {Card} from '../../components/common/Card';
-import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IShop, IUser} from '@shared/types';
+import Animated, {FadeInDown} from 'react-native-reanimated';
 import {useToast} from '../../hooks/useToast';
-import Animated, {FadeInUp} from 'react-native-reanimated';
 
-export default function AdminPendingShopsScreen() {
+// ── Reusable detail row ──────────────────────────────────────────────────────
+const DetailRow = ({
+  icon, label, value, sensitive, muted, highlight,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  sensitive?: boolean;
+  muted?: boolean;
+  highlight?: boolean;
+}) => (
+  <View style={detailRowStyles.row}>
+    <Icon name={icon} size={13} color={highlight ? theme.colors.success : theme.colors.muted} style={detailRowStyles.icon} />
+    <Text style={detailRowStyles.label}>{label}</Text>
+    <Text
+      style={[
+        detailRowStyles.value,
+        muted && detailRowStyles.valueMuted,
+        highlight && detailRowStyles.valueHighlight,
+      ]}
+      numberOfLines={2}
+      selectable={!sensitive}>
+      {sensitive ? maskSensitive(value) : value}
+    </Text>
+  </View>
+);
+
+const maskSensitive = (val: string) => {
+  if (!val || val.length < 6) return val;
+  return val.slice(0, 4) + '•••••' + val.slice(-3);
+};
+
+const detailRowStyles = StyleSheet.create({
+  row: {flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 7},
+  icon: {marginTop: 2},
+  label: {fontSize: 11, color: theme.colors.muted, fontWeight: '700', width: 100, flexShrink: 0},
+  value: {fontSize: 12, color: theme.colors.text, fontWeight: '500', flex: 1},
+  valueMuted: {color: theme.colors.muted, fontStyle: 'italic'},
+  valueHighlight: {color: theme.colors.success, fontWeight: '700'},
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function AdminPendingShopsScreen({navigation}: {navigation: any}) {
   const {showToast} = useToast();
-  const [activeTab, setActiveTab] = useState<'shops' | 'riders'>('shops');
-  const [shops, setShops] = useState<IShop[]>([]);
-  const [riders, setRiders] = useState<IUser[]>([]);
+  const [pendingShops, setPendingShops] = useState<IShop[]>([]);
+  const [pendingRiders, setPendingRiders] = useState<IUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Rejection Modal State
-  const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectingType, setRejectingType] = useState<'shop' | 'rider' | null>(null);
-  const [isRejecting, setIsRejecting] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTab]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
-      if (activeTab === 'shops') {
-        const res = await axiosInstance.get('/api/admin/shops/pending');
-        setShops(res.data.data);
-      } else {
-        const res = await axiosInstance.get('/api/admin/users');
-        const pending = res.data.data.filter((u: any) => u.riderStatus === 'pending');
-        setRiders(pending);
-      }
-    } catch (error: unknown) {
-      console.error('Error fetching pending applications:', error);
+      const [shopsRes, usersRes] = await Promise.all([
+        axiosInstance.get('/api/admin/shops/pending'),
+        axiosInstance.get('/api/admin/users'),
+      ]);
+      setPendingShops(shopsRes.data.data || []);
+      const riders = (usersRes.data.data || []).filter(
+        (u: IUser) => (u as any).riderStatus === 'pending',
+      );
+      setPendingRiders(riders);
+    } catch (error) {
+      showToast({message: 'Failed to load pending applications', type: 'error'});
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const handleApproveShop = async (id: string) => {
-    Alert.alert('Approve Shop', 'Are you sure you want to verify this shop and make it live?', [
-      {text: 'Cancel', style: 'cancel'},
-      {
-        text: 'Approve', style: 'default',
-        onPress: async () => {
-          try {
-            await axiosInstance.patch(`/api/admin/shops/${id}/approve`);
-            showToast({message: 'Shop approved and verified successfully!', type: 'success'});
-            fetchData();
-          } catch (error: unknown) {
-            showToast({message: 'Failed to approve shop', type: 'error'});
-          }
-        },
-      },
-    ]);
-  };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const handleApproveRider = async (id: string) => {
-    Alert.alert('Approve Rider', 'Are you sure you want to verify this rider?', [
-      {text: 'Cancel', style: 'cancel'},
-      {
-        text: 'Approve', style: 'default',
-        onPress: async () => {
-          try {
-            await axiosInstance.patch(`/api/admin/users/${id}/verify-rider`);
-            showToast({message: 'Rider verified successfully!', type: 'success'});
-            fetchData();
-          } catch (error: unknown) {
-            showToast({message: 'Failed to verify rider', type: 'error'});
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleReject = (id: string, type: 'shop' | 'rider') => {
-    setRejectingId(id);
-    setRejectingType(type);
-    setRejectReason('');
-    setIsRejectModalVisible(true);
-  };
-
-  const confirmReject = async () => {
-    if (!rejectingId || !rejectReason.trim()) {
-      showToast({message: 'Please provide a reason for rejection', type: 'info'});
-      return;
-    }
-
-    setIsRejecting(true);
+  // --- Shop Actions ---
+  const handleApproveShop = async (shopId: string) => {
+    setProcessingId(shopId);
     try {
-      if (rejectingType === 'shop') {
-        await axiosInstance.patch(`/api/admin/shops/${rejectingId}/reject`, { reason: rejectReason });
-        showToast({message: 'Shop application rejected', type: 'info'});
-      } else {
-        await axiosInstance.patch(`/api/admin/users/${rejectingId}/reject-rider`, { rejectionReason: rejectReason });
-        showToast({message: 'Rider application rejected', type: 'info'});
-      }
-      setIsRejectModalVisible(false);
+      await axiosInstance.patch(`/api/admin/shops/${shopId}/approve`);
+      showToast({message: 'Shop approved and is now live!', type: 'success'});
       fetchData();
-    } catch (error: unknown) {
-      showToast({message: 'Failed to reject', type: 'error'});
+    } catch (e: any) {
+      showToast({message: e.response?.data?.message || 'Failed to approve', type: 'error'});
     } finally {
-      setIsRejecting(false);
+      setProcessingId(null);
     }
   };
 
-  const PendingShopCard = ({
-    item,
-    index,
-    onApprove,
-    onReject,
-  }: {
-    item: IShop;
-    index: number;
-    onApprove: (id: string) => void;
-    onReject: (id: string, type: 'shop' | 'rider') => void;
-  }) => {
-    const [showDetails, setShowDetails] = useState(false);
-
-
-    return (
-      <Animated.View entering={FadeInUp.delay(index * 120).duration(600)}>
-        <Card style={styles.card} variant="elevated">
-          <View style={styles.shopHeader}>
-            <View style={styles.logoBox}>
-              <Icon name="business" size={24} color={theme.colors.primary} />
-            </View>
-            <View style={styles.headerInfo}>
-              <Text style={styles.shopName}>{item.name}</Text>
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryText}>{item.category}</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.detailsBox}>
-            <View style={styles.detailItem}>
-              <Icon
-                name="location-outline"
-                size={14}
-                color={theme.colors.muted}
-              />
-              <Text style={styles.detailText} numberOfLines={1}>
-                {item.address}
-              </Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Icon
-                name="document-text-outline"
-                size={14}
-                color={theme.colors.muted}
-              />
-              <Text style={styles.description} numberOfLines={3}>
-                {item.description}
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.expandRow}
-            onPress={() => setShowDetails(!showDetails)}>
-            <Text style={styles.expandText}>
-              {showDetails
-                ? 'Hide Verification Data'
-                : 'View Verification Data'}
-            </Text>
-            <Icon
-              name={showDetails ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={theme.colors.primary}
-            />
-          </TouchableOpacity>
-
-          {showDetails && (
-            <View style={styles.kycSection}>
-              <Text style={styles.kycTitle}>ID & Tax Verification</Text>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>Official Name:</Text>
-                <Text style={styles.kycValue}>{item.businessName}</Text>
-              </View>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>Aadhar Card:</Text>
-                <Text style={styles.kycValue}>{item.aadharCard}</Text>
-              </View>
-              {item.gstin && (
-                <View style={styles.kycRow}>
-                  <Text style={styles.kycLabel}>GSTIN:</Text>
-                  <Text style={styles.kycValue}>{item.gstin}</Text>
-                </View>
-              )}
-
-              <Text style={[styles.kycTitle, {marginTop: 16}]}>
-                Bank Details (Payouts)
-              </Text>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>Holder:</Text>
-                <Text style={styles.kycValue}>
-                  {item.bankDetails?.holderName || 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>Bank:</Text>
-                <Text style={styles.kycValue}>{item.bankDetails?.bankName || 'N/A'}</Text>
-              </View>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>Account:</Text>
-                <Text style={styles.kycValue}>
-                  {item.bankDetails?.accountNumber || 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>IFSC:</Text>
-                <Text style={styles.kycValue}>{item.bankDetails?.ifscCode || 'N/A'}</Text>
-              </View>
-
-              <Text style={[styles.kycTitle, {marginTop: 16}]}>
-                Detailed Address
-              </Text>
-              <Text style={styles.kycValue}>
-                {item.detailedAddress?.street}, {item.detailedAddress?.city},{' '}
-                {item.detailedAddress?.state} - {item.detailedAddress?.pincode}
-              </Text>
-
-              <Text style={[styles.kycTitle, {marginTop: 16}]}>
-                Direct Contact
-              </Text>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>Email:</Text>
-                <Text style={styles.kycValue}>
-                  {item.contactInfo?.businessEmail || 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.kycRow}>
-                <Text style={styles.kycLabel}>Phone:</Text>
-                <Text style={styles.kycValue}>
-                  {item.contactInfo?.businessPhone || 'N/A'}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} onPress={() => onApprove(String(item._id))}>
-              <Icon name="checkmark-circle" size={18} color={theme.colors.white} />
-              <Text style={styles.btnText}>Approve</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => onReject(String(item._id), 'shop')}>
-              <Icon name="close-circle" size={18} color={theme.colors.danger} />
-              <Text style={[styles.btnText, {color: theme.colors.danger}]}>Reject</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
-      </Animated.View>
+  const handleRejectShop = (shopId: string) => {
+    Alert.prompt(
+      'Reject Shop Application',
+      'Enter reason for rejection:',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async (reason) => {
+            if (!reason?.trim()) {
+              showToast({message: 'A reason is required', type: 'info'});
+              return;
+            }
+            setProcessingId(shopId);
+            try {
+              await axiosInstance.patch(`/api/admin/shops/${shopId}/reject`, {reason});
+              showToast({message: 'Shop application rejected', type: 'info'});
+              fetchData();
+            } catch (e: any) {
+              showToast({message: e.response?.data?.message || 'Failed to reject', type: 'error'});
+            } finally {
+              setProcessingId(null);
+            }
+          },
+        },
+      ],
     );
   };
 
-  const PendingRiderCard = ({ item, index }: { item: IUser; index: number }) => {
-    return (
-      <Animated.View entering={FadeInUp.delay(index * 120).duration(600)}>
-        <Card style={styles.card} variant="elevated">
-          <View style={styles.shopHeader}>
-            <View style={[styles.logoBox, {backgroundColor: '#6366F115'}]}>
-              <Icon name="bicycle" size={24} color="#6366F1" />
-            </View>
-            <View style={styles.headerInfo}>
-              <Text style={styles.shopName}>{item.name}</Text>
-              <Text style={styles.detailText}>{item.email}</Text>
-            </View>
-          </View>
+  // --- Rider Actions ---
+  const handleApproveRider = async (riderId: string) => {
+    setProcessingId(riderId);
+    try {
+      await axiosInstance.patch(`/api/admin/users/${riderId}/verify-rider`);
+      showToast({message: 'Rider verified and activated!', type: 'success'});
+      fetchData();
+    } catch (e: any) {
+      showToast({message: e.response?.data?.message || 'Failed to verify rider', type: 'error'});
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
-          <View style={styles.kycSection}>
-            <Text style={styles.kycTitle}>Rider Documents</Text>
-            <View style={styles.kycRow}>
-              <Text style={styles.kycLabel}>License:</Text>
-              <Text style={styles.kycValue}>{item.licenseNumber || 'Not provided'}</Text>
-            </View>
-            <View style={styles.kycRow}>
-              <Text style={styles.kycLabel}>Vehicle:</Text>
-              <Text style={styles.kycValue}>
-                {item.vehicleDetails?.model} ({item.vehicleDetails?.number})
-              </Text>
-            </View>
-            <View style={styles.kycRow}>
-              <Text style={styles.kycLabel}>Type:</Text>
-              <Text style={styles.kycValue}>{item.vehicleDetails?.type}</Text>
-            </View>
-            <Text style={[styles.kycLabel, {marginTop: 6}]}>{item.riderDocuments?.length || 0} File(s) Uploaded</Text>
-          </View>
-
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} onPress={() => handleApproveRider(String(item._id))}>
-              <Icon name="checkmark-circle" size={18} color={theme.colors.white} />
-              <Text style={styles.btnText}>View / Approve</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => handleReject(String(item._id), 'rider')}>
-              <Icon name="close-circle" size={18} color={theme.colors.danger} />
-              <Text style={[styles.btnText, {color: theme.colors.danger}]}>Reject</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
-      </Animated.View>
+  const handleRejectRider = (riderId: string) => {
+    Alert.prompt(
+      'Reject Rider Application',
+      'Enter reason for rejection:',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async (reason) => {
+            if (!reason?.trim()) {
+              showToast({message: 'A reason is required', type: 'info'});
+              return;
+            }
+            setProcessingId(riderId);
+            try {
+              await axiosInstance.patch(`/api/admin/users/${riderId}/reject-rider`, {reason});
+              showToast({message: 'Rider application rejected', type: 'info'});
+              fetchData();
+            } catch (e: any) {
+              showToast({message: e.response?.data?.message || 'Failed to reject', type: 'error'});
+            } finally {
+              setProcessingId(null);
+            }
+          },
+        },
+      ],
     );
   };
 
-  if (loading && !refreshing) {
-    return <Loader />;
-  }
+  const handleContact = async (userId: string, name: string) => {
+    try {
+      const res = await axiosInstance.post('/api/chat', {receiverId: userId});
+      navigation.navigate('ChatRoom', {
+        conversationId: res.data.data._id,
+        otherUser: {_id: userId, name},
+        shopName: name,
+      });
+    } catch (e: any) {
+      showToast({message: 'Could not start chat', type: 'error'});
+    }
+  };
+
+  // --- Render Items ---
+  const renderShopItem = ({item, index}: {item: IShop; index: number}) => (
+    <ShopCard
+      key={String(item._id)}
+      item={item}
+      index={index}
+      processingId={processingId}
+      onApprove={handleApproveShop}
+      onReject={handleRejectShop}
+      onContact={handleContact}
+    />
+  );
+
+  const renderRiderItem = ({item, index}: {item: IUser; index: number}) => (
+    <RiderCard
+      key={String(item._id)}
+      item={item}
+      index={index}
+      processingId={processingId}
+      onApprove={handleApproveRider}
+      onReject={handleRejectRider}
+      onContact={handleContact}
+    />
+  );
+
+  const renderSectionHeader = ({section}: {section: any}) => (
+    <View style={styles.sectionHeader}>
+      <Icon name={section.icon} size={16} color={section.color} />
+      <Text style={[styles.sectionTitle, {color: section.color}]}>{section.title}</Text>
+      <View style={[styles.sectionBadge, {backgroundColor: section.color + '20'}]}>
+        <Text style={[styles.sectionBadgeText, {color: section.color}]}>{section.data.length}</Text>
+      </View>
+    </View>
+  );
+
+  const renderEmpty = ({section}: {section: any}) =>
+    section.data.length === 0 ? (
+      <View style={styles.sectionEmpty}>
+        <Icon name="checkmark-done-outline" size={28} color={theme.colors.success} />
+        <Text style={styles.sectionEmptyText}>No pending {section.emptyLabel}</Text>
+      </View>
+    ) : null;
+
+  const sections = [
+    {
+      title: 'Pending Shops',
+      icon: 'storefront-outline',
+      color: '#D97706',
+      emptyLabel: 'shop applications',
+      data: pendingShops as any[],
+      renderItem: renderShopItem,
+    },
+    {
+      title: 'Pending Riders',
+      icon: 'bicycle-outline',
+      color: '#4F46E5',
+      emptyLabel: 'rider applications',
+      data: pendingRiders as any[],
+      renderItem: renderRiderItem,
+    },
+  ];
+
+  if (loading) return <Loader />;
+
+  const totalPending = pendingShops.length + pendingRiders.length;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.container}>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.title}>Pending Approvals</Text>
-          <Text style={styles.subtitle}>{shops.length + riders.length} total applications</Text>
-          
-          <View style={styles.tabContainer}>
-            <TouchableOpacity onPress={() => setActiveTab('shops')} style={[styles.tabBtn, activeTab === 'shops' && styles.activeTabBtn]}>
-              <Text style={[styles.tabText, activeTab === 'shops' && styles.activeTabText]}>Shops ({shops.length})</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setActiveTab('riders')} style={[styles.tabBtn, activeTab === 'riders' && styles.activeTabBtn]}>
-              <Text style={[styles.tabText, activeTab === 'riders' && styles.activeTabText]}>Riders ({riders.length})</Text>
-            </TouchableOpacity>
-          </View>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Pending</Text>
+          <Text style={styles.subtitle}>
+            {totalPending} application{totalPending !== 1 ? 's' : ''} awaiting review
+          </Text>
         </View>
-
-        <FlatList
-          data={activeTab === 'shops' ? (shops as any[]) : (riders as any[])}
-          keyExtractor={item => String(item._id)}
-          renderItem={({item, index}) => 
-            activeTab === 'shops' ? (
-              <PendingShopCard item={item} index={index} onApprove={handleApproveShop} onReject={handleReject} />
-            ) : (
-              <PendingRiderCard item={item} index={index} />
-            )
-          }
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchData();
-              }}
-              tintColor={theme.colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={styles.emptyCircle}>
-                <Icon
-                  name="checkmark-done"
-                  size={48}
-                  color={theme.colors.success}
-                />
-              </View>
-              <Text style={styles.emptyTitle}>All Caught Up!</Text>
-              <Text style={styles.emptyText}>
-                No pending {activeTab} applications to review at this time.
-              </Text>
-            </View>
-          }
-        />
+        <View style={[styles.countBadge, totalPending > 0 && {backgroundColor: '#FEF3C7'}]}>
+          <Text style={[styles.countBadgeText, totalPending > 0 && {color: '#D97706'}]}>
+            {totalPending}
+          </Text>
+        </View>
       </View>
 
-      <Modal
-        visible={isRejectModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsRejectModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Rejection Reason</Text>
-            <Text style={styles.modalSub}>
-              Please tell the merchant why their application was refused.
-            </Text>
-            <TextInput
-              style={styles.reasonInput}
-              placeholder="e.g. Bank details are unreadable"
-              value={rejectReason}
-              onChangeText={setRejectReason}
-              multiline
-              numberOfLines={4}
-              autoFocus
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setIsRejectModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.confirmBtn]}
-                onPress={confirmReject}
-                disabled={isRejecting}>
-                <Text style={styles.confirmBtnText}>
-                  {isRejecting ? 'Rejecting...' : 'Reject Application'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <SectionList
+        sections={sections}
+        keyExtractor={(item, index) => String(item._id || index)}
+        renderItem={({item, index, section}) => (section as any).renderItem({item, index})}
+        renderSectionHeader={renderSectionHeader}
+        renderSectionFooter={renderEmpty}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {setRefreshing(true); fetchData();}}
+            tintColor={theme.colors.primary}
+          />
+        }
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: theme.colors.white},
-  container: {flex: 1, backgroundColor: theme.colors.background},
-  headerTitleContainer: {
+  container: {flex: 1, backgroundColor: '#F9FAFB'},
+  header: {
     padding: 24,
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  title: {fontSize: 24, fontWeight: '900', color: theme.colors.text},
-  subtitle: {
-    fontSize: 13,
-    color: theme.colors.muted,
-    marginTop: 4,
-    fontWeight: '600',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginTop: 16,
-    gap: 8,
-    backgroundColor: '#F1F5F9',
-    padding: 6,
-    borderRadius: 12,
-  },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  activeTabBtn: {
-    backgroundColor: theme.colors.white,
-    ...theme.shadow.sm,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.muted,
-  },
-  activeTabText: {
-    color: theme.colors.primary,
-    fontWeight: '800',
-  },
-  list: {padding: 16, paddingBottom: 40},
-  card: {marginBottom: 16, padding: 20, borderRadius: 20},
-  shopHeader: {flexDirection: 'row', alignItems: 'center', marginBottom: 20},
-  logoBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primary + '10',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  headerInfo: {flex: 1},
-  shopName: {fontSize: 18, fontWeight: '900', color: theme.colors.text},
-  categoryBadge: {
-    backgroundColor: theme.colors.primary + '10',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  categoryText: {
-    fontSize: 10,
-    color: theme.colors.primary,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  detailsBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 16,
-    borderRadius: 16,
-    gap: 12,
-  },
-  detailItem: {flexDirection: 'row', alignItems: 'flex-start', gap: 10},
-  detailText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
-    flex: 1,
-  },
-  description: {
-    fontSize: 13,
-    color: theme.colors.muted,
-    lineHeight: 18,
-    flex: 1,
-  },
-  actions: {flexDirection: 'row', gap: 12, marginTop: 24},
-  actionBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  approveBtn: {backgroundColor: theme.colors.success},
-  rejectBtn: {
-    backgroundColor: theme.colors.white,
-    borderWidth: 1,
-    borderColor: theme.colors.danger,
-  },
-  btnText: {color: theme.colors.white, fontWeight: '800', fontSize: 14},
-  expandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    marginTop: 12,
-    backgroundColor: theme.colors.primary + '08',
-    borderRadius: 12,
-    gap: 8,
-  },
-  expandText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: theme.colors.primary,
-  },
-  kycSection: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  kycTitle: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: theme.colors.text,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 10,
-  },
-  kycRow: {
+    borderBottomColor: '#E5E7EB',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  kycLabel: {
-    fontSize: 13,
-    color: theme.colors.muted,
-    fontWeight: '600',
-  },
-  kycValue: {
-    fontSize: 13,
-    color: theme.colors.text,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: 10,
-  },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 80,
-    paddingHorizontal: 40,
-  },
-  emptyCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F0FDF4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {fontSize: 20, fontWeight: '900', color: theme.colors.text},
-  emptyText: {
-    color: theme.colors.muted,
-    marginTop: 10,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 24,
-    padding: 24,
-    ...theme.shadow.lg,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  modalSub: {
-    fontSize: 14,
-    color: theme.colors.muted,
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  reasonInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 16,
-    height: 120,
-    fontSize: 15,
-    color: theme.colors.text,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  modalBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    justifyContent: 'center',
     alignItems: 'center',
   },
-  cancelBtn: {
+  title: {fontSize: 24, fontWeight: '900', color: theme.colors.text},
+  subtitle: {fontSize: 13, color: theme.colors.muted, marginTop: 4, fontWeight: '600'},
+  countBadge: {
+    width: 44, height: 44, borderRadius: 14,
     backgroundColor: '#F1F5F9',
+    justifyContent: 'center', alignItems: 'center',
   },
-  confirmBtn: {
-    backgroundColor: theme.colors.danger,
+  countBadgeText: {fontSize: 18, fontWeight: '900', color: theme.colors.muted},
+  list: {padding: 16, paddingBottom: 60},
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 8, marginBottom: 12, marginTop: 8,
   },
-  cancelBtnText: {
-    color: theme.colors.text,
-    fontWeight: '800',
+  sectionTitle: {fontSize: 15, fontWeight: '900', letterSpacing: 0.3},
+  sectionBadge: {
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8,
   },
-  confirmBtnText: {
-    color: theme.colors.white,
-    fontWeight: '800',
+  sectionBadgeText: {fontSize: 11, fontWeight: '900'},
+  sectionEmpty: {
+    alignItems: 'center', paddingVertical: 32,
+    backgroundColor: theme.colors.white,
+    borderRadius: 16, marginBottom: 16,
+    borderStyle: 'dashed', borderWidth: 1.5, borderColor: theme.colors.border,
+    gap: 8,
   },
+  sectionEmptyText: {fontSize: 13, color: theme.colors.muted, fontWeight: '600'},
+  card: {marginBottom: 12, padding: 16, borderRadius: 18, backgroundColor: theme.colors.white},
+  cardHeader: {flexDirection: 'row', alignItems: 'center', marginBottom: 14},
+  iconBox: {
+    width: 44, height: 44, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  itemInfo: {flex: 1},
+  itemName: {fontSize: 15, fontWeight: '800', color: theme.colors.text},
+  itemSub: {fontSize: 11, color: theme.colors.muted, fontWeight: '600', marginTop: 2},
+  pendingBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+  },
+  pendingBadgeText: {fontSize: 9, fontWeight: '900', color: '#D97706', letterSpacing: 0.5},
+  metaGrid: {gap: 7, marginBottom: 16},
+  metaRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  metaText: {fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500', flex: 1},
+  actions: {flexDirection: 'row', gap: 10},
+  approveBtn: {
+    flex: 1, height: 42, borderRadius: 12,
+    backgroundColor: theme.colors.primary,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  rejectBtn: {
+    flex: 1, height: 42, borderRadius: 12,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1.5, borderColor: theme.colors.danger,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  disabledBtn: {opacity: 0.45},
+  approveBtnText: {color: '#fff', fontWeight: '800', fontSize: 13},
+  rejectBtnText: {color: theme.colors.danger, fontWeight: '800', fontSize: 13},
+  // ── New styles for expanded shop card ──
+  businessNameText: {fontSize: 11, color: theme.colors.primary, fontWeight: '700', marginTop: 1},
+  tagRow: {flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap'},
+  categoryTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  categoryTagText: {fontSize: 11, fontWeight: '800', color: '#D97706'},
+  dateTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F1F5F9', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  dateTagText: {fontSize: 11, fontWeight: '600', color: theme.colors.muted},
+  descriptionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10, padding: 12, marginBottom: 14,
+    borderLeftWidth: 3, borderLeftColor: theme.colors.primary,
+  },
+  descriptionText: {fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500', lineHeight: 18},
+  section: {
+    borderTopWidth: 1, borderTopColor: '#F1F5F9',
+    paddingTop: 12, marginBottom: 12,
+  },
+  sectionLabel: {
+    fontSize: 9, fontWeight: '900', color: theme.colors.muted,
+    letterSpacing: 1.2, marginBottom: 10,
+  },
+  // ── View Details toggle button ──
+  viewDetailsBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 9, marginBottom: 12,
+    backgroundColor: '#F0F4FF',
+    borderRadius: 10,
+    borderWidth: 1, borderColor: '#C7D7FF',
+  },
+  viewDetailsBtnText: {
+    fontSize: 12, fontWeight: '700', color: theme.colors.primary,
+  },
+  // ── Contact bar ──
+  contactBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: theme.colors.primary + '08',
+    paddingVertical: 8, borderRadius: 10,
+    marginTop: 10,
+  },
+  contactText: {fontSize: 12, fontWeight: '800', color: theme.colors.primary},
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ShopCard — self-contained component with expand/collapse state
+// ─────────────────────────────────────────────────────────────────────────────
+type ShopCardProps = {
+  item: IShop;
+  index: number;
+  processingId: string | null;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onContact: (userId: string, name: string) => void;
+};
+
+const ShopCard = ({item, index, processingId, onApprove, onReject, onContact}: ShopCardProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const owner = item.owner as unknown as IUser;
+  const isProcessing = processingId === String(item._id);
+  const shop = item as any;
+  const appliedAt = shop.createdAt
+    ? new Date(shop.createdAt).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})
+    : null;
+
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(v => !v);
+  };
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
+      <Card style={styles.card} variant="elevated">
+
+        {/* ── Header ── */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconBox, {backgroundColor: '#FEF3C7'}]}>
+            <Icon name="storefront" size={22} color="#D97706" />
+          </View>
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+            {shop.businessName && shop.businessName !== item.name && (
+              <Text style={styles.businessNameText}>"{shop.businessName}"</Text>
+            )}
+            <Text style={styles.itemSub}>Owner: {owner?.name || 'Merchant'}</Text>
+          </View>
+          <View style={styles.pendingBadge}>
+            <Text style={styles.pendingBadgeText}>SHOP</Text>
+          </View>
+        </View>
+
+        {/* ── Summary tags ── */}
+        <View style={styles.tagRow}>
+          <View style={styles.categoryTag}>
+            <Icon name="pricetag-outline" size={11} color="#D97706" />
+            <Text style={styles.categoryTagText}>{item.category}</Text>
+          </View>
+          {appliedAt && (
+            <View style={styles.dateTag}>
+              <Icon name="calendar-outline" size={11} color={theme.colors.muted} />
+              <Text style={styles.dateTagText}>Applied {appliedAt}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── View Details toggle ── */}
+        <TouchableOpacity style={styles.viewDetailsBtn} onPress={toggle} activeOpacity={0.7}>
+          <Icon name="document-text-outline" size={14} color={theme.colors.primary} />
+          <Text style={styles.viewDetailsBtnText}>
+            {expanded ? 'Hide Details' : 'View Details'}
+          </Text>
+          <Icon
+            name={expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+            size={14}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
+
+        {/* ── Expanded Detail Sections ── */}
+        {expanded && (
+          <View>
+            {/* Description */}
+            {shop.description ? (
+              <View style={styles.descriptionBox}>
+                <Text style={styles.descriptionText}>{shop.description}</Text>
+              </View>
+            ) : null}
+
+            {/* Contact */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>CONTACT</Text>
+              <DetailRow icon="person-outline" label="Owner Email" value={owner?.email || '—'} />
+              {owner?.phoneNumber && (
+                <DetailRow icon="call-outline" label="Owner Phone" value={owner.phoneNumber} />
+              )}
+              {shop.contactInfo?.businessEmail && (
+                <DetailRow icon="mail-outline" label="Business Email" value={shop.contactInfo.businessEmail} />
+              )}
+              {shop.contactInfo?.businessPhone && (
+                <DetailRow icon="phone-portrait-outline" label="Business Phone" value={shop.contactInfo.businessPhone} />
+              )}
+            </View>
+
+            {/* Address */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>ADDRESS</Text>
+              <DetailRow icon="map-outline" label="Full Address" value={item.address} />
+              {shop.detailedAddress?.street && (
+                <DetailRow icon="location-outline" label="Street" value={shop.detailedAddress.street} />
+              )}
+              {shop.detailedAddress?.city && (
+                <DetailRow
+                  icon="business-outline"
+                  label="City"
+                  value={`${shop.detailedAddress.city}, ${shop.detailedAddress.state || ''} - ${shop.detailedAddress.pincode || ''}`}
+                />
+              )}
+            </View>
+
+            {/* KYC */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>KYC DOCUMENTS</Text>
+              {shop.aadharCard && (
+                <DetailRow icon="card-outline" label="Aadhaar No." value={shop.aadharCard} sensitive />
+              )}
+              <DetailRow
+                icon="document-text-outline"
+                label="GSTIN"
+                value={shop.gstin || 'Not provided'}
+                muted={!shop.gstin}
+              />
+              <DetailRow
+                icon="shield-checkmark-outline"
+                label="Terms Accepted"
+                value={shop.isTermsAccepted ? 'Yes' : 'No'}
+                highlight={shop.isTermsAccepted}
+              />
+            </View>
+
+            {/* Bank */}
+            {shop.bankDetails && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>BANK DETAILS</Text>
+                {shop.bankDetails.bankName && (
+                  <DetailRow icon="business-outline" label="Bank" value={shop.bankDetails.bankName} />
+                )}
+                {shop.bankDetails.holderName && (
+                  <DetailRow icon="person-outline" label="Account Holder" value={shop.bankDetails.holderName} />
+                )}
+                {shop.bankDetails.accountNumber && (
+                  <DetailRow icon="wallet-outline" label="Account No." value={shop.bankDetails.accountNumber} sensitive />
+                )}
+                {shop.bankDetails.ifscCode && (
+                  <DetailRow icon="code-outline" label="IFSC Code" value={shop.bankDetails.ifscCode} />
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Actions ── */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.approveBtn, isProcessing && styles.disabledBtn]}
+            onPress={() => onApprove(String(item._id))}
+            disabled={isProcessing}>
+            <Icon name="checkmark-circle-outline" size={15} color="#fff" />
+            <Text style={styles.approveBtnText}>Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.rejectBtn, isProcessing && styles.disabledBtn]}
+            onPress={() => onReject(String(item._id))}
+            disabled={isProcessing}>
+            <Icon name="close-circle-outline" size={15} color={theme.colors.danger} />
+            <Text style={styles.rejectBtnText}>Reject</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.contactBar} 
+          onPress={() => onContact(String(owner?._id), item.name)}>
+          <Icon name="mail-outline" size={14} color={theme.colors.primary} />
+          <Text style={styles.contactText}>Contact Merchant</Text>
+        </TouchableOpacity>
+
+      </Card>
+    </Animated.View>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RiderCard — self-contained component with expand/collapse state
+// ─────────────────────────────────────────────────────────────────────────────
+type RiderCardProps = {
+  item: IUser;
+  index: number;
+  processingId: string | null;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onContact: (userId: string, name: string) => void;
+};
+
+const RiderCard = ({item, index, processingId, onApprove, onReject, onContact}: RiderCardProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const isProcessing = processingId === String(item._id);
+  const rider = item as any;
+  const appliedAt = rider.createdAt
+    ? new Date(rider.createdAt).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})
+    : null;
+
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(v => !v);
+  };
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
+      <Card style={styles.card} variant="elevated">
+
+        {/* ── Header ── */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconBox, {backgroundColor: '#EEF2FF'}]}>
+            <Icon name="bicycle" size={22} color="#4F46E5" />
+          </View>
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.itemSub}>{item.email}</Text>
+          </View>
+          <View style={[styles.pendingBadge, {backgroundColor: '#EEF2FF'}]}>
+            <Text style={[styles.pendingBadgeText, {color: '#4F46E5'}]}>RIDER</Text>
+          </View>
+        </View>
+
+        {/* ── Summary tags ── */}
+        <View style={styles.tagRow}>
+          {rider.vehicleDetails?.type && (
+            <View style={[styles.categoryTag, {backgroundColor: '#EEF2FF'}]}>
+              <Icon name="bicycle-outline" size={11} color="#4F46E5" />
+              <Text style={[styles.categoryTagText, {color: '#4F46E5'}]}>
+                {rider.vehicleDetails.type}
+              </Text>
+            </View>
+          )}
+          {appliedAt && (
+            <View style={styles.dateTag}>
+              <Icon name="calendar-outline" size={11} color={theme.colors.muted} />
+              <Text style={styles.dateTagText}>Applied {appliedAt}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── View Details toggle ── */}
+        <TouchableOpacity
+          style={[styles.viewDetailsBtn, {backgroundColor: '#EEF2FF', borderColor: '#C4C9F7'}]}
+          onPress={toggle}
+          activeOpacity={0.7}>
+          <Icon name="person-circle-outline" size={14} color="#4F46E5" />
+          <Text style={[styles.viewDetailsBtnText, {color: '#4F46E5'}]}>
+            {expanded ? 'Hide Details' : 'View Details'}
+          </Text>
+          <Icon
+            name={expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+            size={14}
+            color="#4F46E5"
+          />
+        </TouchableOpacity>
+
+        {/* ── Expanded Detail Sections ── */}
+        {expanded && (
+          <View>
+            {/* Contact */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>CONTACT</Text>
+              <DetailRow icon="mail-outline" label="Email" value={item.email} />
+              {item.phoneNumber && (
+                <DetailRow icon="call-outline" label="Phone" value={item.phoneNumber} />
+              )}
+            </View>
+
+            {/* Vehicle Info */}
+            {rider.vehicleDetails?.type && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>VEHICLE INFO</Text>
+                <DetailRow icon="bicycle-outline" label="Type" value={rider.vehicleDetails.type} />
+                {rider.vehicleDetails.model && (
+                  <DetailRow icon="car-outline" label="Model" value={rider.vehicleDetails.model} />
+                )}
+                {rider.vehicleDetails.number && (
+                  <DetailRow icon="barcode-outline" label="Reg. Number" value={rider.vehicleDetails.number} />
+                )}
+              </View>
+            )}
+
+            {/* KYC / Documents */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>KYC DOCUMENTS</Text>
+              {rider.licenseNumber ? (
+                <DetailRow icon="card-outline" label="License No." value={rider.licenseNumber} sensitive />
+              ) : (
+                <DetailRow icon="card-outline" label="License No." value="Not provided" muted />
+              )}
+              <DetailRow
+                icon="documents-outline"
+                label="Doc Uploads"
+                value={
+                  rider.riderDocuments?.length > 0
+                    ? `${rider.riderDocuments.length} file${rider.riderDocuments.length > 1 ? 's' : ''} uploaded`
+                    : 'No documents uploaded'
+                }
+                muted={!rider.riderDocuments?.length}
+              />
+            </View>
+
+            {/* Bank Details */}
+            {rider.bankDetails && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>BANK DETAILS</Text>
+                {rider.bankDetails.bankName && (
+                  <DetailRow icon="business-outline" label="Bank" value={rider.bankDetails.bankName} />
+                )}
+                {rider.bankDetails.holderName && (
+                  <DetailRow icon="person-outline" label="Account Holder" value={rider.bankDetails.holderName} />
+                )}
+                {rider.bankDetails.accountNumber && (
+                  <DetailRow icon="wallet-outline" label="Account No." value={rider.bankDetails.accountNumber} sensitive />
+                )}
+                {rider.bankDetails.ifscCode && (
+                  <DetailRow icon="code-outline" label="IFSC Code" value={rider.bankDetails.ifscCode} />
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Actions ── */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.approveBtn, {backgroundColor: '#4F46E5'}, isProcessing && styles.disabledBtn]}
+            onPress={() => onApprove(String(item._id))}
+            disabled={isProcessing}>
+            <Icon name="checkmark-circle-outline" size={15} color="#fff" />
+            <Text style={styles.approveBtnText}>Verify Rider</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.rejectBtn, isProcessing && styles.disabledBtn]}
+            onPress={() => onReject(String(item._id))}
+            disabled={isProcessing}>
+            <Icon name="close-circle-outline" size={15} color={theme.colors.danger} />
+            <Text style={styles.rejectBtnText}>Reject</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.contactBar, {backgroundColor: '#EEF2FF'}]} 
+          onPress={() => onContact(String(item._id), item.name)}>
+          <Icon name="mail-outline" size={14} color="#4F46E5" />
+          <Text style={[styles.contactText, {color: '#4F46E5'}]}>Contact Rider</Text>
+        </TouchableOpacity>
+
+      </Card>
+    </Animated.View>
+  );
+};

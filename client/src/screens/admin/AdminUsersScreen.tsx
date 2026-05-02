@@ -27,7 +27,7 @@ export default function AdminUsersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'pending_riders' | 'riders' | 'sellers'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'riders' | 'sellers'>('all');
 
   useEffect(() => {
     fetchUsers();
@@ -39,9 +39,7 @@ export default function AdminUsersScreen() {
       const res = await axiosInstance.get('/api/admin/users');
       let filtered = res.data.data;
       
-      if (activeFilter === 'pending_riders') {
-        filtered = filtered.filter((u: any) => u.riderStatus === 'pending');
-      } else if (activeFilter === 'riders') {
+      if (activeFilter === 'riders') {
         filtered = filtered.filter((u: any) => u.role === Role.RIDER);
       } else if (activeFilter === 'sellers') {
         filtered = filtered.filter((u: any) => u.role === Role.SELLER || u.role === Role.SHOP_OWNER);
@@ -250,7 +248,6 @@ export default function AdminUsersScreen() {
             contentContainerStyle={styles.filterBar}
           >
              {renderFilter('all', 'All')}
-             {renderFilter('pending_riders', 'Pending Riders')}
              {renderFilter('riders', 'Riders')}
              {renderFilter('sellers', 'Sellers')}
           </ScrollView>

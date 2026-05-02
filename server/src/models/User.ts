@@ -46,6 +46,12 @@ const userSchema = new Schema<IUserDocument>({
   },
   walletBalance: { type: Number, default: 0 },
   cashInHand: { type: Number, default: 0 },  // Cash collected from COD
+  bankDetails: {
+    bankName: { type: String },
+    holderName: { type: String },
+    accountNumber: { type: String },
+    ifscCode: { type: String }
+  },
   isOnline: { type: Boolean, default: false },
   isBlocked: { type: Boolean, default: false }
 }, { timestamps: true });

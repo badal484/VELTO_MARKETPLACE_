@@ -38,7 +38,6 @@ export const verifyOrderOTP = async (req: Request, res: Response): Promise<void>
     const order = await Order.findById(id);
     if (!order) throw new AppError('Order not found', 404);
 
-    // Pickup OTP is verified by the seller
     if (order.seller.toString() !== req.user?._id.toString()) {
       throw new AppError('Only the seller can verify the pickup OTP', 403);
     }
@@ -50,8 +49,8 @@ export const verifyOrderOTP = async (req: Request, res: Response): Promise<void>
     const updated = await OrderService.updateStatus(
       id, 
       OrderStatus.COMPLETED, 
-      req.user._id.toString(), 
-      req.user.role
+      req.user?._id.toString()!, 
+      req.user?.role!
     );
 
     res.json({ success: true, message: 'Pickup verified. Order completed!', data: updated });
@@ -68,7 +67,6 @@ export const verifyDeliveryOTP = async (req: Request, res: Response): Promise<vo
     const order = await Order.findById(id);
     if (!order) throw new AppError('Order not found', 404);
 
-    // Delivery OTP is verified by the rider
     if (order.rider?.toString() !== req.user?._id.toString()) {
       throw new AppError('Only the assigned rider can verify the delivery OTP', 403);
     }
@@ -77,7 +75,6 @@ export const verifyDeliveryOTP = async (req: Request, res: Response): Promise<vo
       throw new AppError('Invalid delivery OTP', 400);
     }
 
-    // Move to DELIVERED first if not already there
     if (order.status !== OrderStatus.DELIVERED && 
         order.status !== OrderStatus.COMPLETED_PENDING_RELEASE && 
         order.status !== OrderStatus.COMPLETED) {
@@ -89,12 +86,10 @@ export const verifyDeliveryOTP = async (req: Request, res: Response): Promise<vo
       );
     }
 
-    // Decide final status based on payment method
     const finalStatus = order.paymentMethod === 'Cash on Delivery' 
       ? OrderStatus.COMPLETED 
       : OrderStatus.COMPLETED_PENDING_RELEASE;
 
-    // Only update if final status is different
     let updated = order;
     if (order.status !== finalStatus) {
       updated = await OrderService.updateStatus(
@@ -124,10 +119,9 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
 
     const userId = req.user?._id.toString();
     const isParticipant =
-      order.buyer?.toString() === userId ||
-      order.seller?.toString() === userId ||
-      order.rider?.toString() === userId ||
-      req.user?.role === 'admin';
+      [order.buyer, order.seller, order.rider].some(p => 
+        p && ((p as any)._id?.toString() === userId || p.toString() === userId)
+      ) || req.user?.role === 'admin';
 
     if (!isParticipant) throw new AppError('Not authorized to view this order', 403);
 
@@ -143,7 +137,8 @@ export const getMyOrders = async (req: Request, res: Response): Promise<void> =>
       .populate('product')
       .populate('shop')
       .populate('seller', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, data: orders });
   } catch (error) {
@@ -160,7 +155,8 @@ export const getSellerOrders = async (req: Request, res: Response): Promise<void
       .populate('product')
       .populate('shop')
       .populate('buyer', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, data: orders });
   } catch (error) {
@@ -202,16 +198,17 @@ export const getRiderOrders = async (req: Request, res: Response): Promise<void>
       .populate('product')
       .populate('shop')
       .populate('buyer', 'name email avatar phoneNumber')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const finishedStatuses = [
+      OrderStatus.DELIVERED, 
+      OrderStatus.COMPLETED_PENDING_RELEASE, 
+      OrderStatus.COMPLETED
+    ];
 
     const stats = orders.reduce((acc, order) => {
-      const isFinished = [
-        OrderStatus.DELIVERED, 
-        OrderStatus.COMPLETED_PENDING_RELEASE, 
-        OrderStatus.COMPLETED
-      ].includes(order.status as OrderStatus);
-
-      if (isFinished) {
+      if (finishedStatuses.includes(order.status as OrderStatus)) {
         acc.deliveries += 1;
         acc.earnings += (order.deliveryCharge || 0);
       }
@@ -235,8 +232,8 @@ export const releaseOrder = async (req: Request, res: Response): Promise<void> =
 
 export const createBatchOrder = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orders = await OrderService.createBatchOrder(req.user?._id.toString()!, req.body);
-    res.status(201).json({ success: true, data: orders });
+    const result = await OrderService.createBatchOrder(req.user?._id.toString()!, req.body);
+    res.status(201).json({ success: true, data: result });
   } catch (error) {
     handleError(error, res);
   }

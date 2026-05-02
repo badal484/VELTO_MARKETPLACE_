@@ -15,20 +15,43 @@ import {axiosInstance} from '../../api/axiosInstance';
 import {useAuth} from '../../hooks/useAuth';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeInDown} from 'react-native-reanimated';
+import {riderRegisterSchema} from '@shared/validation';
 
 export default function RiderSetupScreen({navigation}: any) {
-  const {updateUser} = useAuth();
+  const {updateUser, user} = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     licenseNumber: '',
+    phoneNumber: user?.phoneNumber || '',
     vehicleType: 'Bike', // Bike, Scooter, Cycle
     vehicleModel: '',
     vehicleNumber: '',
+    bankName: '',
+    holderName: '',
+    accountNumber: '',
+    ifscCode: '',
   });
 
   const handleSubmit = async () => {
-    if (!formData.licenseNumber || !formData.vehicleModel || !formData.vehicleNumber) {
-      Alert.alert('Missing Info', 'Please fill all details to continue.');
+    // Zod Validation
+    const validation = riderRegisterSchema.safeParse({
+      licenseNumber: formData.licenseNumber,
+      phoneNumber: formData.phoneNumber,
+      vehicleDetails: {
+        type: formData.vehicleType,
+        model: formData.vehicleModel,
+        number: formData.vehicleNumber,
+      },
+      bankDetails: {
+        bankName: formData.bankName,
+        holderName: formData.holderName || user?.name || '',
+        accountNumber: formData.accountNumber,
+        ifscCode: formData.ifscCode,
+      }
+    });
+
+    if (!validation.success) {
+      Alert.alert('Validation Error', validation.error.errors[0].message);
       return;
     }
 
@@ -36,11 +59,18 @@ export default function RiderSetupScreen({navigation}: any) {
       setLoading(true);
       const res = await axiosInstance.post('/api/user/register-rider', {
         licenseNumber: formData.licenseNumber,
+        phoneNumber: formData.phoneNumber,
         vehicleDetails: {
           type: formData.vehicleType,
           model: formData.vehicleModel,
           number: formData.vehicleNumber,
         },
+        bankDetails: {
+          bankName: formData.bankName,
+          holderName: formData.holderName || user?.name || '',
+          accountNumber: formData.accountNumber,
+          ifscCode: formData.ifscCode,
+        }
       });
 
       if (res.data.success) {
@@ -73,10 +103,21 @@ export default function RiderSetupScreen({navigation}: any) {
           <View style={styles.infoBox}>
             <Icon name="information-circle" size={20} color={theme.colors.primary} />
             <Text style={styles.infoText}>
-              By joining our fleet, you agree to our terms of service and delivery guidelines.
+              Complete your profile with valid details to join the Velto delivery fleet.
             </Text>
           </View>
 
+          <Text style={styles.sectionTitle}>CONTACT INFO</Text>
+          <Text style={styles.label}>Phone Number</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="10-digit mobile number"
+            keyboardType="phone-pad"
+            value={formData.phoneNumber}
+            onChangeText={(t) => setFormData({...formData, phoneNumber: t})}
+          />
+
+          <Text style={styles.sectionTitle}>DOCUMENTATION</Text>
           <Text style={styles.label}>Driving License Number</Text>
           <TextInput
             style={styles.input}
@@ -120,11 +161,38 @@ export default function RiderSetupScreen({navigation}: any) {
             onChangeText={(t) => setFormData({...formData, vehicleNumber: t})}
           />
 
+          <Text style={styles.sectionTitle}>BANKING DETAILS (For Payouts)</Text>
+          <Text style={styles.label}>Bank Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. HDFC Bank, SBI"
+            value={formData.bankName}
+            onChangeText={(t) => setFormData({...formData, bankName: t})}
+          />
+
+          <Text style={styles.label}>Account Number</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Your bank account number"
+            keyboardType="numeric"
+            value={formData.accountNumber}
+            onChangeText={(t) => setFormData({...formData, accountNumber: t})}
+          />
+
+          <Text style={styles.label}>IFSC Code</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="11-digit IFSC code"
+            autoCapitalize="characters"
+            value={formData.ifscCode}
+            onChangeText={(t) => setFormData({...formData, ifscCode: t})}
+          />
+
           <Button
             title="Submit Application"
             loading={loading}
             onPress={handleSubmit}
-            style={{marginTop: 32}}
+            style={{marginTop: 40, marginBottom: 20}}
           />
         </Animated.View>
       </ScrollView>
@@ -178,4 +246,12 @@ const styles = StyleSheet.create({
   },
   chipText: {fontSize: 14, fontWeight: '600', color: theme.colors.textSecondary},
   chipTextActive: {color: theme.colors.white},
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: theme.colors.muted,
+    marginTop: 24,
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
 });

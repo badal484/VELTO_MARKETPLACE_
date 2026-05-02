@@ -19,6 +19,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeIn} from 'react-native-reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {AuthStackParamList} from '../../navigation/AuthNavigator';
+import {loginSchema} from '@shared/validation';
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -40,8 +41,10 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
   const handleLogin = async () => {
     if (loading) return;
     
-    if (!email || !password) {
-      setError('Please fill in all fields');
+    // Zod Validation
+    const validation = loginSchema.safeParse({email, password});
+    if (!validation.success) {
+      setError(validation.error.errors[0].message);
       return;
     }
 

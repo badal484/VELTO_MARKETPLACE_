@@ -248,19 +248,6 @@ export default function ShopProfileScreen({
                 <Icon name="location" size={18} color={theme.colors.primary} />
                 <Text style={styles.locationAddress} selectable={false}>{shop.address}</Text>
               </View>
-              <TouchableOpacity 
-                style={styles.navigateBtn}
-                onPress={() => {
-                  const coords = shop.location?.coordinates;
-                  if (coords) {
-                    openMap(coords[1], coords[0], shop.name, shop.address);
-                  } else {
-                    openMap(undefined, undefined, shop.name, shop.address);
-                  }
-                }}>
-                <Icon name="navigate-circle" size={28} color={theme.colors.primary} />
-                <Text style={styles.navigateBtnText}>GET DIRECTIONS</Text>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -478,24 +465,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontWeight: '600',
     flex: 1,
-  },
-  navigateBtn: {
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    ...theme.shadow.sm,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  navigateBtnText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: theme.colors.primary,
-    letterSpacing: 0.5,
   },
   catalogGrid: {paddingVertical: 4},
   productWrapper: {width: (width - 88) / 2, marginBottom: 16, marginRight: 16},
