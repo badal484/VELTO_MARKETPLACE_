@@ -62,7 +62,7 @@ export class ProductService {
       // If operationalRadius is 0, then only global results should show
       const finalMaxDistance = useGlobal 
         ? 50000000 
-        : Math.min(requestedRadius, operationalRadius > 0 ? operationalRadius : 0);
+        : (radius ? Math.min(Number(radius) * 1000, operationalRadius > 0 ? operationalRadius : 0) : (operationalRadius > 0 ? operationalRadius : 0));
 
       pipeline.push({
         $geoNear: {
@@ -71,6 +71,13 @@ export class ProductService {
           spherical: true,
           query,
           maxDistance: finalMaxDistance
+        }
+      });
+
+      // Pass the operational radius into the pipeline to use for the isNearby field
+      pipeline.push({
+        $addFields: {
+          currentOperationalRadius: operationalRadius > 0 ? operationalRadius : 5000
         }
       });
     } else {
@@ -102,7 +109,7 @@ export class ProductService {
     pipeline.push(
       {
         $addFields: {
-          isNearby: { $lte: ['$distance', 5000] },
+          isNearby: { $lte: ['$distance', { $ifNull: ['$currentOperationalRadius', 5000] }] },
           shop: '$shopInfo'
         }
       },

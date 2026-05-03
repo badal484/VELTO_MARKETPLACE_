@@ -439,11 +439,6 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       if (coords && coords.lat && coords.lng) {
         params.push(`lat=${coords.lat}`);
         params.push(`lng=${coords.lng}`);
-        
-        // If "For You" (null category) or a local category is selected, limit to 5km
-        if (!isGlobalMode) {
-          params.push('radius=5');
-        }
       }
 
       if (params.length > 0) {
