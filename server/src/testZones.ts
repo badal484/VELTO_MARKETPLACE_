@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import express from 'express';
-import { ServiceZone } from '../models/ServiceZone';
-import { handleError } from '../utils/errors';
+import { ServiceZone } from './models/ServiceZone';
+import { handleError } from './utils/errors';
 import dotenv from 'dotenv';
 dotenv.config();
 
