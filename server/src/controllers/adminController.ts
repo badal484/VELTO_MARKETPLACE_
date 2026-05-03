@@ -614,11 +614,11 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 export const getAllTransactions = async (req: Request, res: Response): Promise<void> => {
   try {
     const transactions = await WalletTransaction.find({})
-      .populate('user', 'name email phoneNumber avatar bankDetails')
-      .populate({
-        path: 'orderId',
-        select: 'paymentMethod paymentReference razorpayOrderId status'
-      })
+      // .populate('user', 'name email phoneNumber avatar bankDetails')
+      // .populate({
+      //   path: 'orderId',
+      //   select: 'paymentMethod paymentReference razorpayOrderId status'
+      // })
       .sort({ createdAt: -1 });
     
     res.json({ success: true, data: transactions });

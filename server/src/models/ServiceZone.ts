@@ -17,6 +17,6 @@ const serviceZoneSchema = new Schema<IServiceZoneSchema>(
   { timestamps: true }
 );
 
-serviceZoneSchema.index({ center: '2dsphere' });
+// serviceZoneSchema.index({ center: '2dsphere' });
 
 export const ServiceZone = mongoose.model<IServiceZoneSchema>('ServiceZone', serviceZoneSchema);
