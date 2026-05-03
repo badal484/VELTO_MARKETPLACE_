@@ -14,7 +14,7 @@ import {Input} from '../../components/common/Input';
 import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
 import {useAuth} from '../../hooks/useAuth';
-import {axiosInstance} from '../../api/axiosInstance';
+import {axiosInstance, BASE_URL} from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeIn} from 'react-native-reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -60,15 +60,16 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
         await login(res.data.token, res.data.user);
       }
     } catch (err: any) {
+      console.log('[LOGIN_ERROR]', err);
       if (err?.response) {
         // The request was made and the server responded with a status code
         setError(err.response.data?.message || 'Login failed. Please check your credentials.');
-      } else if (err?.request) {
-        // The request was made but no response was received
-        setError('Could not reach the server. Please check your internet connection and ensure the backend is running.');
+      } else if (err?.request || err?.message === 'Network request failed') {
+        // The request was made but no response was received (or fetch network error)
+        setError(`Could not reach the server at ${BASE_URL}. Please ensure the backend is running and your device is on the same Wi-Fi.`);
       } else {
         // Something happened in setting up the request that triggered an Error
-        setError('An error occurred while signing in. Please try again.');
+        setError(err?.message || 'An error occurred while signing in. Please try again.');
       }
     } finally {
       setLoading(false);

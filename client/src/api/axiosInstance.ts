@@ -1,9 +1,9 @@
 import {tokenStore} from './tokenStore';
 
-const DEV_URL = 'http://10.0.2.2:8082';
+const DEV_URL = 'http://192.168.0.143:8082';
 const PROD_URL = 'https://velto-marketplace.onrender.com';
 
-export const BASE_URL = DEV_URL; // Standalone production build for any device access
+export const BASE_URL = PROD_URL; // Standalone production build for any device access
 
 type LogoutHandler = () => void;
 let _logoutHandler: LogoutHandler | null = null;
