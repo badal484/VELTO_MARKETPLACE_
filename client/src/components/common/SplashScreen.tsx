@@ -1,36 +1,68 @@
 import React, {useEffect} from 'react';
-import {View, Text, StyleSheet, Image, Dimensions} from 'react-native';
+import {View, Text, StyleSheet, Dimensions, StatusBar} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   withRepeat,
   withDelay,
   withSequence,
   interpolate,
-  interpolateColor,
 } from 'react-native-reanimated';
-import {theme} from '../../theme';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 const {width, height} = Dimensions.get('window');
 
-// Gemini AI Palette
-const GEMINI_BLUE = '#4285F4';
-const GEMINI_CYAN = '#4DB6E1';
-const GEMINI_PURPLE = '#9B72CB';
-const GEMINI_PINK = '#D96570';
+// Professional Minimalist Palette
+const DEEP_NAVY = '#0F172A';
+const BORDER_WHITE = 'rgba(255, 255, 255, 0.15)';
+const SOFT_BLUE = '#3B82F6';
+const SKY_BLUE = '#60A5FA';
+const ACCENT_WHITE = 'rgba(255, 255, 255, 0.6)';
 
-const FloatingGraphic = ({delay, color, size, startPos}: {delay: number; color: string; size: number; startPos: {x: number; y: number}}) => {
-  const floatY = useSharedValue(0);
+const AnimatedLetter = ({letter, index}: {letter: string; index: number}) => {
   const opacity = useSharedValue(0);
+  const translateY = useSharedValue(20);
 
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(0.1, {duration: 1000}));
-    floatY.value = withRepeat(
+    opacity.value = withDelay(800 + index * 100, withTiming(1, {duration: 600}));
+    translateY.value = withDelay(800 + index * 100, withTiming(0, {duration: 600}));
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{translateY: translateY.value}],
+  }));
+
+  return <Animated.Text style={[styles.brandLetter, style]}>{letter}</Animated.Text>;
+};
+
+const GlowCircle = ({color, size, startPos, duration, delay}: {color: string; size: number; startPos: {x: number; y: number}; duration: number; delay: number}) => {
+  const floatX = useSharedValue(0);
+  const floatY = useSharedValue(0);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    floatX.value = withDelay(delay, withRepeat(
       withSequence(
-        withTiming(-40, {duration: 4000 + Math.random() * 2000}),
-        withTiming(40, {duration: 4000 + Math.random() * 2000})
+        withTiming(width * 0.1, {duration}),
+        withTiming(-width * 0.1, {duration})
+      ),
+      -1,
+      true
+    ));
+    floatY.value = withDelay(delay, withRepeat(
+      withSequence(
+        withTiming(height * 0.05, {duration: duration * 1.5}),
+        withTiming(-height * 0.05, {duration: duration * 1.5})
+      ),
+      -1,
+      true
+    ));
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.1, {duration: duration * 1.2}),
+        withTiming(0.9, {duration: duration * 1.2})
       ),
       -1,
       true
@@ -38,188 +70,81 @@ const FloatingGraphic = ({delay, color, size, startPos}: {delay: number; color: 
   }, []);
 
   const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{translateY: floatY.value}],
+    transform: [
+      {translateX: floatX.value},
+      {translateY: floatY.value},
+      {scale: scale.value}
+    ],
   }));
 
   return (
     <Animated.View 
       style={[
-        styles.graphic, 
+        styles.glowCircle, 
         style, 
-        {width: size, height: size, left: startPos.x, top: startPos.y, backgroundColor: color}
+        {width: size, height: size, borderRadius: size / 2, backgroundColor: color, left: startPos.x, top: startPos.y}
       ]} 
     />
   );
 };
 
-const AISparkle = ({delay, position}: {delay: number; position: {x: number; y: number}}) => {
-  const scale = useSharedValue(0);
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    scale.value = withDelay(delay, withRepeat(
-      withSequence(
-        withTiming(1, {duration: 800}),
-        withTiming(0, {duration: 800})
-      ),
-      -1,
-      false
-    ));
-    opacity.value = withDelay(delay, withRepeat(
-      withSequence(
-        withTiming(0.8, {duration: 800}),
-        withTiming(0, {duration: 800})
-      ),
-      -1,
-      false
-    ));
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{scale: scale.value}],
-  }));
-
-  return (
-    <Animated.View style={[styles.sparkle, style, {left: position.x, top: position.y}]} />
-  );
-};
-
-const AnimatedLetter = ({letter, index, delayBase, duration = 600, targetY = 0}: {letter: string; index: number; delayBase: number; duration?: number; targetY?: number}) => {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(40);
-
-  useEffect(() => {
-    opacity.value = withDelay(delayBase + index * 80, withTiming(1, {duration}));
-    translateY.value = withDelay(
-      delayBase + index * 80,
-      withTiming(targetY, {duration})
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{translateY: translateY.value}],
-  }));
-
-  return (
-    <Animated.Text style={[styles.letter, animatedStyle]}>
-      {letter}
-    </Animated.Text>
-  );
-};
-
 export const SplashScreen = () => {
-  const logoScale = useSharedValue(0);
-  const logoRotate = useSharedValue(0);
-  const colorProgress = useSharedValue(0);
-  const loadingProgress = useSharedValue(0);
+  const logoOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.9);
+  const cardOpacity = useSharedValue(0);
   const taglineOpacity = useSharedValue(0);
-  const taglineTranslateY = useSharedValue(20);
-
-  const brandName = "VELTO";
 
   useEffect(() => {
-    // 1. Entrance (0.0s – 1.2s)
-    logoScale.value = withTiming(1, {duration: 1200});
-    logoRotate.value = withRepeat(
-      withTiming(360, {duration: 8000}),
-      -1,
-      false
-    );
-
-    // 2. Color Cycling
-    colorProgress.value = withRepeat(
-      withTiming(1, {duration: 4000}),
-      -1,
-      true
-    );
-
-    // 3. Tagline (2.0s – 3.0s)
-    taglineOpacity.value = withDelay(2000, withTiming(1, {duration: 1000}));
-    taglineTranslateY.value = withDelay(2000, withTiming(0, {duration: 1000}));
-
-    // 4. Loading Progress (2.0s – 5.0s)
-    loadingProgress.value = withDelay(2000, withTiming(1, {duration: 3000}));
+    logoOpacity.value = withTiming(1, {duration: 1000});
+    logoScale.value = withTiming(1, {duration: 1000});
+    cardOpacity.value = withDelay(400, withTiming(1, {duration: 1000}));
+    taglineOpacity.value = withDelay(1600, withTiming(1, {duration: 400}));
   }, []);
 
-  const logoContainerStyle = useAnimatedStyle(() => ({
-    transform: [
-      {scale: logoScale.value},
-      {rotate: `${logoRotate.value}deg`}
-    ],
-    backgroundColor: interpolateColor(
-      colorProgress.value,
-      [0, 0.33, 0.66, 1],
-      [GEMINI_BLUE, GEMINI_CYAN, GEMINI_PURPLE, GEMINI_PINK]
-    ),
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{scale: logoScale.value}],
   }));
 
-  const outerGlowStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      colorProgress.value,
-      [0, 0.5, 1],
-      [GEMINI_BLUE, GEMINI_PURPLE, GEMINI_PINK]
-    ),
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: cardOpacity.value,
   }));
 
   const taglineStyle = useAnimatedStyle(() => ({
     opacity: taglineOpacity.value,
-    transform: [{translateY: taglineTranslateY.value}],
-  }));
-
-  const loadingStyle = useAnimatedStyle(() => ({
-    width: `${loadingProgress.value * 100}%`,
-    backgroundColor: interpolateColor(
-      colorProgress.value,
-      [0, 1],
-      [GEMINI_BLUE, GEMINI_PURPLE]
-    ),
   }));
 
   return (
     <View style={styles.container}>
-      {/* Dynamic Background */}
-      <FloatingGraphic delay={0} color={GEMINI_BLUE} size={300} startPos={{x: -150, y: 100}} />
-      <FloatingGraphic delay={1000} color={GEMINI_PURPLE} size={250} startPos={{x: width - 100, y: height - 400}} />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
-      {/* AI Sparkles */}
-      <AISparkle delay={0} position={{x: width/2 - 120, y: height/2 - 150}} />
-      <AISparkle delay={400} position={{x: width/2 + 100, y: height/2 - 100}} />
-      <AISparkle delay={800} position={{x: width/2 - 80, y: height/2 + 120}} />
+      {/* Background Ambience */}
+      <GlowCircle color={SOFT_BLUE} size={width * 1.2} startPos={{x: -width * 0.3, y: -height * 0.1}} duration={10000} delay={0} />
+      <GlowCircle color={SKY_BLUE} size={width} startPos={{x: width * 0.2, y: height * 0.3}} duration={12000} delay={1000} />
+      <GlowCircle color="#fff" size={width * 0.5} startPos={{x: width * 0.3, y: height * 0.05}} duration={15000} delay={2000} />
 
-      {/* Centerpiece: Gemini-V */}
-      <View style={styles.centerContainer}>
-        <Animated.View style={[styles.outerGlow, outerGlowStyle]} />
-        <Animated.View style={[styles.geminiLogoContainer, logoContainerStyle]}>
-          <Text style={styles.logoTextV}>V</Text>
+      {/* Main Glassmorphism Card */}
+      <Animated.View style={[styles.glassCard, cardStyle]}>
+        <Animated.View style={[styles.logoCircle, logoStyle]}>
+          <Icon name="storefront-outline" size={54} color="#fff" />
+          <View style={styles.logoGlow} />
         </Animated.View>
-      </View>
-      
-      {/* Brand & Tagline */}
-      <View style={styles.textContainer}>
+
         <View style={styles.brandRow}>
-          {brandName.split('').map((char, index) => (
-            <AnimatedLetter 
-              key={index} 
-              letter={char} 
-              index={index} 
-              delayBase={1000} // (Starts at 1.0s)
-              duration={600} // (Finishes at 1.6s - 2.0s staggered)
-            />
+          {"VELTO".split('').map((l, i) => (
+            <AnimatedLetter key={i} letter={l} index={i} />
           ))}
         </View>
-        
-        {/* Tagline removed as requested */}
-      </View>
-      
-      {/* Footer */}
+
+        <Animated.View style={[styles.taglineWrapper, taglineStyle]}>
+          <View style={styles.divider} />
+          <Text style={styles.tagline}>Local. Connected. Yours.</Text>
+        </Animated.View>
+      </Animated.View>
+
+      {/* Professional Footer */}
       <View style={styles.footer}>
-        <View style={styles.loadingBar}>
-          <Animated.View style={[styles.loadingProgress, loadingStyle]} />
-        </View>
-        <Text style={styles.footerText}>Next-Gen Intelligence</Text>
+        <Text style={styles.footerText}>BENGALURU'S PREMIER LOCAL MARKETPLACE</Text>
       </View>
     </View>
   );
@@ -228,95 +153,87 @@ export const SplashScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: DEEP_NAVY,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  graphic: {
+  glowCircle: {
     position: 'absolute',
-    borderRadius: 200,
-  },
-  sparkle: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    backgroundColor: '#fff',
-    borderRadius: 6,
-  },
-  centerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 60,
-  },
-  outerGlow: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
     opacity: 0.15,
   },
-  geminiLogoContainer: {
-    width: width * 0.48,
-    height: width * 0.48,
-    borderRadius: width * 0.24,
+  glassCard: {
+    width: width * 0.82,
+    paddingVertical: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: BORDER_WHITE,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadow.lg,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 20},
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 10,
   },
-  logoTextV: {
-    fontSize: 130,
-    fontWeight: '900',
-    color: '#fff',
-  },
-  textContainer: {
+  logoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 30,
+  },
+  logoGlow: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    backgroundColor: '#fff',
+    opacity: 0.15,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
-  letter: {
-    fontSize: 60,
+  brandLetter: {
+    fontSize: 42,
     fontWeight: '900',
     color: '#fff',
-    letterSpacing: 2,
-  },
-  taglineRow: {
-    marginTop: 10,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: GEMINI_CYAN,
-    fontWeight: '800',
     letterSpacing: 4,
+  },
+  taglineWrapper: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  divider: {
+    width: 32,
+    height: 2,
+    backgroundColor: SOFT_BLUE,
+    borderRadius: 1,
+    marginBottom: 12,
+  },
+  tagline: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: ACCENT_WHITE,
+    letterSpacing: 3,
     textTransform: 'uppercase',
   },
   footer: {
     position: 'absolute',
-    bottom: 80,
-    alignItems: 'center',
-    width: '100%',
-  },
-  loadingBar: {
-    width: width * 0.6,
-    height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 1,
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
-  loadingProgress: {
-    height: '100%',
-    borderRadius: 1,
+    bottom: 60,
   },
   footerText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
+    color: 'rgba(255, 255, 255, 0.2)',
+    letterSpacing: 2,
+    textAlign: 'center',
   },
 });

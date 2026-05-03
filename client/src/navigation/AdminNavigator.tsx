@@ -13,6 +13,8 @@ import AdminPayoutsScreen from '../screens/admin/AdminPayoutsScreen';
 import ConversationsScreen from '../screens/chat/ConversationsScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
 import AdminBannerManagementScreen from '../screens/admin/AdminBannerManagementScreen';
+import AdminTransactionsScreen from '../screens/admin/AdminTransactionsScreen';
+import AdminZonesScreen from '../screens/admin/AdminZonesScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 
 const SupportStack = createStackNavigator();
@@ -60,6 +62,10 @@ export const AdminNavigator = () => {
             iconName = 'cash-outline';
           } else if (route.name === 'Banners') {
             iconName = 'images-outline';
+          } else if (route.name === 'Ledger') {
+            iconName = 'receipt-outline';
+          } else if (route.name === 'Zones') {
+            iconName = 'map-outline';
           }
 
           return <Icon name={iconName} size={size} color={color} />;
@@ -73,6 +79,8 @@ export const AdminNavigator = () => {
       <Tab.Screen name="Orders" component={AdminOrdersScreen} />
       <Tab.Screen name="Payouts" component={AdminPayoutsScreen} />
       <Tab.Screen name="Banners" component={AdminBannerManagementScreen} />
+      <Tab.Screen name="Ledger" component={AdminTransactionsScreen} />
+      <Tab.Screen name="Zones" component={AdminZonesScreen} />
       <Tab.Screen name="Support" component={AdminSupportStack} />
     </Tab.Navigator>
   );

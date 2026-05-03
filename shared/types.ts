@@ -128,6 +128,7 @@ export interface IShop {
   };
   category: Category;
   logo?: string;
+  coverImage?: string;
   isVerified?: boolean;
   isTermsAccepted?: boolean;
   rejectionReason?: string;
@@ -209,6 +210,9 @@ export interface IOrder {
   createdAt?: string | Date;
   updatedAt?: string | Date;
   razorpayOrderId?: string;
+  walletAmountPaid?: number;
+  refundDestination?: 'wallet' | 'bank' | 'both';
+  refundStatus?: 'pending' | 'completed' | 'none';
 }
 
 export interface IReview {
@@ -288,4 +292,18 @@ export interface IPayoutRequest {
   transactionId?: string;
   processedAt?: Date;
   createdAt?: string | Date;
+}
+
+export interface IServiceZone {
+  _id: MongoId;
+  name: string;
+  center: {
+    type: 'Point';
+    coordinates: [number, number]; // [lng, lat]
+  };
+  radius: number; // in km
+  isActive: boolean;
+  city: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }

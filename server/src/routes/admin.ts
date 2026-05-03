@@ -3,7 +3,7 @@ import {
   getPendingShops, getAllShops, approveShop, rejectShop,
   getUsers, deleteUser, getProducts, deleteProduct, getStats,
   getAllOrders, verifyRider, rejectRider, toggleUserBlock, forceReleaseOrder,
-  verifyPayment
+  verifyPayment, updateOrderStatus, getAllTransactions
 } from '../controllers/adminController';
 import { protect } from '../middleware/auth';
 import { requireAdmin } from '../middleware/requireAdmin';
@@ -30,7 +30,9 @@ router.delete('/products/:id', deleteProduct);
 
 router.get('/stats', getStats);
 router.get('/orders/all', getAllOrders);
+router.patch('/orders/:id/status', updateOrderStatus);
 router.post('/orders/:id/release', forceReleaseOrder);
 router.patch('/verify-payment/:id', verifyPayment);
+router.get('/transactions', getAllTransactions);
 
 export default router;

@@ -365,7 +365,7 @@ export default function OrderHistoryScreen({
              <View style={styles.otpCard}>
                 <Text style={styles.otpLabel}>PICKUP PIN</Text>
                <Text style={styles.otpValue}>{item.pickupCode}</Text>
-               <Text style={styles.otpTip}>Share this with the seller at the shop</Text>
+               <Text style={styles.otpTip}>Inspect items at shop before sharing this PIN</Text>
              </View>
           )}
 
@@ -373,7 +373,7 @@ export default function OrderHistoryScreen({
              <View style={[styles.otpCard, {backgroundColor: '#EEF2FF', borderColor: '#818CF8'}]}>
                 <Text style={[styles.otpLabel, {color: '#4F46E5'}]}>HOME DELIVERY PIN</Text>
                <Text style={[styles.otpValue, {color: '#1E1B4B'}]}>{item.deliveryCode}</Text>
-               <Text style={styles.otpTip}>Share this with the rider only after receiving items</Text>
+               <Text style={styles.otpTip}>Share only AFTER inspecting your items. No returns allowed after.</Text>
                {riderUpdates[item._id] && (
                  <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 6}}>
                    <Animated.View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981'}} />

@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
     borderRadius: 150,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)', // Translucent Blue
   },
   decorativeCircle2: {
     position: 'absolute',
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     width: 400,
     height: 400,
     borderRadius: 200,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(37, 99, 235, 0.1)', // Translucent Primary Blue
   },
   content: {
     flex: 1,

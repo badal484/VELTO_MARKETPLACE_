@@ -459,9 +459,12 @@ Link: https://velto.app/product/${product._id}`,
           </View>
 
           <View style={styles.safetyBox}>
-            <Icon name="shield-checkmark" size={24} color={theme.colors.success} />
+            <View style={styles.openBoxHeader}>
+              <Icon name="cube-outline" size={24} color={theme.colors.info} />
+              <Text style={styles.openBoxTitle}>Open Box Delivery</Text>
+            </View>
             <Text style={styles.safetyText}>
-              Velto Safety: Inspect items at delivery and pay only when satisfied.
+              Inspect items at delivery. Sharing the OTP confirms your acceptance. No returns/replacements allowed after handshake.
             </Text>
           </View>
 
@@ -961,9 +964,29 @@ const styles = StyleSheet.create({
   },
   safetyText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     color: theme.colors.textSecondary,
-    fontWeight: '600',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  openBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  openBoxTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.info,
+  },
+  openBoxDisclaimer: {
+    marginTop: 4,
+  },
+  openBoxDisclaimerText: {
+    fontSize: 12,
+    color: theme.colors.muted,
+    fontWeight: '500',
     lineHeight: 18,
   },
   sectionHeader: {

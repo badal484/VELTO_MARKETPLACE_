@@ -11,6 +11,7 @@ import { AppError } from '../utils/errors';
 import { WalletService } from './WalletService';
 import { WorkflowService } from './workflowService';
 import { RazorpayService } from './RazorpayService';
+import { ZoneService } from './ZoneService';
 import { round } from '../utils/math';
 
 export class OrderService {
@@ -41,6 +42,14 @@ export class OrderService {
     session.startTransaction();
 
     try {
+      // 🚨 SERVICE ZONE VALIDATION 🚨
+      if (data.fulfillmentMethod === 'delivery' && data.lat && data.lng) {
+        const zone = await ZoneService.checkServiceability(data.lng, data.lat);
+        if (!zone) {
+          throw new AppError('Sorry! We do not serve this location yet. Our current pilots are active in specific Bengaluru hubs.', 400);
+        }
+      }
+
       const product = await Product.findById(data.productId).session(session);
       if (!product) throw new AppError('Product not found', 404);
       if (product.stock < data.quantity) throw new AppError('Insufficient stock', 400);
@@ -109,9 +118,14 @@ export class OrderService {
     }
   }
 
-  static async updateStatus(orderId: string, newStatus: OrderStatus, actorId: string, actorRole: string) {
+  static async updateStatus(orderId: string, newStatus: OrderStatus, actorId: string, actorRole: string, options: { refundDestination?: string } = {}) {
     const order = await Order.findById(orderId).populate('buyer seller');
     if (!order) throw new AppError('Order not found', 404);
+
+    if (options.refundDestination) {
+      (order as any).refundDestination = options.refundDestination;
+      (order as any).refundStatus = options.refundDestination === 'wallet' ? 'completed' : 'pending';
+    }
 
     const currentStatus = order.status as OrderStatus;
     const allowed = this.transitions[currentStatus] || [];
@@ -134,12 +148,6 @@ export class OrderService {
       }
       // Revert stock
       await Product.findByIdAndUpdate(order.product, { $inc: { stock: order.quantity } });
-      
-      // If Admin cancelled, trigger refund to buyer wallet if it was not COD
-      if (actorRole === 'admin' && order.paymentMethod !== 'Cash on Delivery') {
-        const { WalletService } = require('./WalletService');
-        await WalletService.refundToWallet(orderId);
-      }
     }
 
     if (newStatus === OrderStatus.READY_FOR_PICKUP && !isSeller && !isAdmin) {
@@ -189,6 +197,10 @@ export class OrderService {
 
     if (newStatus === OrderStatus.CANCELLED) {
       await WalletService.refundToWallet(orderId);
+      // Compensate rider if assigned
+      if (order.rider) {
+        await WalletService.compensateRiderForCancellation(orderId).catch(err => console.error('Rider compensation failed:', err));
+      }
     }
 
     await WorkflowService.syncOrderState(order._id.toString(), newStatus);
@@ -429,10 +441,21 @@ export class OrderService {
   static async createBatchOrder(buyerId: string, data: any) {
     const session = await mongoose.startSession();
     session.startTransaction();
-
+ 
     try {
-      const { items, fulfillmentMethod, deliveryAddress, deliveryCharge, buyerPhone, paymentMethod } = data;
+      // 🚨 SERVICE ZONE VALIDATION 🚨
+      if (data.fulfillmentMethod === 'delivery' && data.lat && data.lng) {
+        const zone = await ZoneService.checkServiceability(data.lng, data.lat);
+        if (!zone) {
+          throw new AppError('Sorry! We do not serve this location yet. Our current pilots are active in specific Bengaluru hubs.', 400);
+        }
+      }
+
+      const { items, fulfillmentMethod, deliveryAddress, deliveryCharge, buyerPhone, paymentMethod, useWallet } = data;
       
+      const user = await User.findById(buyerId).session(session);
+      if (!user) throw new AppError('User not found', 404);
+
       const aggregatedItems = items.reduce((acc: any[], item: any) => {
         const existing = acc.find(i => i.productId === item.productId);
         if (existing) {
@@ -443,21 +466,65 @@ export class OrderService {
         return acc;
       }, []);
 
-      const createdOrders = [];
-
+      let totalBatchAmount = 0;
+      const tempItems = [];
       for (const item of aggregatedItems) {
         const product = await Product.findById(item.productId).session(session);
         if (!product) throw new AppError(`Product not found: ${item.productId}`, 404);
+        const itemPrice = item.price || product.price;
+        const currentDeliveryCharge = fulfillmentMethod === 'pickup' ? 0 : (deliveryCharge || 0);
+        totalBatchAmount += round((itemPrice * item.quantity) + (currentDeliveryCharge / aggregatedItems.length));
+        tempItems.push({ ...item, product });
+      }
+
+      let walletDeduction = 0;
+      if (useWallet && user.walletBalance && user.walletBalance > 0) {
+        walletDeduction = Math.min(totalBatchAmount, user.walletBalance);
+        
+        // Deduct from user
+        user.walletBalance = round(user.walletBalance - walletDeduction);
+        await user.save({ session });
+
+        // Create Debit Transaction
+        const { WalletTransaction } = require('../models/WalletTransaction');
+        await WalletTransaction.create([{
+          user: buyerId,
+          amount: walletDeduction,
+          type: 'debit',
+          description: `Used wallet balance for batch order`,
+        }], { session });
+      }
+
+      const createdOrders = [];
+      let remainingWalletToDistribute = walletDeduction;
+
+      for (let i = 0; i < tempItems.length; i++) {
+        const item = tempItems[i];
+        const product = item.product;
+        
         if (product.stock < item.quantity) {
           throw new AppError(`Insufficient stock for ${product.title}. Available: ${product.stock}`, 400);
         }
 
         const itemPrice = item.price || product.price;
         const currentDeliveryCharge = fulfillmentMethod === 'pickup' ? 0 : (deliveryCharge || 0);
-        const isRazorpay = paymentMethod === 'Razorpay';
-        const initialStatus = isRazorpay ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.PENDING;
+        const itemTotalPrice = round((itemPrice * item.quantity) + (currentDeliveryCharge / tempItems.length));
+        
+        // Distribute wallet deduction proportionally or simply
+        let itemWalletPaid = 0;
+        if (i === tempItems.length - 1) {
+          itemWalletPaid = remainingWalletToDistribute;
+        } else {
+          itemWalletPaid = round((itemTotalPrice / totalBatchAmount) * walletDeduction);
+          remainingWalletToDistribute -= itemWalletPaid;
+        }
 
-        let itemTotalPrice = round((itemPrice * item.quantity) + (currentDeliveryCharge / items.length));
+        const isRazorpay = paymentMethod === 'Razorpay';
+        // If wallet covers full amount, status should be CONFIRMED immediately (except for review logic if any)
+        const isFullyPaidByWallet = itemWalletPaid >= itemTotalPrice;
+        const initialStatus = isRazorpay 
+          ? (isFullyPaidByWallet ? OrderStatus.CONFIRMED : OrderStatus.PAYMENT_UNDER_REVIEW) 
+          : OrderStatus.PENDING;
 
         const [order] = await Order.create([{
           buyer: buyerId,
@@ -472,12 +539,13 @@ export class OrderService {
           },
           quantity: item.quantity,
           totalPrice: itemTotalPrice,
+          walletAmountPaid: itemWalletPaid,
           status: initialStatus,
           paymentMethod,
           paymentReference: data.paymentReference,
           fulfillmentMethod,
           deliveryAddress,
-          deliveryCharge: round(currentDeliveryCharge / items.length),
+          deliveryCharge: round(currentDeliveryCharge / tempItems.length),
           buyerPhone,
           pickupLocation: product.location,
           deliveryLocation: data.lat && data.lng ? {
@@ -499,19 +567,22 @@ export class OrderService {
 
       let razorpayOrder: any = null;
       if (paymentMethod === 'Razorpay') {
-        if (createdOrders.length === 0) {
-          throw new AppError('No orders were created. Please check your cart items.', 400);
-        }
-        const totalAmount = createdOrders.reduce((acc, order) => acc + order.totalPrice, 0);
-        razorpayOrder = await RazorpayService.createOrder(totalAmount, createdOrders[0]._id.toString());
+        const remainingToPay = round(totalBatchAmount - walletDeduction);
         
-        await Order.updateMany(
-          { _id: { $in: createdOrders.map(o => o._id) } },
-          { $set: { razorpayOrderId: razorpayOrder.id } },
-          { session }
-        );
-
-        createdOrders.forEach(o => o.razorpayOrderId = razorpayOrder.id);
+        if (remainingToPay > 0) {
+          razorpayOrder = await RazorpayService.createOrder(remainingToPay, createdOrders[0]._id.toString());
+          
+          await Order.updateMany(
+            { _id: { $in: createdOrders.map(o => o._id) } },
+            { $set: { razorpayOrderId: razorpayOrder.id } },
+            { session }
+          );
+  
+          createdOrders.forEach(o => o.razorpayOrderId = razorpayOrder.id);
+        } else {
+           // Fully paid by wallet
+           // Status is already CONFIRMED for Razorpay path if fully paid
+        }
       }
 
       await Cart.findOneAndUpdate(

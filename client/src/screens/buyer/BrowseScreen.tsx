@@ -82,7 +82,7 @@ function CategoryChip({
   );
 }
 
-const RADIUS_OPTIONS = [1, 5, 10, 20, 50];
+
 
 const categoriesList = [
   {id: null, icon: 'sparkles', label: 'For You'},
@@ -94,19 +94,7 @@ const categoriesList = [
   {id: Category.SPORTS, icon: 'football', label: 'Sports'},
 ];
 // Distance calculation helper (Haversine formula)
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371; // km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
+
 
 export default function BrowseScreen({navigation}: BrowseScreenProps) {
   const insets = useSafeAreaInsets();
@@ -116,7 +104,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
   const [location, setLocation] = useState<{lat: number; lng: number} | null>(
     null,
   );
-  const [radius, setRadius] = useState(5);
+
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
@@ -128,18 +116,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filteredProducts = products.filter(p => {
-    if (!location) return true;
-    const pCoords = p.shop?.location?.coordinates || p.location?.coordinates;
-    if (!pCoords) return true;
-    const d = calculateDistance(
-      location.lat,
-      location.lng,
-      pCoords[1],
-      pCoords[0]
-    );
-    return d <= radius;
-  });
+
 
   useEffect(() => {
     Geolocation.getCurrentPosition(
@@ -158,7 +135,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
     if (location) {
       fetchProducts();
     }
-  }, [location, selectedCategory, radius]);
+  }, [location, selectedCategory]);
 
   const fetchProducts = async (searchLat?: number, searchLng?: number, searchText?: string) => {
     const lat = searchLat || location?.lat;
@@ -172,7 +149,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
 
     try {
       setLoading(true);
-      let url = `/api/products?lat=${lat}&lng=${lng}&radius=${radius}`;
+      let url = `/api/products?lat=${lat}&lng=${lng}`;
       if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
       }
@@ -270,25 +247,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
                   color={item.isWishlisted ? "#FF476E" : theme.colors.muted} 
                 />
               </TouchableOpacity>
-              {item.distance !== undefined || (location && (item.location?.coordinates || (item.shop as any)?.location?.coordinates)) ? (
-                <View style={styles.distanceBadge}>
-                  <Text style={styles.distanceBadgeText}>
-                    {(item.distance !== undefined 
-                        ? item.distance 
-                        : calculateDistance(
-                            location!.lat, 
-                            location!.lng, 
-                            (item.location?.coordinates?.[1] ?? (item.shop as any)?.location?.coordinates?.[1]), 
-                            (item.location?.coordinates?.[0] ?? (item.shop as any)?.location?.coordinates?.[0])
-                          )
-                    ).toFixed(1)} km
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.distanceBadge}>
-                  <Text style={styles.distanceBadgeText}>Nearby</Text>
-                </View>
-              )}
+
             </View>
             <View style={styles.listContent}>
               <View style={styles.listHeader}>
@@ -383,36 +342,6 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
             )}
           />
         </View>
-
-        <View style={styles.radiusScroll}>
-          <Text style={styles.filterLabel}>Distance:</Text>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={RADIUS_OPTIONS}
-            keyExtractor={r => r.toString()}
-            contentContainerStyle={styles.radiusContent}
-            renderItem={({item}) => {
-              const isActive = radius === item;
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.radiusChip,
-                    isActive && styles.radiusChipActive,
-                  ]}
-                  onPress={() => setRadius(item)}>
-                  <Text
-                    style={[
-                      styles.radiusChipText,
-                      isActive && styles.radiusChipTextActive,
-                    ]}>
-                    {item} km
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
       </View>
 
       <View style={{flex: 1}}>
@@ -420,7 +349,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
           <Loader />
         ) : (
           <FlatList
-            data={filteredProducts}
+            data={products}
             keyExtractor={item => String(item._id)}
             renderItem={renderItem}
             contentContainerStyle={styles.listScroll}

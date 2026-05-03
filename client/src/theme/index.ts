@@ -9,8 +9,8 @@ export const theme = {
     // Brand Colors
     primary: '#0F172A', // Deep Navy (Slate 900)
     secondary: '#1E293B', // Navy (Slate 800)
-    accent: '#F59E0B', // Amber 500
-    accentLight: '#FEF3C7', // Amber 100
+    accent: '#2563EB', // Blue 600
+    accentLight: '#DBEAFE', // Blue 100
 
     // UI Colors
     background: '#F8FAFC', // Slate 50

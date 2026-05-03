@@ -50,13 +50,27 @@ export class ProductService {
 
     if (lat && lng) {
       const useGlobal = filters.global === 'true' || filters.global === true;
+      
+      // Strict Enforcement: Cap the search radius to the Operational Zone radius
+      // We import ZoneService inside the method to avoid circular dependency if any
+      const { ZoneService } = require('./ZoneService');
+      const operationalRadius = await ZoneService.getServiceRadius(Number(lng), Number(lat));
+
+      const requestedRadius = radius ? Number(radius) * 1000 : 100000;
+      
+      // If not global, use the MINIMUM of (User Requested Radius, Operational Radius)
+      // If operationalRadius is 0, then only global results should show
+      const finalMaxDistance = useGlobal 
+        ? 50000000 
+        : Math.min(requestedRadius, operationalRadius > 0 ? operationalRadius : 0);
+
       pipeline.push({
         $geoNear: {
           near: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
           distanceField: 'distance',
           spherical: true,
           query,
-          maxDistance: useGlobal ? 50000000 : (radius ? Number(radius) * 1000 : 100000)
+          maxDistance: finalMaxDistance
         }
       });
     } else {

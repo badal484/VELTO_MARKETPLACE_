@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Shop } from '../models/Shop';
+import { WalletTransaction } from '../models/WalletTransaction';
 import { User } from '../models/User';
 import { Product } from '../models/Product';
 import { Order } from '../models/Order';
@@ -514,11 +515,47 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
       .populate('buyer', 'name email avatar')
       .populate('shop', 'name logo')
       .populate('product', 'title images')
+      .populate('rider', 'name phoneNumber vehicleDetails avatar')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: orders });
   } catch (error) {
     res.status(500).json({ success: false, message: (error as Error).message });
+  }
+};
+ 
+export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status, reason, refundDestination } = req.body;
+    
+    const order = await OrderService.updateStatus(
+      id, 
+      status as OrderStatus, 
+      req.user!._id.toString(), 
+      req.user!.role,
+      { refundDestination }
+    );
+
+    if (status === OrderStatus.CANCELLED) {
+       const refundMsg = refundDestination === 'bank' 
+         ? 'A refund has been initiated to your bank account.' 
+         : refundDestination === 'both'
+         ? 'Your refund will be processed via both wallet and bank transfer.'
+         : 'A refund has been issued to your wallet.';
+
+       await NotificationService.send({
+        recipient: order.buyer.toString(),
+        type: NotificationType.INFO,
+        title: 'Order Cancelled by Admin',
+        message: `Your order #NB-${id.slice(-6).toUpperCase()} was cancelled. Reason: ${reason}. ${refundMsg}`,
+        data: { orderId: id }
+      }).catch(err => console.error('Admin cancel notify error:', err));
+    }
+
+    res.json({ success: true, message: `Order status updated to ${status}`, data: order });
+  } catch (error) {
+    handleError(error, res);
   }
 };
 
@@ -569,6 +606,22 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
       req.user!.role
     );
      res.json({ success: true, message: 'Payment verified and order confirmed.', data: updated });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
+export const getAllTransactions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const transactions = await WalletTransaction.find({})
+      .populate('user', 'name email phoneNumber avatar bankDetails')
+      .populate({
+        path: 'orderId',
+        select: 'paymentMethod paymentReference razorpayOrderId status'
+      })
+      .sort({ createdAt: -1 });
+    
+    res.json({ success: true, data: transactions });
   } catch (error) {
     handleError(error, res);
   }

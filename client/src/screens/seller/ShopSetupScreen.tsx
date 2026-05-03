@@ -84,6 +84,8 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [description, setDescription] = useState('');
+  const [logo, setLogo] = useState('');
+  const [coverImage, setCoverImage] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category>(Category.OTHER);
   const [isTermsAccepted, setIsTermsAccepted] = useState(false);
 
@@ -105,6 +107,8 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         setAadharCard(shop.aadharCard);
         setGstin(shop.gstin || '');
         setDescription(shop.description);
+        setLogo(shop.logo || '');
+        setCoverImage(shop.coverImage || '');
         
         if (shop.detailedAddress) {
           setStreet(shop.detailedAddress.street || '');
@@ -284,6 +288,8 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
           businessPhone: phone || '',
         },
         category: selectedCategory || Category.OTHER,
+        logo: logo || '',
+        coverImage: coverImage || '',
         isTermsAccepted: true,
       };
 
@@ -513,6 +519,18 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
               onChangeText={setDescription}
               multiline
               numberOfLines={4}
+            />
+            <Input
+              label="Shop Logo URL"
+              placeholder="https://example.com/logo.png"
+              value={logo}
+              onChangeText={setLogo}
+            />
+            <Input
+              label="Shop Cover Image URL"
+              placeholder="https://example.com/cover.png"
+              value={coverImage}
+              onChangeText={setCoverImage}
             />
 
             <View style={styles.categorySection}>

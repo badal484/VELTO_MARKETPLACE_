@@ -169,10 +169,6 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
             <View style={styles.verificationCard}>
               <Text style={styles.verifyTitle}>Fulfillment Codes</Text>
               <View style={styles.codeRow}>
-                <View style={styles.codeItem}>
-                  <Text style={styles.codeLabel}>PICKUP PIN</Text>
-                  <Text style={styles.codeValue}>{order.pickupCode}</Text>
-                </View>
                 {order.deliveryCode && (
                   <View style={styles.codeItem}>
                     <Text style={styles.codeLabel}>DELIVERY OTP</Text>

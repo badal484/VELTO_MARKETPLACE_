@@ -69,7 +69,10 @@ const orderSchema = new Schema<IOrderSchema>(
       type: { type: String, enum: ['Point'], default: 'Point' },
       coordinates: { type: [Number] }
     },
-    deliveredAt: { type: Date }
+    deliveredAt: { type: Date },
+    walletAmountPaid: { type: Number, default: 0 },
+    refundDestination: { type: String, enum: ['wallet', 'bank', 'both'], default: 'wallet' },
+    refundStatus: { type: String, enum: ['pending', 'completed', 'none'], default: 'none' }
   },
   { timestamps: true }
 );

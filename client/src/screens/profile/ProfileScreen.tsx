@@ -18,6 +18,7 @@ import {Button} from '../../components/common/Button';
 import {Loader} from '../../components/common/Loader';
 import {theme} from '../../theme';
 import {Role} from '@shared/types';
+import {useToast} from '../../hooks/useToast';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {Image} from 'react-native';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -44,6 +45,7 @@ interface ProfileScreenProps {
 export default function ProfileScreen({navigation}: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
   const {user, logout, updateUser} = useAuth();
+  const {showToast} = useToast();
   const {unreadCount: unreadNotifications, unreadChatCount: unreadChats, fetchUnreadCount, fetchUnreadChatCount} = useNotifications();
   const [uploading, setUploading] = useState(false);
   const [isContactModalVisible, setIsContactModalVisible] = useState(false);
@@ -239,6 +241,13 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
           <>
             <Text style={styles.sectionLabel}>Activity</Text>
             <View style={styles.menuGroup}>
+              {renderMenuItem(
+                'wallet-outline',
+                `Wallet Balance: ₹${(user?.walletBalance || 0).toLocaleString()}`,
+                () => showToast({ message: 'Wallet balance can be used for future orders.', type: 'info' }),
+                '#10B981',
+                80,
+              )}
               {renderMenuItem(
                 'receipt-outline',
                 'Order History',

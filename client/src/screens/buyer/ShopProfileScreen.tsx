@@ -164,7 +164,7 @@ export default function ShopProfileScreen({
         <View style={styles.heroSection}>
           <Image
             source={{
-              uri: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1000',
+              uri: shop.coverImage || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1000',
             }}
             style={styles.heroCover}
           />

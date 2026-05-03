@@ -7,6 +7,7 @@ import {
   registerDeviceForRemoteMessages,
   AuthorizationStatus,
 } from '@react-native-firebase/messaging';
+import notifee, { AndroidImportance } from '@notifee/react-native';
 import { axiosInstance } from '../api/axiosInstance';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { getApps, getApp } from '@react-native-firebase/app';
@@ -20,7 +21,7 @@ export class FCMService {
         console.log('⚠️ [DEBUG] FCM Service Skip: Firebase app not initialized yet.');
         return;
       }
-      console.log('🔗 [DEBUG] FCM Service: Using app:', apps[0].name);
+      
       const m = getMessaging(getApp());
       
       let enabled = false;
@@ -40,6 +41,15 @@ export class FCMService {
       if (enabled) {
         console.log('🔔 Notification permission granted.');
 
+        // Create the default channel for Android
+        if (Platform.OS === 'android') {
+          await notifee.createChannel({
+            id: 'default',
+            name: 'Default Channel',
+            importance: AndroidImportance.HIGH,
+          });
+        }
+
         if (Platform.OS === 'ios') {
           await registerDeviceForRemoteMessages(m);
         }
@@ -52,6 +62,21 @@ export class FCMService {
     } catch (error) {
       console.log('FCM Service Skip:', error);
     }
+  }
+
+  static async displayNotification(title: string, body: string, data: any = {}) {
+    await notifee.displayNotification({
+      title,
+      body,
+      android: {
+        channelId: 'default',
+        importance: AndroidImportance.HIGH,
+        pressAction: {
+          id: 'default',
+        },
+      },
+      data,
+    });
   }
 
   private static async updateTokenOnServer(token: string) {
@@ -67,6 +92,17 @@ export class FCMService {
     try {
       if (!getApps().length) return () => {};
       return onMessage(getMessaging(getApp()), async remoteMessage => {
+        console.log('📱 Foreground Notification:', remoteMessage);
+        
+        // Show system tray notification even in foreground
+        if (remoteMessage.notification) {
+          await FCMService.displayNotification(
+            remoteMessage.notification.title || 'New Notification',
+            remoteMessage.notification.body || '',
+            remoteMessage.data
+          );
+        }
+
         if (callback) callback(remoteMessage);
       });
     } catch {
@@ -78,6 +114,13 @@ export class FCMService {
     try {
       setBackgroundMessageHandler(getMessaging(getApp()), async remoteMessage => {
         console.log('🌙 Background Notification Received:', remoteMessage);
+        
+        // Android handles 'notification' messages automatically in background,
+        // but we can manually handle 'data' only messages here if needed.
+        if (!remoteMessage.notification && remoteMessage.data) {
+           // example for manual trigger if needed:
+           // await FCMService.displayNotification(remoteMessage.data.title, remoteMessage.data.body);
+        }
       });
     } catch {
       console.log('FCM Background Skip: Native module unavailable');

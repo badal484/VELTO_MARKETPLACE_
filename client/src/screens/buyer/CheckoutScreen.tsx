@@ -71,10 +71,29 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const [isUroPayModalVisible, setIsUroPayModalVisible] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [locationLoading, setLocationLoading] = useState(false);
+  const [useWallet, setUseWallet] = useState(false);
   const [coordinates, setCoordinates] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
+  const [isServiceable, setIsServiceable] = useState<boolean | null>(null);
+  const [activeZoneName, setActiveZoneName] = useState<string | null>(null);
+
+
+  const calculateSubtotal = () => {
+    return products.reduce((total: number, item: CheckoutItem) => {
+      const price = item.lockedPrice || item.product.price;
+      return total + (price * item.quantity);
+    }, 0);
+  };
+
+  const walletBalance = user?.walletBalance || 0;
+  const subtotal = calculateSubtotal();
+  const deliveryFee = fulfillmentMethod === 'delivery' ? DELIVERY_FEE : 0;
+  const totalAmount = subtotal + deliveryFee;
+  
+  const walletDeduction = useWallet ? Math.min(totalAmount, walletBalance) : 0;
+  const finalPayable = totalAmount - walletDeduction;
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') {
@@ -119,9 +138,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
           });
         }
         setLocationLoading(false);
+        if (latitude && longitude) {
+          checkZoneServiceability(latitude, longitude);
+        }
       },
       error => {
         showToast({message: 'Could not get GPS location', type: 'error'});
+
         setLocationLoading(false);
       },
       {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
@@ -135,17 +158,22 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
     setProducts(newProducts);
   };
 
-  const calculateSubtotal = () => {
-    return products.reduce((total: number, item: CheckoutItem) => {
-      const price = item.lockedPrice || item.product.price;
-      return total + (price * item.quantity);
-    }, 0);
-  };
-
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const fee = fulfillmentMethod === 'delivery' ? DELIVERY_FEE : 0;
-    return subtotal + fee;
+  const checkZoneServiceability = async (lat: number, lng: number) => {
+    try {
+      const res = await axiosInstance.get(`/api/zones/check?lat=${lat}&lng=${lng}`);
+      if (res.data.success) {
+        setIsServiceable(res.data.isServiceable);
+        setActiveZoneName(res.data.zoneName);
+        if (!res.data.isServiceable) {
+          showToast({
+            message: 'Out of Zone: We currently serve only specific hubs in Bengaluru.', 
+            type: 'error'
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Zone check error:', err);
+    }
   };
 
   const validateCheckout = () => {
@@ -165,6 +193,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
     }
     if (pincode.length !== 6) {
       showToast({message: 'Pincode must be exactly 6 digits.', type: 'info'});
+      return false;
+    }
+    if (fulfillmentMethod === 'delivery' && isServiceable === false) {
+      showToast({
+        message: 'Sorry, your location is outside our operational zones.', 
+        type: 'error'
+      });
       return false;
     }
     return true;
@@ -195,6 +230,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         buyerPhone: phoneNumber,
         lat: coordinates?.lat,
         lng: coordinates?.lng,
+        useWallet: useWallet,
       };
 
       if (selectedPaymentMethod === 'Razorpay') {
@@ -401,11 +437,36 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               </View>
             </View>
 
+          {/* Wallet Section */}
+          {walletBalance > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Velto Wallet</Text>
+              <TouchableOpacity 
+                style={[styles.walletCard, useWallet && styles.walletCardActive]}
+                onPress={() => setUseWallet(!useWallet)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.walletInfo}>
+                  <View style={[styles.walletIconBox, {backgroundColor: useWallet ? theme.colors.success : '#F1F5F9'}]}>
+                    <Icon name="wallet-outline" size={20} color={useWallet ? theme.colors.white : theme.colors.muted} />
+                  </View>
+                  <View>
+                    <Text style={styles.walletTitle}>Use Wallet Balance</Text>
+                    <Text style={styles.walletBalanceText}>Available: ₹{walletBalance.toLocaleString()}</Text>
+                  </View>
+                </View>
+                <View style={[styles.checkbox, useWallet && styles.checkboxActive]}>
+                  {useWallet && <Icon name="checkmark" size={14} color={theme.colors.white} />}
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Payment Method Selection */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Payment Method</Text>
-              {calculateTotal() > MAX_COD_AMOUNT && (
+              {totalAmount > MAX_COD_AMOUNT && (
                 <View style={styles.safetyBadge}>
                   <Icon name="shield-checkmark" size={12} color={theme.colors.text} />
                   <Text style={styles.safetyBadgeText}>High-Value Protection Active</Text>
@@ -415,7 +476,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
             </View>
 
             <View style={styles.fulfillmentRow}>
-              {calculateTotal() <= MAX_COD_AMOUNT ? (
+              {totalAmount <= MAX_COD_AMOUNT ? (
                 <TouchableOpacity 
                   style={[styles.methodCard, selectedPaymentMethod === 'Cash' && styles.activeMethod]}
                   onPress={() => setSelectedPaymentMethod('Cash')}>
@@ -439,7 +500,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               </TouchableOpacity>
             </View>
 
-            {calculateTotal() > MAX_COD_AMOUNT && (
+            {totalAmount > MAX_COD_AMOUNT && (
               <Animated.View entering={FadeInUp} style={styles.codWarningBox}>
                 <Icon name="information-circle" size={18} color={theme.colors.text} />
                 <Text style={styles.codWarningText}>
@@ -447,7 +508,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                 </Text>
               </Animated.View>
             )}
-
+            
+            <View style={styles.openBoxDisclaimer}>
+              <Icon name="cube-outline" size={18} color={theme.colors.info} />
+              <Text style={styles.openBoxDisclaimerText}>
+                <Text style={{fontWeight: '900', color: theme.colors.text}}>Open Box Delivery:</Text> Please inspect your products before sharing the Handshake Code. No returns are accepted after acceptance.
+              </Text>
+            </View>
           </View>
 
           {/* Bill Summary */}
@@ -456,7 +523,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
             <View style={styles.billCard}>
               <View style={styles.billRow}>
                 <Text style={styles.billLabel}>Item Subtotal</Text>
-                <Text style={styles.billTotal}>₹{calculateSubtotal().toLocaleString()}</Text>
+                <Text style={styles.billTotal}>₹{subtotal.toLocaleString()}</Text>
               </View>
               <View style={styles.billRow}>
                 <Text style={styles.billLabel}>Delivery Charge</Text>
@@ -464,10 +531,18 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                   {fulfillmentMethod === 'delivery' ? `₹${DELIVERY_FEE}` : 'FREE'}
                 </Text>
               </View>
+              
+              {useWallet && walletDeduction > 0 && (
+                <View style={styles.billRow}>
+                  <Text style={[styles.billLabel, {color: theme.colors.success}]}>Wallet Deduction</Text>
+                  <Text style={[styles.billTotal, {color: theme.colors.success}]}>- ₹{walletDeduction.toLocaleString()}</Text>
+                </View>
+              )}
+
               <View style={styles.billDivider} />
               <View style={styles.billRow}>
-                <Text style={[styles.billLabel, {color: theme.colors.text, fontWeight: '900'}]}>Grand Total</Text>
-                <Text style={[styles.billTotal, {color: theme.colors.text, fontSize: 18, fontWeight: '900'}]}>₹{calculateTotal().toLocaleString()}</Text>
+                <Text style={[styles.billLabel, {color: theme.colors.text, fontWeight: '900'}]}>Total Payable</Text>
+                <Text style={[styles.billTotal, {color: theme.colors.text, fontSize: 18, fontWeight: '900'}]}>₹{finalPayable.toLocaleString()}</Text>
               </View>
             </View>
           </View>
@@ -481,10 +556,10 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         <View style={styles.footer}>
           <View style={styles.totalBlock}>
             <Text style={styles.totalLabel}>Total Payable</Text>
-            <Text style={styles.totalAmount}>₹{calculateTotal().toLocaleString()}</Text>
+            <Text style={styles.totalAmount}>₹{finalPayable.toLocaleString()}</Text>
           </View>
           <Button
-            title="Confirm & Place Order"
+            title={finalPayable === 0 ? "Pay with Wallet" : "Confirm & Place Order"}
             type="primary"
             isLoading={loading}
             onPress={handlePlaceOrder}
@@ -690,6 +765,74 @@ const styles = StyleSheet.create({
   totalLabel: {fontSize: 12, color: theme.colors.muted, fontWeight: '700'},
   totalAmount: {fontSize: 22, fontWeight: '900', color: theme.colors.text},
   confirmBtn: {flex: 1.5, borderRadius: 16},
+  openBoxDisclaimer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.info + '08',
+    padding: 16,
+    borderRadius: 16,
+    marginTop: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.info + '20',
+  },
+  openBoxDisclaimerText: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  walletCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.white,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...theme.shadow.sm,
+  },
+  walletCardActive: {
+    borderColor: theme.colors.success + '40',
+    backgroundColor: theme.colors.success + '05',
+  },
+  walletInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  walletIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  walletTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  walletBalanceText: {
+    fontSize: 12,
+    color: theme.colors.muted,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: theme.colors.success,
+    borderColor: theme.colors.success,
+  },
   // Modal Styles
   modalOverlay: {
     flex: 1,

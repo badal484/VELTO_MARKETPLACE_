@@ -350,6 +350,19 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     }
   }, [selectedCategory]);
 
+  const [isServiceable, setIsServiceable] = useState(true);
+  const [serviceZoneName, setServiceZoneName] = useState<string | null>(null);
+
+  const checkZoneServiceability = async (lat: number, lng: number) => {
+    try {
+      const res = await axiosInstance.get(`/api/zones/check?lat=${lat}&lng=${lng}`);
+      setIsServiceable(res.data.isServiceable);
+      setServiceZoneName(res.data.zoneName);
+    } catch (error) {
+      setIsServiceable(true); // Fallback to avoid blocking if API fails
+    }
+  };
+
   const getUserLocationAndFetch = async () => {
     setLoading(true);
     try {
@@ -362,12 +375,14 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
               setCurrentCoords(coords);
               fetchProducts(coords);
               reverseGeocode(coords.lat, coords.lng);
+              checkZoneServiceability(coords.lat, coords.lng);
             },
             error => {
               const fallback = {lat: 12.9716, lng: 77.5946};
               setCurrentCoords(fallback);
               fetchProducts(fallback);
               setAddressName('Bangalore');
+              checkZoneServiceability(fallback.lat, fallback.lng);
             },
             {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
           );
@@ -533,6 +548,20 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
+      {!isServiceable && (
+        <Animated.View 
+          entering={FadeInDown}
+          style={styles.unserviceableBanner}
+        >
+          <View style={styles.bannerInner}>
+            <Icon name="alert-circle" size={20} color="#B91C1C" />
+            <View style={styles.bannerTextContent}>
+              <Text style={styles.bannerTitle}>Area Not Yet Serviced</Text>
+              <Text style={styles.bannerSub}>We haven't launched in this location yet. Orders might be restricted.</Text>
+            </View>
+          </View>
+        </Animated.View>
+      )}
       <View style={styles.topRow}>
         <View style={styles.topRowLeft}>
           <TouchableOpacity
@@ -1420,5 +1449,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     color: theme.colors.primary,
+  },
+  unserviceableBanner: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  bannerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bannerTextContent: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 2,
+  },
+  bannerSub: {
+    fontSize: 11,
+    color: '#B91C1C',
+    lineHeight: 15,
   },
 });

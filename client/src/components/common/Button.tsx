@@ -204,5 +204,5 @@ const styles = StyleSheet.create({
   textOutline: {color: theme.colors.primary},
   textGhost: {color: theme.colors.primary},
   textSecondary: {color: theme.colors.white},
-  textAccent: {color: theme.colors.primary},
+  textAccent: {color: theme.colors.white},
 });

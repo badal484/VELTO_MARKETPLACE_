@@ -14,6 +14,7 @@ import { NotificationType } from '../models/Notification';
 export class WalletService {
   private static readonly COMMISSION_RATE = parseFloat(process.env.VELTO_COMMISSION_RATE || '0.10');
   private static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.05');
+  private static readonly RIDER_CANCEL_COMPENSATION = 15; // ₹15 for effort
   private static readonly MIN_PAYOUT_AMOUNT = 500;
 
   static async creditEarnings(orderId: string) {
@@ -87,6 +88,15 @@ export class WalletService {
         orderId: order._id
       }], { session });
 
+      // 🚨 RECORD SYSTEM REVENUE (COMMISSION) 🚨
+      await WalletTransaction.create([{
+        user: new mongoose.Types.ObjectId("000000000000000000000000"), // Virtual System ID
+        amount: commission,
+        type: 'credit',
+        description: `Platform Commission: Rider Service Fee for order #${orderId.toString().slice(-6).toUpperCase()}`,
+        orderId: order._id
+      }], { session });
+
       await session.commitTransaction();
       
       // Real-time Push
@@ -139,6 +149,15 @@ export class WalletService {
         amount: earnings,
         type: 'credit',
         description: `Product Sale: Order #${orderId.toString().slice(-6).toUpperCase()}`,
+        orderId: order._id
+      }], { session });
+
+      // 🚨 RECORD SYSTEM REVENUE (COMMISSION) 🚨
+      await WalletTransaction.create([{
+        user: new mongoose.Types.ObjectId("000000000000000000000000"), // Virtual System ID
+        amount: commission,
+        type: 'credit',
+        description: `Platform Commission: Seller Service Fee for order #${orderId.toString().slice(-6).toUpperCase()}`,
         orderId: order._id
       }], { session });
 
@@ -207,16 +226,73 @@ export class WalletService {
     }
   }
 
-  static async requestPayout(riderId: string, data: any) {
+  static async compensateRiderForCancellation(orderId: string) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const order = await Order.findById(orderId).session(session);
+      if (!order || !order.rider) {
+        await session.commitTransaction();
+        return;
+      }
+
+      // Check if already compensated
+      const existing = await WalletTransaction.findOne({ 
+        orderId, 
+        user: order.rider, 
+        description: /Effort Fee/ 
+      }).session(session);
+
+      if (existing) {
+        await session.commitTransaction();
+        return;
+      }
+
+      await User.findByIdAndUpdate(
+        order.rider,
+        { $inc: { walletBalance: this.RIDER_CANCEL_COMPENSATION } },
+        { session }
+      );
+
+      await WalletTransaction.create([{
+        user: order.rider,
+        amount: this.RIDER_CANCEL_COMPENSATION,
+        type: 'credit',
+        description: `Cancellation Effort Fee: Order #${orderId.toString().slice(-6).toUpperCase()}`,
+        orderId: order._id
+      }], { session });
+
+      // 🚨 PLATFORM ABSORBS COST: Debit from System Revenue 🚨
+      await WalletTransaction.create([{
+        user: new mongoose.Types.ObjectId("000000000000000000000000"), // Virtual System ID
+        amount: this.RIDER_CANCEL_COMPENSATION,
+        type: 'debit',
+        description: `Cancellation Liability: System-funded Rider Effort Fee for order #${orderId.toString().slice(-6).toUpperCase()}`,
+        orderId: order._id
+      }], { session });
+
+      await session.commitTransaction();
+      
+      io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, {});
+    } catch (error) {
+      if (session.inTransaction()) await session.abortTransaction();
+      console.error('[WALLET] Compensation failed:', error);
+    } finally {
+      session.endSession();
+    }
+  }
+
+  static async requestPayout(userId: string, data: any) {
     let { amount, bankDetails } = data;
 
-    const rider = await User.findById(riderId);
-    if (!rider) throw new AppError('Rider not found', 404);
+    const user = await User.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
 
     // If bankDetails missing in request, fallback to saved profile details
     if (!bankDetails || !bankDetails.accountNumber) {
-      if (rider.bankDetails && rider.bankDetails.accountNumber) {
-        bankDetails = rider.bankDetails;
+      if (user.bankDetails && user.bankDetails.accountNumber) {
+        bankDetails = user.bankDetails;
       } else {
         throw new AppError('Bank details required for payout', 400);
       }
@@ -226,7 +302,7 @@ export class WalletService {
       throw new AppError(`Minimum payout amount is ₹${this.MIN_PAYOUT_AMOUNT}`, 400);
     }
 
-    const currentBalance = rider.walletBalance || 0;
+    const currentBalance = user.walletBalance || 0;
     if (currentBalance < amount) {
       throw new AppError('Insufficient wallet balance', 400);
     }
@@ -236,15 +312,15 @@ export class WalletService {
 
     try {
       // 1. Deduct from balance immediately
-      const updatedRider = await User.findByIdAndUpdate(
-        riderId, 
+      const updatedUser = await User.findByIdAndUpdate(
+        userId, 
         { $inc: { walletBalance: -amount } }, 
         { session, new: true, select: 'walletBalance' }
       );
 
       // 2. Create Payout Request
       const request = await PayoutRequest.create([{
-        rider: riderId,
+        rider: userId,
         amount,
         bankDetails,
         status: PayoutRequestStatus.PENDING
@@ -252,7 +328,7 @@ export class WalletService {
 
       // 3. Create Debit Transaction
       await WalletTransaction.create([{
-        user: riderId,
+        user: userId,
         amount,
         type: 'debit',
         description: 'Payout request initiated',
@@ -262,18 +338,17 @@ export class WalletService {
       await session.commitTransaction();
 
       // Real-time Push
-      if (updatedRider) {
-        io.to(riderId.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedRider.walletBalance || 0 });
+      if (updatedUser) {
+        io.to(userId).emit(SocketEvent.WALLET_UPDATED, { balance: updatedUser.walletBalance || 0 });
       }
 
-      // 4. Notify Admins
       const admins = await User.find({ role: 'admin' }).select('_id');
       for (const admin of admins) {
         await NotificationService.send({
           recipient: admin._id.toString(),
           type: NotificationType.PAYOUT,
           title: 'New Payout Request',
-          message: `${rider.name} requested a payout of ₹${amount}`,
+          message: `${user.name} requested a payout of ₹${amount}`,
           relatedId: request[0]._id.toString(),
         });
       }
@@ -306,26 +381,52 @@ export class WalletService {
         return;
       }
 
-      const refundAmount = order.totalPrice;
+      const refundAmount = order.paymentMethod === 'Razorpay' 
+        ? order.totalPrice 
+        : (order.walletAmountPaid || 0);
 
-      const updatedBuyer = await User.findByIdAndUpdate(
-        order.buyer,
-        { $inc: { walletBalance: refundAmount } },
-        { session, new: true, select: 'walletBalance' }
-      );
+      if (refundAmount <= 0) {
+        await session.commitTransaction();
+        return;
+      }
 
-      await WalletTransaction.create([{
-        user: order.buyer,
-        amount: refundAmount,
-        type: 'credit',
-        description: `Refund: Cancelled Order #${orderId.toString().slice(-6).toUpperCase()}`,
-        orderId: order._id
-      }], { session });
+      const dest = (order as any).refundDestination || 'wallet';
+
+      if (dest === 'wallet' || dest === 'both') {
+        await User.findByIdAndUpdate(
+          order.buyer,
+          { $inc: { walletBalance: refundAmount } },
+          { session }
+        );
+
+        await WalletTransaction.create([{
+          user: order.buyer,
+          amount: refundAmount,
+          type: 'credit',
+          description: `Refund: Cancelled Order #${orderId.toString().slice(-6).toUpperCase()}${dest === 'both' ? ' (Wallet Portion)' : ''}`,
+          orderId: order._id
+        }], { session });
+
+        if (dest === 'wallet') {
+          await Order.findByIdAndUpdate(orderId, { refundStatus: 'completed' }, { session });
+        }
+      }
+
+      if (dest === 'bank' || dest === 'both') {
+        await Order.findByIdAndUpdate(orderId, { 
+          refundStatus: 'pending',
+          refundDestination: dest 
+        }, { session });
+      }
 
       await session.commitTransaction();
 
-      if (updatedBuyer) {
-        io.to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedBuyer.walletBalance || 0 });
+      // Emit balance update if wallet was credited
+      if (dest === 'wallet' || dest === 'both') {
+        const latestUser = await User.findById(order.buyer).select('walletBalance');
+        if (latestUser) {
+          io.to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: latestUser.walletBalance || 0 });
+        }
       }
 
       console.log(`[WALLET] Refunded ₹${refundAmount} back to buyer ${order.buyer} for order ${orderId}`);
