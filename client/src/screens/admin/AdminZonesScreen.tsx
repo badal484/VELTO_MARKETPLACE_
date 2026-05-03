@@ -37,9 +37,10 @@ export default function AdminZonesScreen() {
       if (res.data.success) {
         setZones(res.data.data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch Zones Error:', error);
-      showToast({message: 'Failed to load service zones', type: 'error'});
+      const msg = error.response?.data?.message || error.message || 'Failed to load service zones';
+      showToast({message: `Error: ${msg}`, type: 'error'});
     } finally {
       setLoading(false);
     }

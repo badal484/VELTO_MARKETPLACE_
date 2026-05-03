@@ -92,7 +92,7 @@ const ChatStack = () => (
 
 const MainTabs = () => {
   const {user} = useAuth();
-  const {unreadChatCount, cartCount} = useNotifications();
+  const {unreadChatCount, cartCount, unreadCount} = useNotifications();
 
   return (
     <Tab.Navigator
@@ -200,6 +200,12 @@ const MainTabs = () => {
         component={ProfileStack}
         options={{
           title: 'Profile',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: theme.colors.accent,
+            color: theme.colors.white,
+            fontSize: 10,
+          },
         }}
       />
     </Tab.Navigator>

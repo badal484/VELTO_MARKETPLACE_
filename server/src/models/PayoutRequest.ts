@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { IPayoutRequest, PayoutRequestStatus } from '@shared/types';
 
-export interface IPayoutRequestSchema extends Omit<IPayoutRequest, '_id' | 'createdAt'>, Document {}
+export interface IPayoutRequestSchema extends Omit<IPayoutRequest, '_id' | 'createdAt'>, Document { }
 
 const payoutRequestSchema = new Schema<IPayoutRequestSchema>(
   {
