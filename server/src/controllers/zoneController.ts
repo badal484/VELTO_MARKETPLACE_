@@ -7,6 +7,7 @@ export const getAllZones = async (req: Request, res: Response): Promise<void> =>
     const zones = await ZoneService.getAllZones();
     res.json({ success: true, data: zones });
   } catch (error) {
+    console.error('CRITICAL ERROR in getAllZones:', error);
     handleError(error, res);
   }
 };

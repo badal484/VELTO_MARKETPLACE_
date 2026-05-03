@@ -623,6 +623,7 @@ export const getAllTransactions = async (req: Request, res: Response): Promise<v
     
     res.json({ success: true, data: transactions });
   } catch (error) {
+    console.error('CRITICAL ERROR in getAllTransactions:', error);
     handleError(error, res);
   }
 };
