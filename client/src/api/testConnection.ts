@@ -1,10 +1,8 @@
-import {axiosInstance} from './axiosInstance';
+import {axiosInstance, BASE_URL} from './axiosInstance';
 
 export const testConnection = async () => {
   const urls = [
-    'http://10.0.2.2:8082/api/debug/count',
-    'http://localhost:8082/api/debug/count',
-    'http://127.0.0.1:8082/api/debug/count',
+    `${BASE_URL}/api/debug/count`,
   ];
 
   console.log('--- STARTING DIAGNOSTIC TEST ---');

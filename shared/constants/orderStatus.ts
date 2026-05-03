@@ -30,6 +30,8 @@ export const getStatusDisplay = (status: OrderStatus) => {
       return { label: 'Cancelled', color: '#EF4444' }; // danger
     case OrderStatus.PRICE_LOCKED:
       return { label: 'Price Locked', color: '#94A3B8' }; // muted
+    default:
+      return { label: status || 'Unknown', color: '#94A3B8' };
   }
 };
 

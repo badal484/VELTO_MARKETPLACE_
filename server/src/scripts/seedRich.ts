@@ -57,12 +57,12 @@ const runSeed = async () => {
         businessName: 'Arjun Electronics Pvt Ltd',
         description: 'Latest gadgets and electronics in the heart of the city.',
         aadharCard: '123456789012',
-        address: '123, 5th Block, Koramangala, Bangalore',
+        address: '123, Marine Drive, Mumbai',
         detailedAddress: {
           street: '5th Block',
-          city: 'Bangalore',
-          state: 'Karnataka',
-          pincode: '560095'
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          pincode: '400001'
         },
         location: { type: 'Point', coordinates: [77.6245, 12.9352] },
         category: Category.ELECTRONICS,
@@ -85,12 +85,12 @@ const runSeed = async () => {
         businessName: 'Lakshmi Organics',
         description: 'Fresh organic produce delivered locally.',
         aadharCard: '123456789013',
-        address: '45, Indiranagar, Bangalore',
+        address: '45, Bandra West, Mumbai',
         detailedAddress: {
           street: '100 Feet Road',
-          city: 'Bangalore',
-          state: 'Karnataka',
-          pincode: '560038'
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          pincode: '400050'
         },
         location: { type: 'Point', coordinates: [77.6412, 12.9716] },
         category: Category.FOOD,

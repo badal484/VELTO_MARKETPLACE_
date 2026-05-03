@@ -183,7 +183,11 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
             )}
 
             <Text style={styles.snippet} numberOfLines={1}>
-              {item.lastMessage || 'Open to view conversation'}
+              {item.lastMessage?.startsWith('__img__') 
+                ? '📷 Image' 
+                : item.lastMessage?.startsWith('__audio__') 
+                ? '🎵 Audio' 
+                : (item.lastMessage || 'Open to view conversation')}
             </Text>
           </View>
           

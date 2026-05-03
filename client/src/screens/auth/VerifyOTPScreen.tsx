@@ -9,67 +9,66 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Input} from '../../components/common/Input';
 import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
-import {useAuth} from '../../hooks/useAuth';
 import {axiosInstance} from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeIn} from 'react-native-reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
+import {RouteProp} from '@react-navigation/native';
 import {AuthStackParamList} from '../../navigation/AuthNavigator';
-import {loginSchema} from '@shared/validation';
+import {useAuth} from '../../hooks/useAuth';
 
-type LoginScreenNavigationProp = StackNavigationProp<
+type VerifyOTPScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
-  'Login'
+  'VerifyOTP'
 >;
 
-interface LoginScreenProps {
-  navigation: LoginScreenNavigationProp;
+type VerifyOTPScreenRouteProp = RouteProp<
+  AuthStackParamList,
+  'VerifyOTP'
+>;
+
+interface VerifyOTPScreenProps {
+  navigation: VerifyOTPScreenNavigationProp;
+  route: VerifyOTPScreenRouteProp;
 }
 
-export default function LoginScreen({navigation}: LoginScreenProps) {
+export default function VerifyOTPScreen({navigation, route}: VerifyOTPScreenProps) {
+  const {email, type} = route.params;
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const {login} = useAuth();
 
-  const handleLogin = async () => {
-    if (loading) return;
-    
-    // Zod Validation
-    const validation = loginSchema.safeParse({email, password});
-    if (!validation.success) {
-      setError(validation.error.errors[0].message);
+  const handleVerify = async () => {
+    if (!otp) {
+      setError('Please enter the 6-digit code');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      const res = await axiosInstance.post('/api/auth/login', {
+      
+      const endpoint = type === 'register' ? '/api/auth/verify-otp' : '/api/auth/reset-password';
+      const res = await axiosInstance.post(endpoint, {
         email,
-        password,
+        otp,
       });
+
       if (res.data.success) {
-        // Correcting data mapping: backend returns 'user', not 'data'
-        await login(res.data.token, res.data.user);
+        if (type === 'register') {
+          await login(res.data.token, res.data.user);
+        } else {
+          navigation.navigate('ResetPassword', {email});
+        }
       }
     } catch (err: any) {
-      if (err?.response) {
-        // The request was made and the server responded with a status code
-        setError(err.response.data?.message || 'Login failed. Please check your credentials.');
-      } else if (err?.request) {
-        // The request was made but no response was received
-        setError('Could not reach the server. Please check your internet connection and ensure the backend is running.');
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        setError('An error occurred while signing in. Please try again.');
-      }
+      setError(err.response?.data?.message || 'Verification failed');
     } finally {
       setLoading(false);
     }
@@ -84,7 +83,7 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top, 24) }
+            {paddingTop: Math.max(insets.top, 24)},
           ]}
           keyboardShouldPersistTaps="handled">
           <TouchableOpacity
@@ -94,9 +93,9 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
           </TouchableOpacity>
 
           <Animated.View entering={FadeIn.delay(200)} style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>Verify OTP</Text>
             <Text style={styles.subtitle}>
-              Sign in to continue exploring India's best local marketplace.
+              We've sent a 6-digit code to {email}. Please enter it to continue.
             </Text>
           </Animated.View>
 
@@ -113,41 +112,20 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
             ) : null}
 
             <Input
-              label="Email Address"
-              placeholder="name@example.com"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
+              label="6-Digit Code"
+              placeholder="000000"
+              value={otp}
+              onChangeText={setOtp}
+              keyboardType="number-pad"
+              maxLength={6}
             />
-
-            <Input
-              label="Password"
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-
-            <TouchableOpacity 
-              style={styles.forgotPassword}
-              onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
 
             <Button
-              title="Sign In"
-              onPress={handleLogin}
+              title="Verify & Continue"
+              onPress={handleVerify}
               isLoading={loading}
-              style={styles.loginButton}
+              style={styles.button}
             />
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.linkText}>Create One</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -206,31 +184,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '600',
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: theme.spacing.xl,
-  },
-  forgotText: {
-    color: theme.colors.primary,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  loginButton: {
+  button: {
     marginTop: theme.spacing.md,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: theme.spacing.xxl,
-  },
-  footerText: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  linkText: {
-    color: theme.colors.accent,
-    fontWeight: '800',
-    fontSize: 15,
   },
 });

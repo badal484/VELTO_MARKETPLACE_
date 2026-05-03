@@ -92,7 +92,7 @@ const ChatStack = () => (
 
 const MainTabs = () => {
   const {user} = useAuth();
-  const {unreadChatCount} = useNotifications();
+  const {unreadChatCount, cartCount} = useNotifications();
 
   return (
     <Tab.Navigator
@@ -151,7 +151,15 @@ const MainTabs = () => {
           <Tab.Screen
             name="CartTab"
             component={CartStack}
-            options={{title: 'Cart'}}
+            options={{
+              title: 'Cart',
+              tabBarBadge: cartCount > 0 ? cartCount : undefined,
+              tabBarBadgeStyle: {
+                backgroundColor: theme.colors.primary,
+                color: theme.colors.white,
+                fontSize: 10,
+              },
+            }}
           />
         </>
       )}

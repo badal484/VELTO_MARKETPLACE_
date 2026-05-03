@@ -1,15 +1,50 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
+import { OTP } from '../models/OTP';
 import { AppError } from '../utils/errors';
+import { sendEmail } from './emailService';
+import { generateOTP, hashOTP } from '../utils/otp';
 
 export class AuthService {
-  static async register(data: { name: string; email: string; password: string; role?: string; phoneNumber?: string }) {
+  static async requestRegister(data: any) {
     const existing = await User.findOne({ email: data.email });
     if (existing) throw new AppError('Email already in use', 409);
 
+    const otp = generateOTP();
+    await OTP.deleteMany({ email: data.email, type: 'email_verify' });
+    
+    await OTP.create({
+      email: data.email,
+      otp: hashOTP(otp),
+      type: 'email_verify',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
+      metadata: data, // Store registration data temporarily
+    });
+
+    await sendEmail(data.email, 'email_verify', { name: data.name, otp });
+    return { message: 'Verification OTP sent to email' };
+  }
+
+  static async verifyRegister(email: string, otp: string) {
+    const otpRecord = await OTP.findOne({
+      email,
+      type: 'email_verify',
+      isUsed: false,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!otpRecord || otpRecord.otp !== hashOTP(otp)) {
+      throw new AppError('Invalid or expired OTP', 400);
+    }
+
+    const data = (otpRecord as any).metadata;
+    if (!data) throw new AppError('Registration data lost. Please register again.', 400);
+
     const hashed = await bcrypt.hash(data.password, 10);
     const user = await User.create({ ...data, password: hashed });
+
+    await OTP.updateOne({ _id: otpRecord._id }, { isUsed: true });
 
     const token = jwt.sign(
       { id: String(user._id), role: user.role },
@@ -22,12 +57,54 @@ export class AuthService {
     return { token, user: userObj };
   }
 
+  static async forgotPassword(email: string) {
+    const user = await User.findOne({ email });
+    if (!user) return { message: 'If email exists, OTP has been sent' };
+
+    const otp = generateOTP();
+    await OTP.deleteMany({ email, type: 'forgot_password' });
+
+    await OTP.create({
+      email,
+      otp: hashOTP(otp),
+      type: 'forgot_password',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    await sendEmail(email, 'forgot_password', { name: user.name, otp });
+    return { message: 'Password reset OTP sent to email' };
+  }
+
+  static async resetPassword(data: any) {
+    const { email, otp, newPassword } = data;
+    const otpRecord = await OTP.findOne({
+      email,
+      type: 'forgot_password',
+      isUsed: false,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!otpRecord || otpRecord.otp !== hashOTP(otp)) {
+      throw new AppError('Invalid or expired OTP', 400);
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) throw new AppError('User not found', 404);
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    await OTP.updateOne({ _id: otpRecord._id }, { isUsed: true });
+    return { message: 'Password reset successfully' };
+  }
+
   static async login(data: { email: string; password: string }) {
-    const user = await User.findOne({ email: data.email });
+    const { email, password } = data;
+    const user = await User.findOne({ email }).select('+password');
     if (!user || !user.password) throw new AppError('Invalid credentials', 401);
     if (user.isBlocked) throw new AppError('Your account has been blocked', 403);
 
-    const match = await bcrypt.compare(data.password, user.password);
+    const match = await bcrypt.compare(password, user.password);
     if (!match) throw new AppError('Invalid credentials', 401);
 
     const token = jwt.sign(

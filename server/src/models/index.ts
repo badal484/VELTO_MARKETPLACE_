@@ -11,3 +11,4 @@ export { Notification } from './Notification';
 export { PayoutRequest } from './PayoutRequest';
 export { WalletTransaction } from './WalletTransaction';
 export { Banner } from './Banner';
+export { OTP } from './OTP';

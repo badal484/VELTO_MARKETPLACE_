@@ -21,6 +21,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {ICart, ICartItem, IProduct} from '@shared/types';
 import Animated, {FadeInRight, FadeOutLeft} from 'react-native-reanimated';
 import {useTranslation} from 'react-i18next';
+import {useNotifications} from '../../context/NotificationContext';
 
 import { StackNavigationProp } from '@react-navigation/stack';
 import { CartStackParamList } from '../../navigation/types';
@@ -148,6 +149,7 @@ export default function CartScreen({navigation}: CartProps) {
   const [cart, setCart] = useState<ICart | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const {setCartCount} = useNotifications();
 
   useEffect(() => {
     fetchCart();
@@ -163,6 +165,8 @@ export default function CartScreen({navigation}: CartProps) {
     try {
       const res = await axiosInstance.get('/api/cart');
       setCart(res.data.data);
+      const items = res.data.data?.items || [];
+      setCartCount(items.reduce((acc: number, item: any) => acc + item.quantity, 0));
     } catch (err) {
       console.error('Error fetching cart:', err);
     } finally {
@@ -187,6 +191,8 @@ export default function CartScreen({navigation}: CartProps) {
         quantity: newQuantity,
       });
       setCart(res.data.data);
+      const items = res.data.data?.items || [];
+      setCartCount(items.reduce((acc: number, item: any) => acc + item.quantity, 0));
     } catch (err) {
       showToast({message: 'Could not update quantity', type: 'error'});
     } finally {

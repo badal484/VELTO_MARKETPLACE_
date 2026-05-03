@@ -66,7 +66,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
   // Step 2: Address
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
-  const [state, setState] = useState('Karnataka');
+  const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
   const [coordinates, setCoordinates] = useState<{
     lat: number;
@@ -109,7 +109,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         if (shop.detailedAddress) {
           setStreet(shop.detailedAddress.street || '');
           setCity(shop.detailedAddress.city || '');
-          setState(shop.detailedAddress.state || 'Karnataka');
+          setState(shop.detailedAddress.state || '');
           setPincode(shop.detailedAddress.pincode || '');
         }
         
@@ -422,7 +422,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
               <View style={{flex: 1, marginRight: 8}}>
                 <Input
                   label="City"
-                  placeholder="Bengaluru"
+                  placeholder="e.g. Mumbai"
                   value={city}
                   onChangeText={setCity}
                   disabled={!coordinates}
@@ -431,7 +431,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
               <View style={{flex: 1, marginLeft: 8}}>
                 <Input
                   label="Pincode"
-                  placeholder="560XXX"
+                  placeholder="XXXXXX"
                   value={pincode}
                   onChangeText={setPincode}
                   keyboardType="numeric"
@@ -440,7 +440,13 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
                 />
               </View>
             </View>
-            <Input label="State" value={state} disabled />
+            <Input 
+              label="State" 
+              placeholder="e.g. Maharashtra"
+              value={state} 
+              onChangeText={setState}
+              disabled={!coordinates}
+            />
           </Animated.View>
         );
       case 3:

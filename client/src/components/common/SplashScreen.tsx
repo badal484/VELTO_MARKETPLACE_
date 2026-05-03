@@ -211,9 +211,7 @@ export const SplashScreen = () => {
           ))}
         </View>
         
-        <Animated.View style={[styles.taglineRow, taglineStyle]}>
-          <Text style={styles.subtitle}>Powered by Velto AI</Text>
-        </Animated.View>
+        {/* Tagline removed as requested */}
       </View>
       
       {/* Footer */}
@@ -263,7 +261,7 @@ const styles = StyleSheet.create({
     borderRadius: width * 0.24,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadow.xl,
+    ...theme.shadow.lg,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },

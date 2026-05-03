@@ -36,7 +36,7 @@ export default function AddEditAddressScreen({navigation}: AddEditAddressProps) 
   const [label, setLabel] = useState('Home');
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
-  const [state, setState] = useState('Karnataka');
+  const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
   const [landmark, setLandmark] = useState('');
   const [isDefault, setIsDefault] = useState(false);
@@ -122,7 +122,7 @@ export default function AddEditAddressScreen({navigation}: AddEditAddressProps) 
               <View style={{flex: 1.5}}>
                 <Input
                   label="City *"
-                  placeholder="e.g. Bangalore"
+                  placeholder="e.g. Mumbai"
                   value={city}
                   onChangeText={setCity}
                 />
@@ -131,7 +131,7 @@ export default function AddEditAddressScreen({navigation}: AddEditAddressProps) 
               <View style={{flex: 1}}>
                 <Input
                   label="Pincode *"
-                  placeholder="560038"
+                  placeholder="XXXXXX"
                   value={pincode}
                   onChangeText={setPincode}
                   keyboardType="numeric"

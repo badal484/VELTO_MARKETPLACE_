@@ -20,9 +20,12 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {format} from 'date-fns';
 import {useAuth} from '../../hooks/useAuth';
 import {Role} from '@shared/types';
+import {useSocket} from '../../hooks/useSocket';
+import {SocketEvent} from '@shared/constants/socketEvents';
 
 export default function WalletScreen({navigation}: any) {
   const {user} = useAuth();
+  const {socket, isConnected} = useSocket();
   const [loading, setLoading] = useState(true);
   const [walletData, setWalletData] = useState({
     balance: 0, 
@@ -58,6 +61,17 @@ export default function WalletScreen({navigation}: any) {
   useEffect(() => {
     fetchWallet();
   }, []);
+
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.on(SocketEvent.WALLET_UPDATED, () => {
+        fetchWallet();
+      });
+    }
+    return () => {
+      if (socket) socket.off(SocketEvent.WALLET_UPDATED);
+    };
+  }, [socket, isConnected]);
 
   const handleRequestPayout = async () => {
     if (!amount || !holderName || !bankName || !accountNumber || !ifscCode) {

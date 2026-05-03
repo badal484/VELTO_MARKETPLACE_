@@ -1,5 +1,7 @@
 import { User } from '../models/User';
 import { AppError } from '../utils/errors';
+import { io } from '../socket/socket';
+import { SocketEvent } from '@shared/constants/socketEvents';
 
 export class UserService {
   static async registerAsRider(userId: string, data: {
@@ -20,6 +22,10 @@ export class UserService {
     user.riderDocuments = user.riderDocuments || [];
 
     await user.save();
+
+    // Notify admins about new rider application
+    io.emit(SocketEvent.NEW_APPLICATION, { type: 'rider', name: user.name });
+
     return user.toObject();
   }
 }

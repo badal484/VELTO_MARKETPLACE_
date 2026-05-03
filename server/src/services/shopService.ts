@@ -3,6 +3,8 @@ import { Product } from '../models/Product';
 import { Order } from '../models/Order';
 import { uploadImage } from '../utils/imagekit';
 import { AppError } from '../utils/errors';
+import { io } from '../socket/socket';
+import { SocketEvent } from '@shared/constants/socketEvents';
 
 export class ShopService {
   static async createShop(owner: string, data: any, file?: any) {
@@ -30,6 +32,9 @@ export class ShopService {
       logo: logoUrl,
       isVerified: false,
     });
+
+    // Notify admins about new shop application
+    io.emit(SocketEvent.NEW_APPLICATION, { type: 'shop', name: shop.name });
 
     return shop;
   }

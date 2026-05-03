@@ -60,11 +60,10 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
       });
       if (res.data.success) {
         showToast({
-          message: 'Welcome to Velto! Account created successfully.',
+          message: 'Verification code sent to your email.',
           type: 'success',
         });
-        // Note: backend returns 'user' object, not 'data'
-        await login(res.data.token, res.data.user);
+        navigation.navigate('VerifyOTP', {email, type: 'register'});
       }
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
@@ -103,7 +102,7 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>
               Join Velto and start discovering the finest local shops in
-              Karnataka.
+              India.
             </Text>
           </Animated.View>
 

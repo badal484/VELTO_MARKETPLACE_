@@ -17,7 +17,9 @@ import {
 import {GestureDetector, Gesture} from 'react-native-gesture-handler';
 import {withSpring} from 'react-native-reanimated';
 import {BlurView} from '@react-native-community/blur';
+import {ImageViewer} from '../../components/common/ImageViewer';
 import {theme} from '../../theme';
+import {useNotifications} from '../../context/NotificationContext';
 import {axiosInstance} from '../../api/axiosInstance';
 import {Loader} from '../../components/common/Loader';
 import {Button} from '../../components/common/Button';
@@ -113,15 +115,19 @@ const ZoomableImage = ({uri}: {uri: string}) => {
       />
       <View style={styles.heroBgOverlay} />
       
-      <GestureDetector gesture={pinchGesture}>
-        <Animated.View style={[styles.heroImageForegroundWrapper, animatedStyle]}>
-          <Image 
-             source={{uri}} 
-             style={styles.heroImage} 
-             resizeMode="contain"
-          />
-        </Animated.View>
-      </GestureDetector>
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={() => (global as any).setSelectedImage(uri)}>
+        <GestureDetector gesture={pinchGesture}>
+          <Animated.View style={[styles.heroImageForegroundWrapper, animatedStyle]}>
+            <Image 
+               source={{uri}} 
+               style={styles.heroImage} 
+               resizeMode="contain"
+            />
+          </Animated.View>
+        </GestureDetector>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -141,11 +147,14 @@ export default function ProductDetailScreen({
   const [reviews, setReviews] = useState<IReview[]>([]);
   const [relatedProducts, setRelatedProducts] = useState<IProduct[]>([]);
   const [stats, setStats] = useState({averageRating: 0, count: 0});
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const {user} = useAuth();
+  const {setCartCount} = useNotifications();
 
   const scrollY = useSharedValue(0);
 
   useEffect(() => {
+    (global as any).setSelectedImage = setSelectedImage;
     fetchData();
   }, [id]);
 
@@ -241,8 +250,12 @@ export default function ProductDetailScreen({
       return;
     }
     try {
-      await axiosInstance.post('/api/cart/add', { productId: product._id, quantity: 1 });
+      const res = await axiosInstance.post('/api/cart/add', { productId: product._id, quantity: 1 });
       setIsInCart(true);
+      if (res.data.success) {
+        const items = res.data.data.items || [];
+        setCartCount(items.reduce((acc: number, item: any) => acc + item.quantity, 0));
+      }
       showToast({message: 'Added to your cart!', type: 'success'});
     } catch (err: unknown) {
       showToast({message: 'Could not add to cart', type: 'error'});
@@ -580,6 +593,11 @@ Link: https://velto.app/product/${product._id}`,
           </View>
         )}
       </Animated.View>
+      <ImageViewer 
+        visible={!!selectedImage} 
+        imageUrl={selectedImage} 
+        onClose={() => setSelectedImage(null)} 
+      />
     </View>
   );
 }

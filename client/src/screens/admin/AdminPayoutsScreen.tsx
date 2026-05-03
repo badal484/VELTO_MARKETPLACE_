@@ -102,7 +102,7 @@ export default function AdminPayoutsScreen({navigation}: any) {
         <Text style={styles.date}>{format(new Date(item.createdAt), 'dd MMM yyyy')}</Text>
         <View style={[styles.statusBadge, {backgroundColor: getStatusColor(item.status) + '20'}]}>
           <Text style={[styles.statusText, {color: getStatusColor(item.status)}]}>
-            {item.status.toUpperCase()}
+            {(item.status || 'PENDING').toUpperCase()}
           </Text>
         </View>
       </View>

@@ -6,7 +6,17 @@ import { Shop } from '../models/Shop';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await AuthService.register(req.body);
+    const result = await AuthService.requestRegister(req.body);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
+export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, otp } = req.body;
+    const result = await AuthService.verifyRegister(email, otp);
     res.status(201).json({ success: true, ...result });
   } catch (error) {
     handleError(error, res);
@@ -16,6 +26,24 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await AuthService.login(req.body);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await AuthService.forgotPassword(req.body.email);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await AuthService.resetPassword(req.body);
     res.json({ success: true, ...result });
   } catch (error) {
     handleError(error, res);

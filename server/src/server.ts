@@ -1,5 +1,6 @@
-import express from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import { createServer } from 'http';
@@ -29,7 +30,6 @@ import { Category } from '@shared/types';
 
 import { errorHandler, notFound } from './middleware/errorHandler';
 
-dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
+import {Alert} from 'react-native';
 import {Loader} from '../../components/common/Loader';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -47,6 +48,38 @@ export default function AdminOrdersScreen() {
     }
   };
 
+  const handleAdminCancel = (orderId: string) => {
+    Alert.prompt(
+      'Cancel Order',
+      'Enter reason for administrative cancellation:',
+      [
+        { text: 'Back', style: 'cancel' },
+        { 
+          text: 'Confirm Cancel', 
+          style: 'destructive',
+          onPress: async (reason) => {
+            if (!reason?.trim()) {
+              showToast({ message: 'Cancellation reason is required', type: 'info' });
+              return;
+            }
+            try {
+              setLoading(true);
+              await axiosInstance.patch(`/api/admin/orders/${orderId}/status`, { 
+                status: OrderStatus.CANCELLED,
+                reason: `Admin: ${reason}`
+              });
+              showToast({ message: 'Order cancelled and refund processed', type: 'success' });
+              fetchOrders();
+            } catch (err: any) {
+              showToast({ message: err.response?.data?.message || 'Cancellation failed', type: 'error' });
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
     const product = item.product as unknown as IProduct;
     const shop = item.shop as unknown as IShop;
@@ -74,7 +107,7 @@ export default function AdminOrdersScreen() {
                 styles.statusText,
                 {color: isCompleted ? '#03543F' : isCancelled ? '#9B1C1C' : '#1E429F'}
               ]}>
-                {item.status.toUpperCase()}
+                {(item.status || 'UNKNOWN').toUpperCase()}
               </Text>
             </View>
           </View>
@@ -104,15 +137,25 @@ export default function AdminOrdersScreen() {
               <Icon name="calendar-outline" size={12} color={theme.colors.muted} />
               <Text style={styles.dateText}>{new Date(item.createdAt ?? Date.now()).toLocaleDateString()}</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.detailsBtn}
-              onPress={() => {
-                setSelectedOrder(item);
-                setModalVisible(true);
-              }}>
-              <Text style={styles.detailsBtnText}>View Details</Text>
-              <Icon name="chevron-forward" size={14} color={theme.colors.primary} />
-            </TouchableOpacity>
+            <View style={styles.footerActions}>
+              {!isCancelled && !isCompleted && (
+                <TouchableOpacity 
+                  style={styles.cancelBtn}
+                  onPress={() => handleAdminCancel(item._id)}>
+                  <Icon name="close-circle-outline" size={14} color={theme.colors.danger} />
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity 
+                style={styles.detailsBtn}
+                onPress={() => {
+                  setSelectedOrder(item);
+                  setModalVisible(true);
+                }}>
+                <Text style={styles.detailsBtnText}>Details</Text>
+                <Icon name="chevron-forward" size={14} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
         </Card>
       </Animated.View>
@@ -214,6 +257,17 @@ const styles = StyleSheet.create({
   dateText: {fontSize: 11, color: theme.colors.muted, fontWeight: '600'},
   detailsBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
   detailsBtnText: {fontSize: 13, fontWeight: '800', color: theme.colors.primary},
+  footerActions: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  cancelBtn: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 4, 
+    paddingVertical: 6, 
+    paddingHorizontal: 12, 
+    borderRadius: 8, 
+    backgroundColor: theme.colors.danger + '10'
+  },
+  cancelBtnText: {fontSize: 12, fontWeight: '800', color: theme.colors.danger},
   empty: {alignItems: 'center', marginTop: 100, paddingHorizontal: 40},
   emptyTitle: {fontSize: 18, fontWeight: '900', color: theme.colors.text, marginTop: 16},
   emptySubtitle: {fontSize: 14, color: theme.colors.muted, textAlign: 'center', marginTop: 8},

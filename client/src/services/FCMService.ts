@@ -8,7 +8,7 @@ import {
   AuthorizationStatus,
 } from '@react-native-firebase/messaging';
 import { axiosInstance } from '../api/axiosInstance';
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { getApps, getApp } from '@react-native-firebase/app';
 
 export class FCMService {
@@ -22,11 +22,20 @@ export class FCMService {
       }
       console.log('🔗 [DEBUG] FCM Service: Using app:', apps[0].name);
       const m = getMessaging(getApp());
+      
+      let enabled = false;
 
-      const authStatus = await requestPermission(m);
-      const enabled =
-        authStatus === AuthorizationStatus.AUTHORIZED ||
-        authStatus === AuthorizationStatus.PROVISIONAL;
+      if (Platform.OS === 'android' && Platform.Version >= 33) {
+        const granted = await PermissionsAndroid.request(
+          'android.permission.POST_NOTIFICATIONS'
+        );
+        enabled = granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        const authStatus = await requestPermission(m);
+        enabled =
+          authStatus === AuthorizationStatus.AUTHORIZED ||
+          authStatus === AuthorizationStatus.PROVISIONAL;
+      }
 
       if (enabled) {
         console.log('🔔 Notification permission granted.');

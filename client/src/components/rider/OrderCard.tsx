@@ -25,7 +25,8 @@ const OrderCard: React.FC<OrderCardProps> = ({ item, activeTab, handleStatusUpda
           </View>
           <View>
             <Text style={styles.shopName}>Order #{item._id.toString().slice(-6).toUpperCase()}</Text>
-            <Text style={styles.orderId}>{item.paymentMethod}</Text>
+            <Text style={styles.orderId}>{item.quantity}x {item.product?.title || 'Product'}</Text>
+            <Text style={[styles.orderId, {marginTop: 0, fontSize: 10}]}>{item.paymentMethod}</Text>
           </View>
         </View>
         <View style={[
@@ -58,7 +59,9 @@ const OrderCard: React.FC<OrderCardProps> = ({ item, activeTab, handleStatusUpda
         <View style={styles.addressLine}>
           <View style={styles.dot} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.addressText}>Deliver: {item.deliveryAddress?.street}, {item.deliveryAddress?.city}</Text>
+            <Text style={styles.addressText}>
+              Deliver: {item.deliveryAddress?.street}, {item.deliveryAddress?.city} - {item.deliveryAddress?.pincode}
+            </Text>
             <TouchableOpacity style={styles.inlineNavigateRow} onPress={() => openMap(item.deliveryLocation?.coordinates[1], item.deliveryLocation?.coordinates[0], 'Customer Location', item.deliveryAddress?.street)}>
               <Icon name="navigate-circle" size={14} color={theme.colors.primary} />
               <Text style={styles.inlineNavigateText}>NAVIGATE TO CUSTOMER</Text>
@@ -80,30 +83,43 @@ const OrderCard: React.FC<OrderCardProps> = ({ item, activeTab, handleStatusUpda
         </View>
       )}
 
-      <View style={styles.chatRow}>
-        <TouchableOpacity 
-          style={styles.chatBtnSmall} 
-          onPress={() => {
-            const phone = item.shop?.contactInfo?.businessPhone || item.shop?.phoneNumber;
-            if (phone) Linking.openURL(`tel:${phone}`);
-          }}>
-          <Icon name="call-outline" size={16} color={theme.colors.primary} />
-          <Text style={styles.chatBtnTxt}>Call Shop</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.chatBtnSmall} 
-          onPress={() => {
-            const phone = item.buyerPhone || item.buyer?.phoneNumber;
-            if (phone) Linking.openURL(`tel:${phone}`);
-          }}>
-          <Icon name="call-outline" size={16} color={theme.colors.primary} />
-          <Text style={styles.chatBtnTxt}>Call Customer</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.chatBtnSmall} onPress={() => navigation.navigate('Support')}>
-          <Icon name="help-buoy-outline" size={16} color="#64748B" />
-          <Text style={styles.chatBtnTxt}>Support</Text>
-        </TouchableOpacity>
-      </View>
+      {!isDelivered && (
+        <View style={styles.chatRow}>
+          <TouchableOpacity 
+            style={styles.chatBtnSmall} 
+            onPress={() => {
+              const phone = item.shop?.contactInfo?.businessPhone || item.shop?.phoneNumber;
+              if (phone) Linking.openURL(`tel:${phone}`);
+            }}>
+            <Icon name="call-outline" size={16} color={theme.colors.primary} />
+            <Text style={styles.chatBtnTxt}>Call Shop</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.chatBtnSmall} 
+            onPress={() => {
+              const phone = item.buyerPhone || item.buyer?.phoneNumber;
+              if (phone) Linking.openURL(`tel:${phone}`);
+            }}>
+            <Icon name="call-outline" size={16} color={theme.colors.primary} />
+            <Text style={styles.chatBtnTxt}>Call Customer</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.chatBtnSmall} onPress={() => navigation.navigate('Support')}>
+            <Icon name="help-buoy-outline" size={16} color="#64748B" />
+            <Text style={styles.chatBtnTxt}>Support</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isDelivered && (
+        <View style={styles.chatRow}>
+          <TouchableOpacity 
+            style={[styles.chatBtnSmall, {flex: 0, paddingHorizontal: 20}]} 
+            onPress={() => navigation.navigate('Support')}>
+            <Icon name="help-buoy-outline" size={16} color="#64748B" />
+            <Text style={styles.chatBtnTxt}>Need Support?</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.actionRow}>
         {item.status === OrderStatus.RIDER_ASSIGNED && (

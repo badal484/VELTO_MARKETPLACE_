@@ -40,6 +40,7 @@ import {StackNavigationProp} from '@react-navigation/stack';
 import {RouteProp} from '@react-navigation/native';
 import {ChatStackParamList} from '../../navigation/types';
 import OrderProgressStepper from '../../components/chat/OrderProgressStepper';
+import {ImageViewer} from '../../components/common/ImageViewer';
 
 const {width} = Dimensions.get('window');
 
@@ -67,6 +68,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
   const [playingMsgId, setPlayingMsgId] = useState<string | null>(null);
   const [playbackPos, setPlaybackPos] = useState<Record<string, number>>({});
   const [playbackDur, setPlaybackDur] = useState<Record<string, number>>({});
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const recordTimer = useRef<NodeJS.Timeout | null>(null);
   const audioPlayer = useRef(new AudioRecorderPlayer()).current;
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -412,11 +414,15 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
         <View
           style={[styles.messageCard, isMe ? styles.myCard : styles.theirCard]}>
           {item.text.startsWith('__img__') ? (
-            <Image
-              source={{uri: item.text.replace('__img__', '')}}
-              style={styles.msgImage}
-              resizeMode="cover"
-            />
+            <TouchableOpacity 
+              activeOpacity={0.9} 
+              onPress={() => setSelectedImage(item.text.replace('__img__', ''))}>
+              <Image
+                source={{uri: item.text.replace('__img__', '')}}
+                style={styles.msgImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
           ) : item.text.startsWith('__audio__') ? (
             (() => {
               const uri = item.text.replace('__audio__', '');
@@ -567,7 +573,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
               </View>
                <View style={styles.orderBannerText}>
                   <Text style={styles.orderBannerTitle}>
-                    Order #{order._id.slice(-6).toUpperCase()} • {getStatusDisplay(order.status).label.toUpperCase()}
+                    Order #{order._id.slice(-6).toUpperCase()} • {(getStatusDisplay(order.status)?.label || 'ACTIVE').toUpperCase()}
                   </Text>
                   <Text style={styles.orderBannerSub}>
                     {order.status === OrderStatus.IN_TRANSIT && "Express delivery is on its way to you!"}
@@ -721,6 +727,11 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
             )}
           </View>
         </View>
+        <ImageViewer 
+          visible={!!selectedImage} 
+          imageUrl={selectedImage} 
+          onClose={() => setSelectedImage(null)} 
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

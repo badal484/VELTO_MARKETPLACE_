@@ -15,6 +15,9 @@ interface NotificationContextType {
   resetUnreadCount: () => void;
   resetUnreadChatCount: () => void;
   incrementUnreadChatCount: () => void;
+  cartCount: number;
+  fetchCartCount: () => Promise<void>;
+  setCartCount: (count: number) => void;
   totalUnreadCount: number;
   markConversationAsRead: (conversationId: string) => Promise<void>;
 }
@@ -29,6 +32,9 @@ const NotificationContext = createContext<NotificationContextType>({
   resetUnreadCount: () => {},
   resetUnreadChatCount: () => {},
   incrementUnreadChatCount: () => {},
+  cartCount: 0,
+  fetchCartCount: async () => {},
+  setCartCount: () => {},
   totalUnreadCount: 0,
   markConversationAsRead: async () => {},
 });
@@ -36,6 +42,7 @@ const NotificationContext = createContext<NotificationContextType>({
 export const NotificationProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
   const {user} = useAuth();
   const {socket, isConnected, activeConversationId} = useSocket();
 
@@ -63,10 +70,24 @@ export const NotificationProvider: React.FC<{children: React.ReactNode}> = ({chi
     }
   }, [user]);
 
+  const fetchCartCount = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await axiosInstance.get('/api/cart');
+      if (res.data.success) {
+        const items = res.data.data.items || [];
+        setCartCount(items.reduce((acc: number, item: any) => acc + item.quantity, 0));
+      }
+    } catch (error) {
+      console.log('Error fetching cart count:', error);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       fetchUnreadCount();
       fetchUnreadChatCount();
+      fetchCartCount();
       
       // Phase 4: Push Notification Handshake
       FCMService.registerDevice();
@@ -165,6 +186,9 @@ export const NotificationProvider: React.FC<{children: React.ReactNode}> = ({chi
         resetUnreadCount,
         resetUnreadChatCount,
         incrementUnreadChatCount,
+        cartCount,
+        fetchCartCount,
+        setCartCount,
         totalUnreadCount: unreadCount + unreadChatCount,
         markConversationAsRead
       }}

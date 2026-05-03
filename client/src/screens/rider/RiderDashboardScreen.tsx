@@ -574,6 +574,12 @@ export default function RiderDashboardScreen({navigation}: any) {
         showToast({ message: data.message, type: 'success' });
         fetchJobs(true); // Silent refresh
       });
+      
+      socket.on('available_jobs_updated', () => {
+        if (activeTab === 'available') {
+          fetchJobs(true); // Silent real-time sync
+        }
+      });
     }
     return () => {
       if (socket) {
@@ -794,7 +800,9 @@ export default function RiderDashboardScreen({navigation}: any) {
         </View>
         <View style={styles.addressLine}>
           <View style={[styles.dot, {backgroundColor: '#64748B'}]} />
-          <Text style={styles.addressText} numberOfLines={1}>Drop: {item.deliveryAddress?.addressLine}</Text>
+          <Text style={styles.addressText} numberOfLines={1}>
+            Drop: {item.deliveryAddress ? `${item.deliveryAddress.street}, ${item.deliveryAddress.city} - ${item.deliveryAddress.pincode}` : 'Pick-up only'}
+          </Text>
         </View>
         {item.distance && (
           <View style={styles.distanceRow}>
@@ -806,7 +814,7 @@ export default function RiderDashboardScreen({navigation}: any) {
 
       <View style={styles.footer}>
         <View style={styles.itemBadge}>
-          <Text style={styles.itemText}>{item.items?.length || 0} items</Text>
+          <Text style={styles.itemText}>{item.quantity}x {item.product?.title || 'Product'}</Text>
         </View>
         <TouchableOpacity 
           style={styles.claimBtn}

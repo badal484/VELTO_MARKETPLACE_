@@ -9,67 +9,47 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Input} from '../../components/common/Input';
 import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
-import {useAuth} from '../../hooks/useAuth';
 import {axiosInstance} from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeIn} from 'react-native-reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {AuthStackParamList} from '../../navigation/AuthNavigator';
-import {loginSchema} from '@shared/validation';
+import toast from 'react-native-toast-message';
 
-type LoginScreenNavigationProp = StackNavigationProp<
+type ForgotPasswordScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
-  'Login'
+  'ForgotPassword'
 >;
 
-interface LoginScreenProps {
-  navigation: LoginScreenNavigationProp;
+interface ForgotPasswordScreenProps {
+  navigation: ForgotPasswordScreenNavigationProp;
 }
 
-export default function LoginScreen({navigation}: LoginScreenProps) {
+export default function ForgotPasswordScreen({navigation}: ForgotPasswordScreenProps) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const {login} = useAuth();
 
-  const handleLogin = async () => {
-    if (loading) return;
-    
-    // Zod Validation
-    const validation = loginSchema.safeParse({email, password});
-    if (!validation.success) {
-      setError(validation.error.errors[0].message);
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      const res = await axiosInstance.post('/api/auth/login', {
-        email,
-        password,
-      });
+      const res = await axiosInstance.post('/api/auth/forgot-password', {email});
       if (res.data.success) {
-        // Correcting data mapping: backend returns 'user', not 'data'
-        await login(res.data.token, res.data.user);
+        navigation.navigate('ResetPassword', {email});
       }
     } catch (err: any) {
-      if (err?.response) {
-        // The request was made and the server responded with a status code
-        setError(err.response.data?.message || 'Login failed. Please check your credentials.');
-      } else if (err?.request) {
-        // The request was made but no response was received
-        setError('Could not reach the server. Please check your internet connection and ensure the backend is running.');
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        setError('An error occurred while signing in. Please try again.');
-      }
+      setError(err.response?.data?.message || 'Failed to send reset code');
     } finally {
       setLoading(false);
     }
@@ -84,7 +64,7 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top, 24) }
+            {paddingTop: Math.max(insets.top, 24)},
           ]}
           keyboardShouldPersistTaps="handled">
           <TouchableOpacity
@@ -94,9 +74,9 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
           </TouchableOpacity>
 
           <Animated.View entering={FadeIn.delay(200)} style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>Forgot Password</Text>
             <Text style={styles.subtitle}>
-              Sign in to continue exploring India's best local marketplace.
+              Enter your email address and we'll send you a code to reset your password.
             </Text>
           </Animated.View>
 
@@ -121,33 +101,12 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
               keyboardType="email-address"
             />
 
-            <Input
-              label="Password"
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-
-            <TouchableOpacity 
-              style={styles.forgotPassword}
-              onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
-
             <Button
-              title="Sign In"
-              onPress={handleLogin}
+              title="Send Reset Code"
+              onPress={handleForgotPassword}
               isLoading={loading}
-              style={styles.loginButton}
+              style={styles.button}
             />
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.linkText}>Create One</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -206,31 +165,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '600',
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: theme.spacing.xl,
-  },
-  forgotText: {
-    color: theme.colors.primary,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  loginButton: {
+  button: {
     marginTop: theme.spacing.md,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: theme.spacing.xxl,
-  },
-  footerText: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  linkText: {
-    color: theme.colors.accent,
-    fontWeight: '800',
-    fontSize: 15,
   },
 });

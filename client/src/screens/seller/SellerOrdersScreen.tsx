@@ -137,7 +137,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
   const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
     const product = item.product as unknown as IProduct;
     const buyer = item.buyer as unknown as IUser;
-    const { label, color } = getStatusDisplay(item.status);
+    const { label, color } = getStatusDisplay(item.status) || { label: 'Unknown', color: '#94A3B8' };
     const isPending = item.status === OrderStatus.PENDING;
     const isConfirmed = item.status === OrderStatus.CONFIRMED;
     const isCompleted = item.status === OrderStatus.COMPLETED;

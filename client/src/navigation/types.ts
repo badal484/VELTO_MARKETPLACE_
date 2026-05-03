@@ -1,65 +1,45 @@
-import { IProduct, IUser } from '@shared/types';
-
-export type HomeStackParamList = {
-  Home: undefined;
-  ProductDetail: {id: string};
-  ShopProfile: {id: string};
-  Checkout: {products: {product: IProduct, quantity: number}[]};
-  OrderSuccess: {orderId: string; paymentMethod?: string; fulfillmentMethod?: string; deliveryCode?: string; pickupCode?: string};
-  Notifications: undefined;
-};
-
-export type BrowseStackParamList = {
-  Browse: {category?: string; search?: string} | undefined;
-  ProductDetail: {id: string};
-  ShopProfile: {id: string};
-  Checkout: {products: {product: IProduct, quantity: number}[]};
-  OrderSuccess: {orderId: string};
+export type AuthStackParamList = {
+  Welcome: undefined;
+  Login: undefined;
+  Register: undefined;
+  ForgotPassword: {email?: string};
+  ResetPassword: {email: string};
+  VerifyOTP: {email: string; type: 'register' | 'forgot_password'};
 };
 
 export type ChatStackParamList = {
   Conversations: undefined;
-  ChatRoom: {conversationId: string; otherUser: IUser; orderId?: string; productTitle?: string; productId?: string; shopName?: string; shopLogo?: string};
-  ProductDetail: {id: string};
-  ShopProfile: {id: string};
+  ChatRoom: {
+    conversationId: string;
+    otherUser: {
+      _id: string;
+      name: string;
+      role: string;
+      avatar?: string;
+    };
+    productTitle?: string;
+    shopName?: string;
+    shopLogo?: string;
+    orderId?: string;
+  };
 };
 
 export type DashboardStackParamList = {
   Dashboard: undefined;
   Wallet: undefined;
-  AddEditListing: {product?: IProduct};
+  AddEditListing: {product?: any};
   ShopSetup: undefined;
   ManageInventory: undefined;
   SellerOrders: undefined;
-  ProductDetail: {id: string};
-  ShopProfile: {id: string};
-};
-
-export type ProfileStackParamList = {
-  Profile: undefined;
-  OrderHistory: undefined;
-  ShopSetup: undefined;
-  Wishlist: undefined;
-  PersonalDetails: undefined;
-  AddEditAddress: { address?: any };
-  RiderSetup: undefined;
-  ProductDetail: {id: string};
-  ShopProfile: {id: string};
-};
-
-export type CartStackParamList = {
-  Cart: undefined;
-  Checkout: {products: {product: IProduct, quantity: number}[]};
-  ProductDetail: {id: string};
-  ShopProfile: {id: string};
+  Notifications: undefined;
 };
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  BrowseTab: {screen?: string; params?: Record<string, unknown>} | undefined;
+  BrowseTab: {screen?: string};
   CartTab: undefined;
-  ChatTab: undefined;
-  DashboardTab: undefined;
-  ProfileTab: undefined;
+  DashboardTab: {screen?: string};
+  ProfileTab: {screen?: string};
   AdminTab: undefined;
+  RiderTab: undefined;
 };

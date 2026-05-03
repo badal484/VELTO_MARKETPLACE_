@@ -199,7 +199,7 @@ const OrderCard = memo(({ item, onAccept, onVerify }: { item: IOrder, onAccept: 
             styles.statusText, 
             {color: isCompleted ? theme.colors.success : isPending ? theme.colors.warning : theme.colors.primary}
           ]}>
-            {item.status.toUpperCase()}
+            {(item.status || 'UNKNOWN').toUpperCase()}
           </Text>
         </View>
       </View>

@@ -22,8 +22,10 @@ import {axiosInstance} from '../../api/axiosInstance';
 import {useSocket} from '../../hooks/useSocket';
 import {Linking} from 'react-native';
 import RazorpayCheckout from 'react-native-razorpay';
+import {useNotifications} from '../../context/NotificationContext';
 
 export default function OrderSuccessScreen({navigation, route}: any) {
+  const {fetchCartCount} = useNotifications();
   const {orderId, paymentMethod} = route.params || {};
   const {socket, isConnected} = useSocket();
   
@@ -54,6 +56,7 @@ export default function OrderSuccessScreen({navigation, route}: any) {
     if (paymentMethod === 'Razorpay') {
       checkInitialStatus();
     }
+    fetchCartCount();
 
     return () => backHandler.remove();
   }, []);

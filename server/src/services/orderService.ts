@@ -134,6 +134,12 @@ export class OrderService {
       }
       // Revert stock
       await Product.findByIdAndUpdate(order.product, { $inc: { stock: order.quantity } });
+      
+      // If Admin cancelled, trigger refund to buyer wallet if it was not COD
+      if (actorRole === 'admin' && order.paymentMethod !== 'Cash on Delivery') {
+        const { WalletService } = require('./WalletService');
+        await WalletService.refundToWallet(orderId);
+      }
     }
 
     if (newStatus === OrderStatus.READY_FOR_PICKUP && !isSeller && !isAdmin) {

@@ -35,13 +35,16 @@ import { HomeStackParamList } from '../../navigation/types';
 
 import {useNotifications} from '../../context/NotificationContext';
 
-import {useAuth} from '../../hooks/useAuth';
 import {Role} from '@shared/types';
+import {useAuth} from '../../hooks/useAuth';
+import {useSocket} from '../../hooks/useSocket';
+import {SocketEvent} from '@shared/constants/socketEvents';
 
 export default function NotificationsScreen() {
   const {user} = useAuth();
   const navigation = useNavigation<StackNavigationProp<HomeStackParamList>>();
   const {resetUnreadCount} = useNotifications();
+  const {socket, isConnected} = useSocket();
   const [notifications, setNotifications] = useState<INotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,6 +53,17 @@ export default function NotificationsScreen() {
     fetchNotifications();
     resetUnreadCount();
   }, []);
+
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.on('new_notification', () => {
+        fetchNotifications();
+      });
+    }
+    return () => {
+      if (socket) socket.off('new_notification');
+    };
+  }, [socket, isConnected]);
 
   const fetchNotifications = async () => {
     try {

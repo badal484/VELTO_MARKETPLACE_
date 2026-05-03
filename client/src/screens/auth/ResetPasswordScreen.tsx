@@ -9,67 +9,65 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Input} from '../../components/common/Input';
 import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
-import {useAuth} from '../../hooks/useAuth';
 import {axiosInstance} from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeIn} from 'react-native-reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
+import {RouteProp} from '@react-navigation/native';
 import {AuthStackParamList} from '../../navigation/AuthNavigator';
-import {loginSchema} from '@shared/validation';
 
-type LoginScreenNavigationProp = StackNavigationProp<
+type ResetPasswordScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
-  'Login'
+  'ResetPassword'
 >;
 
-interface LoginScreenProps {
-  navigation: LoginScreenNavigationProp;
+type ResetPasswordScreenRouteProp = RouteProp<
+  AuthStackParamList,
+  'ResetPassword'
+>;
+
+interface ResetPasswordScreenProps {
+  navigation: ResetPasswordScreenNavigationProp;
+  route: ResetPasswordScreenRouteProp;
 }
 
-export default function LoginScreen({navigation}: LoginScreenProps) {
+export default function ResetPasswordScreen({navigation, route}: ResetPasswordScreenProps) {
+  const {email} = route.params;
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const {login} = useAuth();
 
-  const handleLogin = async () => {
-    if (loading) return;
-    
-    // Zod Validation
-    const validation = loginSchema.safeParse({email, password});
-    if (!validation.success) {
-      setError(validation.error.errors[0].message);
+  const handleResetPassword = async () => {
+    if (!otp || !newPassword || !confirmPassword) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      const res = await axiosInstance.post('/api/auth/login', {
+      const res = await axiosInstance.post('/api/auth/reset-password', {
         email,
-        password,
+        otp,
+        newPassword,
       });
       if (res.data.success) {
-        // Correcting data mapping: backend returns 'user', not 'data'
-        await login(res.data.token, res.data.user);
+        navigation.navigate('Login');
       }
     } catch (err: any) {
-      if (err?.response) {
-        // The request was made and the server responded with a status code
-        setError(err.response.data?.message || 'Login failed. Please check your credentials.');
-      } else if (err?.request) {
-        // The request was made but no response was received
-        setError('Could not reach the server. Please check your internet connection and ensure the backend is running.');
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        setError('An error occurred while signing in. Please try again.');
-      }
+      setError(err.response?.data?.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
@@ -84,7 +82,7 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top, 24) }
+            {paddingTop: Math.max(insets.top, 24)},
           ]}
           keyboardShouldPersistTaps="handled">
           <TouchableOpacity
@@ -94,9 +92,9 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
           </TouchableOpacity>
 
           <Animated.View entering={FadeIn.delay(200)} style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>Reset Password</Text>
             <Text style={styles.subtitle}>
-              Sign in to continue exploring India's best local marketplace.
+              We've sent a 6-digit code to {email}. Enter it below along with your new password.
             </Text>
           </Animated.View>
 
@@ -113,41 +111,36 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
             ) : null}
 
             <Input
-              label="Email Address"
-              placeholder="name@example.com"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
+              label="6-Digit Code"
+              placeholder="000000"
+              value={otp}
+              onChangeText={setOtp}
+              keyboardType="number-pad"
+              maxLength={6}
             />
 
             <Input
-              label="Password"
+              label="New Password"
               placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
+              value={newPassword}
+              onChangeText={setNewPassword}
               secureTextEntry
             />
 
-            <TouchableOpacity 
-              style={styles.forgotPassword}
-              onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
-
-            <Button
-              title="Sign In"
-              onPress={handleLogin}
-              isLoading={loading}
-              style={styles.loginButton}
+            <Input
+              label="Confirm Password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
             />
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.linkText}>Create One</Text>
-              </TouchableOpacity>
-            </View>
+            <Button
+              title="Reset Password"
+              onPress={handleResetPassword}
+              isLoading={loading}
+              style={styles.button}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -206,31 +199,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '600',
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: theme.spacing.xl,
-  },
-  forgotText: {
-    color: theme.colors.primary,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  loginButton: {
+  button: {
     marginTop: theme.spacing.md,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: theme.spacing.xxl,
-  },
-  footerText: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  linkText: {
-    color: theme.colors.accent,
-    fontWeight: '800',
-    fontSize: 15,
   },
 });

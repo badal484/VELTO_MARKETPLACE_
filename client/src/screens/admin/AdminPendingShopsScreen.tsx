@@ -22,6 +22,8 @@ import {Loader} from '../../components/common/Loader';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IShop, IUser} from '@shared/types';
+import {SocketEvent} from '@shared/constants/socketEvents';
+import {useSocket} from '../../hooks/useSocket';
 import Animated, {FadeInDown} from 'react-native-reanimated';
 import {useToast} from '../../hooks/useToast';
 
@@ -74,6 +76,7 @@ export default function AdminPendingShopsScreen({navigation}: {navigation: any})
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const {socket, isConnected} = useSocket();
 
   const fetchData = useCallback(async () => {
     try {
@@ -93,10 +96,20 @@ export default function AdminPendingShopsScreen({navigation}: {navigation: any})
       setRefreshing(false);
     }
   }, []);
-
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.on(SocketEvent.NEW_APPLICATION, () => {
+        fetchData();
+      });
+    }
+    return () => {
+      if (socket) socket.off(SocketEvent.NEW_APPLICATION);
+    };
+  }, [socket, isConnected, fetchData]);
 
   // --- Shop Actions ---
   const handleApproveShop = async (shopId: string) => {

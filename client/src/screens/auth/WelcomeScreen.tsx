@@ -11,7 +11,7 @@ import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
 import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {AuthStackParamList} from '../../navigation/AuthNavigator';
+import {AuthStackParamList} from '../../navigation/types';
 
 const {height} = Dimensions.get('window');
 
@@ -53,8 +53,8 @@ export default function WelcomeScreen({navigation}: WelcomeScreenProps) {
             entering={FadeInUp.delay(600).duration(1000)}
             style={styles.footer}>
             <Text style={styles.description}>
-              Discover unique finds from verified local merchants in Karnataka.
-              Community-driven, quality-focused.
+              Discover unique finds from vibrant local merchants across India.
+              Nationwide reach, community-driven quality.
             </Text>
 
             <View style={styles.buttonContainer}>
@@ -76,7 +76,7 @@ export default function WelcomeScreen({navigation}: WelcomeScreenProps) {
 
             <View style={styles.poweredBy}>
               <Text style={styles.poweredText}>
-                Powered by Local Karnataka Merchants
+                Empowering India's Local Economy
               </Text>
             </View>
           </Animated.View>
