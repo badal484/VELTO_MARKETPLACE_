@@ -354,7 +354,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
     const products = await Product.find({}).populate('seller', 'name email').populate('shop', 'name');
     res.json({ success: true, data: products });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
 
@@ -520,7 +520,7 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
 
     res.json({ success: true, data: orders });
   } catch (error) {
-    res.status(500).json({ success: false, message: (error as Error).message });
+    handleError(error, res);
   }
 };
  
@@ -614,11 +614,11 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 export const getAllTransactions = async (req: Request, res: Response): Promise<void> => {
   try {
     const transactions = await WalletTransaction.find({})
-      // .populate('user', 'name email phoneNumber avatar bankDetails')
-      // .populate({
-      //   path: 'orderId',
-      //   select: 'paymentMethod paymentReference razorpayOrderId status'
-      // })
+      .populate('user', 'name email phoneNumber avatar bankDetails')
+      .populate({
+        path: 'orderId',
+        select: 'paymentMethod paymentReference razorpayOrderId status'
+      })
       .sort({ createdAt: -1 });
     
     res.json({ success: true, data: transactions });

@@ -53,8 +53,11 @@ export const handleError = (err: any, res: Response) => {
 
   console.error('\x1b[31m%s\x1b[0m', '[ERROR] Unexpected Error:', err);
   
+  // FOR PILOT LAUNCH DEBUGGING ONLY: Expose everything
   return res.status(500).json({
     success: false,
-    message: err.message || 'Internal Server Error'
+    message: err.message || 'Internal Server Error',
+    stack: err.stack,
+    details: err.toString()
   });
 };

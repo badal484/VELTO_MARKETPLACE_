@@ -43,7 +43,7 @@ export enum PayoutRequestStatus {
   REJECTED = 'rejected',
 }
 
-export type MongoId = string;
+export type MongoId = any;
 
 export interface IAddress {
   _id?: MongoId;
@@ -256,6 +256,12 @@ export interface ICart {
   user: MongoId;
   items: ICartItem[];
   updatedAt?: string | Date;
+}
+
+export interface IWishlist {
+  _id: MongoId;
+  user: MongoId;
+  products: MongoId[];
 }
 
 export interface IWalletTransaction {

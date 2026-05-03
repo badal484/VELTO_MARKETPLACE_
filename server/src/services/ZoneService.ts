@@ -10,6 +10,7 @@ export class ZoneService {
     const zones = await ServiceZone.find({ isActive: true });
     
     for (const zone of zones) {
+      if (!zone.center || !zone.center.coordinates) continue;
       const distance = this.calculateDistance(
         lat, lng, 
         zone.center.coordinates[1], zone.center.coordinates[0]
