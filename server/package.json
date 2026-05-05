@@ -4,7 +4,8 @@
   "description": "Velto Backend API",
   "main": "src/server.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run install:shared && tsc",
+    "install:shared": "cd ../shared && npm install",
     "start": "TS_NODE_PROJECT=tsconfig.prod.json node -r tsconfig-paths/register dist/server/src/server.js",
     "dev": "nodemon --exec ts-node -r tsconfig-paths/register --files src/server.ts",
     "seed": "ts-node -r tsconfig-paths/register --files src/seed.ts",
