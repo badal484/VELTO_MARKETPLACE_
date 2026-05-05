@@ -9,9 +9,8 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
-    "rootDir": "src",
     "paths": {
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["../shared/*"]
     },
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },

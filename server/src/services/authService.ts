@@ -22,7 +22,10 @@ export class AuthService {
       metadata: data, // Store registration data temporarily
     });
 
-    await sendEmail(data.email, 'email_verify', { name: data.name, otp });
+    // Send email in background to prevent timeout on slow SMTP connections
+    sendEmail(data.email, 'email_verify', { name: data.name, otp }).catch(err => {
+      console.error(`[EMAIL ERROR] Failed to send registration OTP to ${data.email}:`, err);
+    });
     return { message: 'Verification OTP sent to email' };
   }
 
@@ -71,7 +74,10 @@ export class AuthService {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    await sendEmail(email, 'forgot_password', { name: user.name, otp });
+    // Send email in background to prevent timeout on slow SMTP connections
+    sendEmail(email, 'forgot_password', { name: user.name, otp }).catch(err => {
+      console.error(`[EMAIL ERROR] Failed to send forgot-password OTP to ${email}:`, err);
+    });
     return { message: 'Password reset OTP sent to email' };
   }
 

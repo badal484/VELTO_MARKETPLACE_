@@ -58,12 +58,17 @@ export const axiosInstance = {
       headers['Authorization'] = `Bearer ${token.trim()}`;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     console.log(`[FETCH] GET ${BASE_URL}${url}`);
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
         method: 'GET',
         headers,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       
       const text = await response.text();
       let data;
@@ -85,7 +90,8 @@ export const axiosInstance = {
       console.log(`[FETCH] SUCCESS: ${url} (Status: ${response.status})`);
       return { data };
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Unknown error';
+      clearTimeout(timeoutId);
+      const msg = err.name === 'AbortError' ? 'Request timed out' : (err.response?.data?.message || err.message || 'Unknown error');
       console.log(`[FETCH] ERROR: ${url} ->`, msg);
       throw err;
     }
@@ -102,11 +108,12 @@ export const axiosInstance = {
       headers['Authorization'] = `Bearer ${token.trim()}`;
     }
 
-    // CRITICAL: For FormData, we MUST NOT set Content-Type manually,
-    // as fetch needs to append the boundary parameter.
     if (isFormData && headers['Content-Type']) {
       delete headers['Content-Type'];
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     console.log(`[FETCH] POST ${BASE_URL}${url}`);
     try {
@@ -114,7 +121,9 @@ export const axiosInstance = {
         method: 'POST',
         headers,
         body: isFormData ? body : JSON.stringify(body),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       
       const text = await response.text();
       let data;
@@ -135,7 +144,8 @@ export const axiosInstance = {
       console.log(`[FETCH] SUCCESS: ${url} (Status: ${response.status})`);
       return { data };
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Unknown error';
+      clearTimeout(timeoutId);
+      const msg = err.name === 'AbortError' ? 'Request timed out' : (err.response?.data?.message || err.message || 'Unknown error');
       console.log(`[FETCH] ERROR: ${url} ->`, msg);
       throw err;
     }
@@ -156,12 +166,17 @@ export const axiosInstance = {
       delete headers['Content-Type'];
     }
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
         method: 'PATCH',
         headers: isFormData ? { ...headers } : { ...headers, 'Content-Type': 'application/json' },
         body: isFormData ? body : JSON.stringify(body),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       
       const text = await response.text();
       let data;
@@ -181,8 +196,7 @@ export const axiosInstance = {
 
       return { data };
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Unknown error';
-      console.log(`[FETCH] ERROR: ${url} ->`, msg);
+      clearTimeout(timeoutId);
       throw err;
     }
   },
@@ -197,11 +211,16 @@ export const axiosInstance = {
       headers['Authorization'] = `Bearer ${token.trim()}`;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
         method: 'DELETE',
         headers,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       
       const text = await response.text();
       let data;
@@ -221,8 +240,7 @@ export const axiosInstance = {
 
       return { data };
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Unknown error';
-      console.log(`[FETCH] ERROR: ${url} ->`, msg);
+      clearTimeout(timeoutId);
       throw err;
     }
   },
@@ -242,12 +260,17 @@ export const axiosInstance = {
       delete headers['Content-Type'];
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
         method: 'PUT',
         headers: isFormData ? { ...headers } : { ...headers, 'Content-Type': 'application/json' },
         body: isFormData ? body : JSON.stringify(body),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       const text = await response.text();
       let data;
@@ -267,8 +290,7 @@ export const axiosInstance = {
 
       return { data };
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Unknown error';
-      console.log(`[FETCH] ERROR: ${url} ->`, msg);
+      clearTimeout(timeoutId);
       throw err;
     }
   }
