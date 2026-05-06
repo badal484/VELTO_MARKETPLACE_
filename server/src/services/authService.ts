@@ -22,10 +22,14 @@ export class AuthService {
       metadata: data, // Store registration data temporarily
     });
 
-    // Send email in background to prevent timeout on slow SMTP connections
-    sendEmail(data.email, 'email_verify', { name: data.name, otp }).catch(err => {
-      console.error(`[EMAIL ERROR] Failed to send registration OTP to ${data.email}:`, err);
-    });
+    // Awaiting email temporarily to catch errors and show them on the mobile screen
+    try {
+      await sendEmail(data.email, 'email_verify', { name: data.name, otp });
+    } catch (err: any) {
+      console.error(`[EMAIL ERROR] Registration OTP failure:`, err);
+      throw new AppError(`Email delivery failed: ${err.message}. Check server logs.`, 500);
+    }
+    
     return { message: 'Verification OTP sent to email' };
   }
 

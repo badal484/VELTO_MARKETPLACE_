@@ -1,20 +1,15 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: 465, // Using 465 for SSL (more reliable on cloud providers)
-  secure: true, 
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    rejectUnauthorized: false,
-    minVersion: 'TLSv1.2'
-  },
   pool: true,
-  maxConnections: 5,
-  maxMessages: 100
+  maxConnections: 3,
+  socketTimeout: 30000, // Increase timeout for slow cloud connections
+  connectionTimeout: 30000,
 });
 
 transporter.verify((error, success) => {
