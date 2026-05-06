@@ -13,19 +13,40 @@ import { initSocket } from './socket/socket';
 const logCache: string[] = [];
 const originalLog = console.log;
 const originalError = console.error;
+let isLogging = false;
+
+const safeStringify = (obj: any) => {
+  try {
+    return typeof obj === 'object' ? JSON.stringify(obj) : String(obj);
+  } catch (e) {
+    return '[Circular or Non-Serializable Object]';
+  }
+};
 
 console.log = (...args) => {
-  const msg = `[LOG] ${args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ')}`;
-  logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
-  if (logCache.length > 100) logCache.shift();
   originalLog.apply(console, args);
+  if (isLogging) return;
+  isLogging = true;
+  try {
+    const msg = `[LOG] ${args.map(safeStringify).join(' ')}`;
+    logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+    if (logCache.length > 100) logCache.shift();
+  } finally {
+    isLogging = false;
+  }
 };
 
 console.error = (...args) => {
-  const msg = `[ERR] ${args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ')}`;
-  logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
-  if (logCache.length > 100) logCache.shift();
   originalError.apply(console, args);
+  if (isLogging) return;
+  isLogging = true;
+  try {
+    const msg = `[ERR] ${args.map(safeStringify).join(' ')}`;
+    logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+    if (logCache.length > 100) logCache.shift();
+  } finally {
+    isLogging = false;
+  }
 };
 
 import authRoutes from './routes/auth';
