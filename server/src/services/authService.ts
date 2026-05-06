@@ -11,26 +11,28 @@ export class AuthService {
     const existing = await User.findOne({ email: data.email });
     if (existing) throw new AppError('Email already in use', 409);
 
-    const otp = generateOTP();
-    await OTP.deleteMany({ email: data.email, type: 'email_verify' });
-    
-    await OTP.create({
-      email: data.email,
-      otp: hashOTP(otp),
-      type: 'email_verify',
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
-      metadata: data, // Store registration data temporarily
+    // Create user directly
+    const user = await User.create({
+      ...data,
+      isVerified: true, // Auto-verify for now
     });
 
-    // Awaiting email temporarily to catch errors and show them on the mobile screen
-    try {
-      await sendEmail(data.email, 'email_verify', { name: data.name, otp });
-    } catch (err: any) {
-      console.error(`[EMAIL ERROR] Registration OTP failure:`, err);
-      throw new AppError(`Email delivery failed: ${err.message}. Check server logs.`, 500);
-    }
+    const token = jwt.sign(
+      { id: String(user._id), role: user.role },
+      process.env.JWT_SECRET || 'super_secret_velto_key_123',
+      { expiresIn: '30d' } as any
+    );
     
-    return { message: 'Verification OTP sent to email' };
+    return { 
+      message: 'Registration successful (Verification Bypassed)',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+      token 
+    };
   }
 
   static async verifyRegister(email: string, otp: string) {

@@ -3,7 +3,7 @@ import {tokenStore} from './tokenStore';
 const DEV_URL = 'http://10.0.2.2:8082'; // Optimized for Android Emulator to reach Localhost
 const PROD_URL = 'https://velto-marketplace.onrender.com';
 
-export const BASE_URL = PROD_URL; // Production URL for the final APK
+export const BASE_URL = 'http://10.96.117.23:8082'; // Pointing to local MacBook for testing Gmail OTP
 
 type LogoutHandler = () => void;
 let _logoutHandler: LogoutHandler | null = null;
@@ -59,7 +59,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
 
     console.log(`[FETCH] GET ${BASE_URL}${url}`);
     try {
@@ -113,7 +113,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
 
     console.log(`[FETCH] POST ${BASE_URL}${url}`);
     try {
@@ -167,7 +167,7 @@ export const axiosInstance = {
     }
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
 
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
@@ -212,7 +212,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
 
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
@@ -261,7 +261,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
 
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
