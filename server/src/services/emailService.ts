@@ -1,7 +1,9 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -11,7 +13,7 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 30000,
   connectionTimeout: 30000,
   family: 4 // Force IPv4 to prevent ENETUNREACH errors on Render
-});
+} as any); // Using 'as any' to bypass strict type check for cloud-specific properties if needed
 
 transporter.verify((error, success) => {
   if (error) {
