@@ -9,46 +9,6 @@ import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { initSocket } from './socket/socket';
 
-// Global Log Cache for remote debugging
-const logCache: string[] = [];
-const originalLog = console.log;
-const originalError = console.error;
-let isLogging = false;
-
-const safeStringify = (obj: any) => {
-  try {
-    return typeof obj === 'object' ? JSON.stringify(obj) : String(obj);
-  } catch (e) {
-    return '[Circular or Non-Serializable Object]';
-  }
-};
-
-console.log = (...args) => {
-  originalLog.apply(console, args);
-  if (isLogging) return;
-  isLogging = true;
-  try {
-    const msg = `[LOG] ${args.map(safeStringify).join(' ')}`;
-    logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
-    if (logCache.length > 100) logCache.shift();
-  } finally {
-    isLogging = false;
-  }
-};
-
-console.error = (...args) => {
-  originalError.apply(console, args);
-  if (isLogging) return;
-  isLogging = true;
-  try {
-    const msg = `[ERR] ${args.map(safeStringify).join(' ')}`;
-    logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
-    if (logCache.length > 100) logCache.shift();
-  } finally {
-    isLogging = false;
-  }
-};
-
 import authRoutes from './routes/auth';
 import shopRoutes from './routes/shop';
 import productRoutes from './routes/product';
@@ -107,27 +67,6 @@ app.get('/api/debug/count', async (req, res) => {
 
 app.get('/', (_req, res) => res.json({ success: true, message: 'Velto API is running', version: '1.0.0' }));
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
-
-// Remote Log Viewer for debugging production issues
-app.get('/api/debug/logs', (req, res) => {
-  try {
-    const logs = [...logCache].reverse();
-    const html = `
-      <html>
-        <body style="background: #1e1e1e; color: #d4d4d4; font-family: monospace; padding: 20px;">
-          <h2>🚀 Velto Server Logs (Last 100)</h2>
-          <div style="border: 1px solid #333; padding: 10px; background: #000;">
-            ${logs.map(log => `<div style="margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px;">${log}</div>`).join('')}
-          </div>
-          <script>setTimeout(() => location.reload(), 5000);</script>
-        </body>
-      </html>
-    `;
-    res.status(200).send(html);
-  } catch (err: any) {
-    res.status(500).send(`Log Viewer Error: ${err.message}`);
-  }
-});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/shops', shopRoutes);
