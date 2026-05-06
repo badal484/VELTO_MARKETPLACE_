@@ -1,16 +1,20 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: 587,
-  secure: false, // true for 465, false for other ports
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: Number(process.env.EMAIL_PORT) || 587,
+  secure: false, 
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2'
+  },
+  pool: true, // Use pooled connections for better performance
+  maxConnections: 5,
+  maxMessages: 100
 });
 
 transporter.verify((error, success) => {
@@ -33,17 +37,24 @@ const templates = {
 };
 
 export const sendEmail = async (to: string, type: keyof typeof templates, data: any) => {
+  console.log(`✉️ [DEBUG] Attempting to send email [${type}] to: ${to}...`);
   try {
     const tpl = (templates as any)[type](data);
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to,
       subject: tpl.subject,
       html: tpl.html,
     });
-    console.log(`✅ Email [${type}] sent to ${to}`);
-  } catch (error) {
-    console.error('❌ Failed to send email:', error);
-    throw new Error('Failed to send email');
+    console.log(`✅ Email [${type}] sent successfully. MessageID: ${info.messageId}`);
+    return info;
+  } catch (error: any) {
+    console.error('❌ [EMAIL ERROR] Detailed failure:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response
+    });
+    throw error;
   }
 };

@@ -116,10 +116,18 @@ export class FCMService {
         console.log('🌙 Background Notification Received:', remoteMessage);
         
         // Android handles 'notification' messages automatically in background,
-        // but we can manually handle 'data' only messages here if needed.
+        // but for maximum reliability (especially in 'Quit' state), we can manually 
+        // display them if they contain data but no system notification was shown.
+        // Or better yet, we always show it manually if it's a data-only message.
         if (!remoteMessage.notification && remoteMessage.data) {
-           // example for manual trigger if needed:
-           // await FCMService.displayNotification(remoteMessage.data.title, remoteMessage.data.body);
+           const { title, body } = remoteMessage.data;
+           if (title || body) {
+             await FCMService.displayNotification(
+               title || 'New Notification', 
+               body || '', 
+               remoteMessage.data
+             );
+           }
         }
       });
     } catch {

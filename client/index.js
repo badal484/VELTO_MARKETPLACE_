@@ -24,7 +24,17 @@ if (!getApps().length) {
 
 // Phase 4: Handle background push notifications
 import { FCMService } from './src/services/FCMService';
+import notifee, { EventType } from '@notifee/react-native';
+
 FCMService.setBackgroundHandler();
+
+// Handle background events (interactions, etc)
+notifee.onBackgroundEvent(async ({ type, detail }) => {
+  console.log('🌙 Background Event Received:', { type, detail });
+  if (type === EventType.PRESS) {
+    console.log('User pressed the notification in background');
+  }
+});
 
 AppRegistry.registerComponent(appName, () => App);
 AppRegistry.registerComponent('NexBuy', () => App);

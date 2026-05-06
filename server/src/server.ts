@@ -44,6 +44,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Simple Request Logger
+app.use((req, res, next) => {
+  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Diagnostic endpoint
 app.get('/api/debug/count', async (req, res) => {
   const userCount = await User.countDocuments();
