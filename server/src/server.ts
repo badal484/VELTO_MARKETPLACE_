@@ -89,17 +89,23 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 // Remote Log Viewer for debugging production issues
 app.get('/api/debug/logs', (req, res) => {
-  res.send(`
-    <html>
-      <body style="background: #1e1e1e; color: #d4d4d4; font-family: monospace; padding: 20px;">
-        <h2>🚀 Velto Server Logs (Last 100)</h2>
-        <div style="border: 1px solid #333; padding: 10px; background: #000;">
-          ${logCache.reverse().map(log => `<div style="margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px;">${log}</div>`).join('')}
-        </div>
-        <script>setTimeout(() => location.reload(), 5000);</script>
-      </body>
-    </html>
-  `);
+  try {
+    const logs = [...logCache].reverse();
+    const html = `
+      <html>
+        <body style="background: #1e1e1e; color: #d4d4d4; font-family: monospace; padding: 20px;">
+          <h2>🚀 Velto Server Logs (Last 100)</h2>
+          <div style="border: 1px solid #333; padding: 10px; background: #000;">
+            ${logs.map(log => `<div style="margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px;">${log}</div>`).join('')}
+          </div>
+          <script>setTimeout(() => location.reload(), 5000);</script>
+        </body>
+      </html>
+    `;
+    res.status(200).send(html);
+  } catch (err: any) {
+    res.status(500).send(`Log Viewer Error: ${err.message}`);
+  }
 });
 
 app.use('/api/auth', authRoutes);
