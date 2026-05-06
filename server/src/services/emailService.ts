@@ -8,8 +8,9 @@ const transporter = nodemailer.createTransport({
   },
   pool: true,
   maxConnections: 3,
-  socketTimeout: 30000, // Increase timeout for slow cloud connections
+  socketTimeout: 30000,
   connectionTimeout: 30000,
+  family: 4 // Force IPv4 to prevent ENETUNREACH errors on Render
 });
 
 transporter.verify((error, success) => {
