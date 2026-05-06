@@ -125,8 +125,11 @@ app.use(errorHandler);
 
 const PORT = Number(process.env.PORT) || 8082;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/velto';
-// During local dev, if Atlas fails, we force local
-const FINAL_MONGO_URI = MONGO_URI.includes('mongodb+srv') ? 'mongodb://127.0.0.1:27017/velto' : MONGO_URI;
+// Only force local fallback if we are NOT on Render/Production
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+const FINAL_MONGO_URI = (MONGO_URI.includes('mongodb+srv') && !isProduction) 
+  ? 'mongodb://127.0.0.1:27017/velto' 
+  : MONGO_URI;
 
 // Auto-seed banners if empty
 const seedBanners = async () => {
