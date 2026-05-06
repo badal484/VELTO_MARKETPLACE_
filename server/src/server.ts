@@ -9,6 +9,25 @@ import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { initSocket } from './socket/socket';
 
+// Global Log Cache for remote debugging
+const logCache: string[] = [];
+const originalLog = console.log;
+const originalError = console.error;
+
+console.log = (...args) => {
+  const msg = `[LOG] ${args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ')}`;
+  logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+  if (logCache.length > 100) logCache.shift();
+  originalLog.apply(console, args);
+};
+
+console.error = (...args) => {
+  const msg = `[ERR] ${args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ')}`;
+  logCache.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+  if (logCache.length > 100) logCache.shift();
+  originalError.apply(console, args);
+};
+
 import authRoutes from './routes/auth';
 import shopRoutes from './routes/shop';
 import productRoutes from './routes/product';
@@ -67,6 +86,21 @@ app.get('/api/debug/count', async (req, res) => {
 
 app.get('/', (_req, res) => res.json({ success: true, message: 'Velto API is running', version: '1.0.0' }));
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+// Remote Log Viewer for debugging production issues
+app.get('/api/debug/logs', (req, res) => {
+  res.send(`
+    <html>
+      <body style="background: #1e1e1e; color: #d4d4d4; font-family: monospace; padding: 20px;">
+        <h2>🚀 Velto Server Logs (Last 100)</h2>
+        <div style="border: 1px solid #333; padding: 10px; background: #000;">
+          ${logCache.reverse().map(log => `<div style="margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px;">${log}</div>`).join('')}
+        </div>
+        <script>setTimeout(() => location.reload(), 5000);</script>
+      </body>
+    </html>
+  `);
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/shops', shopRoutes);
