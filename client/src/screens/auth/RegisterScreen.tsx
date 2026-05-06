@@ -58,7 +58,16 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
         email,
         password,
       });
-      if (res.data.success) {
+      
+      // If we got a token, it means verification is bypassed
+      if (res.data.token && res.data.user) {
+        showToast({
+          message: 'Registration successful! Welcome to Velto.',
+          type: 'success',
+        });
+        await login(res.data.token, res.data.user);
+        // Navigation will happen automatically via AuthContext
+      } else if (res.data.success) {
         showToast({
           message: 'Verification code sent to your email.',
           type: 'success',
