@@ -34,6 +34,7 @@ export class FCMService {
       // Priority 2: Environment Variable
       else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
         serviceAccount = safeParse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        console.log(' FCM Service: Initializing using FIREBASE_SERVICE_ACCOUNT from environment');
       }
 
       if (serviceAccount) {
