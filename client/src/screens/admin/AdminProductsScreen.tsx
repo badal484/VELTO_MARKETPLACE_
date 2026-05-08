@@ -17,7 +17,7 @@ import {Loader} from '../../components/common/Loader';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IProduct, IShop} from '@shared/types';
-import Animated, {FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInUp} from '../../mocks/reanimated';
 
 export default function AdminProductsScreen() {
   const [products, setProducts] = useState<IProduct[]>([]);

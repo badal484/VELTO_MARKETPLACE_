@@ -12,6 +12,7 @@ import {
   Dimensions,
   Platform,
   PermissionsAndroid,
+  Animated,
 } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
 import {launchImageLibrary} from 'react-native-image-picker';
@@ -24,7 +25,10 @@ import {LocationSearch} from '../../components/common/LocationSearch';
 import {locationService, LocationResult} from '../../services/locationService';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useToast} from '../../hooks/useToast';
-import Animated, {FadeInUp, FadeInRight} from 'react-native-reanimated';
+
+// Mocks for reanimated layout animations
+const FadeInUp = { duration: () => ({}) };
+const FadeInRight = { delay: () => ({}) };
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RouteProp} from '@react-navigation/native';
 import {DashboardStackParamList} from '../../navigation/types';
@@ -59,6 +63,9 @@ export default function AddEditListingScreen({
   const [stock, setStock] = useState(product?.stock?.toString() || '1');
   const [category, setCategory] = useState<Category>(
     product?.category || Category.OTHER,
+  );
+  const [size, setSize] = useState<'small' | 'medium' | 'large'>(
+    (product as any)?.size || 'small',
   );
   const [images, setImages] = useState<string[]>(product?.images || []);
   const [coordinates, setCoordinates] = useState<{
@@ -176,6 +183,7 @@ export default function AddEditListingScreen({
       formData.append('price', cleanPrice);
       formData.append('stock', cleanStock);
       formData.append('category', category);
+      formData.append('size', size);
       formData.append('lat', coordinates.lat.toString());
       formData.append('lng', coordinates.lng.toString());
 
@@ -250,7 +258,7 @@ export default function AddEditListingScreen({
         style={styles.container}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}>
-        <Animated.View entering={FadeInUp.duration(600)}>
+        <Animated.View>
           <View style={styles.card}>
             <View style={styles.sectionHeader}>
               <Icon
@@ -311,8 +319,7 @@ export default function AddEditListingScreen({
                 const isActive = category === cat.id;
                 return (
                   <Animated.View
-                    key={`${cat.id}-${idx}`}
-                    entering={FadeInRight.delay(idx * 50)}>
+                    key={`${cat.id}-${idx}`}>
                     <TouchableOpacity
                       style={[styles.catItem, isActive && styles.catItemActive]}
                       onPress={() => setCategory(cat.id)}
@@ -333,6 +340,43 @@ export default function AddEditListingScreen({
                       </Text>
                     </TouchableOpacity>
                   </Animated.View>
+                );
+              })}
+            </View>
+          </View>
+          
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Icon
+                name="expand-outline"
+                size={18}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.sectionLabel}>Product Size (For Delivery Fee)</Text>
+            </View>
+            <View style={styles.categoryGrid}>
+              {[
+                { id: 'small', label: 'Small', icon: 'cube-outline', desc: 'Fits in a bag' },
+                { id: 'medium', label: 'Medium', icon: 'archive-outline', desc: 'Box/Big bag' },
+                { id: 'large', label: 'Large', icon: 'car-outline', desc: 'Bulky item' }
+              ].map((s) => {
+                const isActive = size === s.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.sizeCard, isActive && styles.sizeCardActive]}
+                    onPress={() => setSize(s.id as any)}
+                    activeOpacity={0.8}>
+                    <Icon
+                      name={s.icon}
+                      size={20}
+                      color={isActive ? theme.colors.white : theme.colors.primary}
+                    />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={[styles.sizeLabel, isActive && styles.sizeLabelActive]}>{s.label}</Text>
+                      <Text style={[styles.sizeDesc, isActive && styles.sizeDescActive]}>{s.desc}</Text>
+                    </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -546,6 +590,33 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   catTextActive: {color: theme.colors.white},
+  sizeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+    width: '100%',
+    marginBottom: 8,
+  },
+  sizeCardActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  sizeLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  sizeLabelActive: { color: theme.colors.white },
+  sizeDesc: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.muted,
+  },
+  sizeDescActive: { color: theme.colors.white + '80' },
   imageGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 12},
   imageWrapper: {
     width: (width - 100) / 3,

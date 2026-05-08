@@ -12,17 +12,10 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
+import Animated, {FadeInUp} from '../../mocks/reanimated';
 import {Loader} from '../../components/common/Loader';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {
-  FadeInUp,
-  useAnimatedScrollHandler,
-  useSharedValue,
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate,
-} from 'react-native-reanimated';
 import {IShop, IProduct} from '@shared/types';
 import {openMap} from '../../utils/mapUtils';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -48,7 +41,7 @@ export default function ShopProfileScreen({
   const [products, setProducts] = useState<IProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const scrollY = useSharedValue(0);
+  const scrollY = React.useRef(new Animated.Value(0)).current;
 
   const fetchShopData = React.useCallback(async () => {
     try {
@@ -74,38 +67,25 @@ export default function ShopProfileScreen({
     fetchShopData();
   }, [fetchShopData]);
 
-  const scrollHandler = useAnimatedScrollHandler(event => {
-    scrollY.value = event.contentOffset.y;
-  });
+  const headerStyle = {
+    opacity: scrollY.interpolate({
+      inputRange: [100, 180],
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    }),
+    backgroundColor: theme.colors.white,
+  };
 
-  const headerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [100, 180],
-      [0, 1],
-      Extrapolate.CLAMP,
-    );
-    return {
-      opacity,
-      backgroundColor: theme.colors.white,
-    };
-  });
-
-  const backBtnStyle = useAnimatedStyle(() => {
-    const color = interpolate(
-      scrollY.value,
-      [100, 180],
-      [1, 0],
-      Extrapolate.CLAMP,
-    );
-    return {
-      backgroundColor: color === 1 ? 'rgba(255,255,255,0.2)' : '#F1F5F9',
-    };
-  });
+  const backBtnStyle = {
+    backgroundColor: scrollY.interpolate({
+      inputRange: [100, 180],
+      outputRange: ['rgba(255,255,255,0.2)', '#F1F5F9'],
+      extrapolate: 'clamp',
+    }),
+  };
 
   const renderProduct = ({item, index}: {item: IProduct; index: number}) => (
     <Animated.View
-      entering={FadeInUp.delay(index * 100).duration(600)}
       style={styles.productWrapper}>
       <TouchableOpacity
         activeOpacity={0.9}
@@ -158,7 +138,10 @@ export default function ShopProfileScreen({
       </TouchableOpacity>
 
       <Animated.ScrollView
-        onScroll={scrollHandler}
+        onScroll={Animated.event(
+          [{nativeEvent: {contentOffset: {y: scrollY}}}],
+          {useNativeDriver: false},
+        )}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>
@@ -172,7 +155,6 @@ export default function ShopProfileScreen({
         </View>
 
         <Animated.View
-          entering={FadeInUp.duration(800)}
           style={styles.mainInfoCard}>
           <View style={styles.brandBox}>
             <View style={styles.logoRing}>

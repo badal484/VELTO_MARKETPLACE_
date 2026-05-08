@@ -1,20 +1,31 @@
 import React, {useEffect} from 'react';
 import {StyleSheet, Text, View, Dimensions} from 'react-native';
-import Animated, {
-  FadeInUp,
-  FadeOutUp,
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-} from 'react-native-reanimated';
 import {theme} from '../../theme';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useToast} from '../../hooks/useToast';
+import Animated from '../../mocks/reanimated';
 
 const {width} = Dimensions.get('window');
 
 export const Toast = () => {
-  const {visible, toast, hideToast} = useToast();
+  const {visible, toast} = useToast();
+  const opacity = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
 
   if (!visible || !toast) return null;
 
@@ -52,13 +63,18 @@ export const Toast = () => {
 
   return (
     <Animated.View
-      entering={FadeInUp}
-      exiting={FadeOutUp}
       style={[
         styles.container,
         {
           backgroundColor: styles_config.backgroundColor,
           borderColor: styles_config.borderColor,
+          opacity,
+          transform: [{
+            translateY: opacity.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-20, 0],
+            })
+          }]
         },
       ]}>
       <Icon name={styles_config.icon} size={20} color={styles_config.iconColor} />

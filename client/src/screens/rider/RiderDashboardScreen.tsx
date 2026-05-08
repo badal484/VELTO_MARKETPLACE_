@@ -1,5 +1,6 @@
 // Rider Dashboard Screen - Real-time fleet management
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -18,7 +19,7 @@ import {
 import { theme } from '../../theme';
 import { axiosInstance } from '../../api/axiosInstance';
 import { Button } from '../../components/common/Button';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInUp } from '../../mocks/reanimated';
 import { Loader } from '../../components/common/Loader';
 import { Role, OrderStatus } from '../../../../shared/types';
 import {
@@ -38,12 +39,16 @@ import OrderCard from '../../components/rider/OrderCard';
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   header: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: theme.colors.white,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    marginBottom: 20,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   pickupCodeBox: {
     backgroundColor: '#F0FDF4',
@@ -310,12 +315,15 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.primary,
-    margin: 20,
-    borderRadius: 24,
-    padding: 24,
+    backgroundColor: '#0F172A', // Deep obsidian dark mode
+    marginHorizontal: 20,
+    marginVertical: 12,
+    borderRadius: 28,
+    padding: 28,
     alignItems: 'center',
     ...theme.shadow.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   statBox: {
     flex: 1,
@@ -713,9 +721,14 @@ export default function RiderDashboardScreen({ navigation }: any) {
     };
   }, [activeJobs, socket, isConnected, activeTab, user?.isRiderVerified]);
 
-  useEffect(() => {
-    fetchJobs();
-  }, [activeTab]);
+  // Auto-refresh jobs when focused and every 30s
+  useFocusEffect(
+    useCallback(() => {
+      fetchJobs(true); // Initial silent fetch
+      const interval = setInterval(() => fetchJobs(true), 30000);
+      return () => clearInterval(interval);
+    }, [activeTab])
+  );
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') return true;
@@ -898,63 +911,79 @@ export default function RiderDashboardScreen({ navigation }: any) {
   );
 
   const renderJobCard = ({ item }: { item: any }) => (
-    <View style={styles.card}>
+    <Animated.View entering={FadeInUp.duration(600)} style={styles.card}>
       <View style={styles.cardHeader}>
         <TouchableOpacity
           style={styles.shopInfo}
           onPress={() => openShopDetails(item.shop)}
         >
-          <Icon name="storefront" size={20} color={theme.colors.primary} />
-          <Text style={styles.shopName}>{item.shop?.name}</Text>
-          <Icon
-            name="information-circle-outline"
-            size={16}
-            color={theme.colors.muted}
-          />
+          <View style={styles.storeIconBg}>
+            <Icon name="storefront" size={18} color={theme.colors.primary} />
+          </View>
+          <View>
+            <Text style={styles.shopName}>{item.shop?.name}</Text>
+            <View style={styles.miniCallRow}>
+              <Text style={[styles.statusText, { color: theme.colors.muted }]}>
+                {item.shop?.category || 'General Store'}
+              </Text>
+              <Icon name="chevron-forward" size={10} color={theme.colors.muted} />
+            </View>
+          </View>
         </TouchableOpacity>
-        <Text style={styles.price}>₹{item.totalPrice}</Text>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.price}>₹{item.totalPrice}</Text>
+          <Text style={[styles.orderId, { fontSize: 8 }]}>EST. EARNING</Text>
+        </View>
       </View>
+
+      <View style={styles.line} />
 
       <View style={styles.addressSection}>
         <View style={styles.addressLine}>
-          <View style={styles.dot} />
-          <Text style={styles.addressText} numberOfLines={1}>
-            Pickup: {item.shop?.address}
-          </Text>
+          <Icon name="location" size={16} color={theme.colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statLabel, { color: theme.colors.muted, marginBottom: 2 }]}>PICKUP</Text>
+            <Text style={styles.addressText}>{item.shop?.address}</Text>
+          </View>
         </View>
-        <View style={styles.addressLine}>
-          <View style={[styles.dot, { backgroundColor: '#64748B' }]} />
-          <Text style={styles.addressText} numberOfLines={1}>
-            Drop:{' '}
-            {item.deliveryAddress
-              ? `${item.deliveryAddress.street}, ${item.deliveryAddress.city} - ${item.deliveryAddress.pincode}`
-              : 'Pick-up only'}
-          </Text>
-        </View>
-        {item.distance && (
-          <View style={styles.distanceRow}>
-            <Icon name="location" size={12} color={theme.colors.muted} />
-            <Text style={styles.distanceText}>
-              {item.distance.toFixed(1)} km away
+        
+        <View style={[styles.addressLine, { marginTop: 12 }]}>
+          <Icon name="navigate" size={16} color="#64748B" />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statLabel, { color: theme.colors.muted, marginBottom: 2 }]}>DROP-OFF</Text>
+            <Text style={styles.addressText}>
+              {item.deliveryAddress
+                ? `${item.deliveryAddress.street}, ${item.deliveryAddress.city} - ${item.deliveryAddress.pincode}`
+                : 'Pick-up only'}
             </Text>
           </View>
-        )}
+        </View>
       </View>
 
       <View style={styles.footer}>
-        <View style={styles.itemBadge}>
-          <Text style={styles.itemText}>
-            {item.quantity}x {item.product?.title || 'Product'}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={styles.itemBadge}>
+            <Text style={styles.itemText}>
+              {item.quantity}x {item.product?.title || 'Product'}
+            </Text>
+          </View>
+          {item.distance && (
+            <View style={[styles.itemBadge, { backgroundColor: theme.colors.primary + '10' }]}>
+              <Text style={[styles.itemText, { color: theme.colors.primary }]}>
+                {item.distance.toFixed(1)} km
+              </Text>
+            </View>
+          )}
         </View>
         <TouchableOpacity
           style={styles.claimBtn}
           onPress={() => handleClaim(item._id)}
+          activeOpacity={0.8}
         >
           <Text style={styles.claimText}>Claim Job</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 
   return (
@@ -1083,67 +1112,67 @@ export default function RiderDashboardScreen({ navigation }: any) {
 
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Fleet Management</Text>
-          <Text style={styles.headerTitle}>Rider Console</Text>
-          <View style={styles.liveIndicatorRow}>
-            <View
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerSubtitle}>FLEET MANAGEMENT</Text>
+            <Text style={styles.headerTitle}>Rider Console</Text>
+            <View style={styles.liveIndicatorRow}>
+              <View
+                style={[
+                  styles.livePulseDot,
+                  !user?.isOnline && { backgroundColor: theme.colors.muted },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.liveSearchText,
+                  !user?.isOnline && { color: theme.colors.muted },
+                ]}
+              >
+                {user?.isOnline ? 'LIVE SEARCH ACTIVE' : 'OFFLINE'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
               style={[
-                styles.livePulseDot,
-                !user?.isOnline && { backgroundColor: theme.colors.muted },
+                styles.iconBtn,
+                { backgroundColor: user?.isOnline ? '#DCFCE7' : '#F1F5F9' },
               ]}
-            />
-            <Text
-              style={[
-                styles.liveSearchText,
-                !user?.isOnline && { color: theme.colors.muted },
-              ]}
+              onPress={handleToggleOnline}
+              disabled={isToggling}
             >
-              {user?.isOnline ? 'LIVE SEARCH ACTIVE' : 'OFFLINE'}
-            </Text>
+              <Icon
+                name={user?.isOnline ? 'radio-button-on' : 'radio-button-off'}
+                size={22}
+                color={user?.isOnline ? '#059669' : theme.colors.muted}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.navigate('Wallet')}
+            >
+              <Icon name="wallet-outline" size={22} color={theme.colors.text} />
+            </TouchableOpacity>
           </View>
         </View>
+
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[
-              styles.iconBtn,
-              { backgroundColor: user?.isOnline ? '#DCFCE7' : '#F1F5F9' },
-            ]}
-            onPress={handleToggleOnline}
-            disabled={isToggling}
-          >
-            <Icon
-              name={user?.isOnline ? 'radio-button-on' : 'radio-button-off'}
-              size={22}
-              color={user?.isOnline ? '#059669' : theme.colors.muted}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
+           <TouchableOpacity
+            style={[styles.iconBtn, { flex: 1, flexDirection: 'row', gap: 8 }]}
             onPress={() => navigation.navigate('Notifications')}
           >
-            <Icon
-              name="notifications-outline"
-              size={24}
-              color={theme.colors.text}
-            />
+            <Icon name="notifications-outline" size={20} color={theme.colors.text} />
+            <Text style={{ fontSize: 12, fontWeight: '800', color: theme.colors.text }}>Alerts</Text>
             {unreadCount > 0 && <View style={styles.notificationDot} />}
           </TouchableOpacity>
+          
           <TouchableOpacity
-            style={styles.iconBtn}
+            style={[styles.iconBtn, { flex: 1, flexDirection: 'row', gap: 8 }]}
             onPress={() => navigation.navigate('Support')}
           >
-            <Icon
-              name="help-buoy-outline"
-              size={24}
-              color={theme.colors.primary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => navigation.navigate('Wallet')}
-          >
-            <Icon name="wallet-outline" size={24} color={theme.colors.text} />
+            <Icon name="help-buoy-outline" size={20} color={theme.colors.primary} />
+            <Text style={{ fontSize: 12, fontWeight: '800', color: theme.colors.primary }}>Support</Text>
           </TouchableOpacity>
         </View>
       </View>

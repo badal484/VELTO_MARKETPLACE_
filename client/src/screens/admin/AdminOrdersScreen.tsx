@@ -19,7 +19,7 @@ import {Loader} from '../../components/common/Loader';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {OrderStatus, IOrder, IProduct, IShop, IUser} from '@shared/types';
-import Animated, {FadeInDown} from 'react-native-reanimated';
+import Animated, {FadeInDown} from '../../mocks/reanimated';
 import {useToast} from '../../hooks/useToast';
 import {AdminOrderDetailModal} from '../../components/admin/AdminOrderDetailModal';
 

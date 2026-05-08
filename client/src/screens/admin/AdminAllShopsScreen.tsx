@@ -19,7 +19,7 @@ import {Card} from '../../components/common/Card';
 import {Badge} from '../../components/common/Badge';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IShop, IUser} from '@shared/types';
-import Animated, {FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInUp} from '../../mocks/reanimated';
 import {useToast} from '../../hooks/useToast';
 
 // Enable LayoutAnimation on Android

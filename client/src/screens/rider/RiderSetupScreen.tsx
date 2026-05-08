@@ -14,7 +14,7 @@ import {Button} from '../../components/common/Button';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useAuth} from '../../hooks/useAuth';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInDown} from 'react-native-reanimated';
+import Animated, {FadeInDown} from '../../mocks/reanimated';
 import {riderRegisterSchema} from '@shared/validation';
 
 export default function RiderSetupScreen({navigation}: any) {

@@ -27,7 +27,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { IShop, IUser } from '@shared/types';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { useSocket } from '../../hooks/useSocket';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from '../../mocks/reanimated';
 import { useToast } from '../../hooks/useToast';
 
 // ── Reusable detail row ──────────────────────────────────────────────────────

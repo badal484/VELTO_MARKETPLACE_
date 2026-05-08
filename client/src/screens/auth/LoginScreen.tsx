@@ -16,7 +16,7 @@ import { theme } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
 import { axiosInstance, BASE_URL } from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn } from '../../mocks/reanimated';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { loginSchema } from '@shared/validation';

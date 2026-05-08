@@ -18,7 +18,7 @@ import {axiosInstance} from '../../api/axiosInstance';
 import {useToast} from '../../hooks/useToast';
 import {IProduct} from '@shared/types';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInUp, Layout} from 'react-native-reanimated';
+import Animated, {FadeInUp, Layout} from '../../mocks/reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {DashboardStackParamList} from '../../navigation/types';
 

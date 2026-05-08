@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
-import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInDown, FadeInUp} from '../../mocks/reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {AuthStackParamList} from '../../navigation/types';
 

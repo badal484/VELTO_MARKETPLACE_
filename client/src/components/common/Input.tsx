@@ -10,12 +10,6 @@ import {
   TextInputFocusEventData,
 } from 'react-native';
 import {theme} from '../../theme';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-  interpolateColor,
-  useDerivedValue,
-} from 'react-native-reanimated';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -37,22 +31,6 @@ export const Input: React.FC<InputProps> = ({
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const focusedAnim = useDerivedValue(() => {
-    return withTiming(isFocused ? 1 : 0, {duration: 200});
-  });
-
-  const animatedContainerStyle = useAnimatedStyle(() => {
-    const borderColor = interpolateColor(
-      focusedAnim.value,
-      [0, 1],
-      [theme.colors.border, theme.colors.info],
-    );
-    return {
-      borderColor: disabled ? theme.colors.border : borderColor,
-      backgroundColor: disabled ? '#F8FAFC' : theme.colors.white,
-      borderWidth: 0.8,
-    };
-  });
 
   const handleFocus = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
     if (disabled) {
@@ -67,14 +45,23 @@ export const Input: React.FC<InputProps> = ({
     onBlur?.(e);
   };
 
+  const borderColor = error 
+    ? theme.colors.danger 
+    : isFocused 
+      ? theme.colors.info 
+      : theme.colors.border;
+
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <Animated.View
+      <View
         style={[
           styles.inputWrapper,
-          animatedContainerStyle,
-          error ? styles.errorBorder : null,
+          {
+            borderColor: disabled ? theme.colors.border : borderColor,
+            backgroundColor: disabled ? '#F8FAFC' : theme.colors.white,
+            borderWidth: 0.8,
+          },
           leftIcon ? styles.inputWrapperWithIcon : null,
         ]}>
         {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
@@ -86,7 +73,7 @@ export const Input: React.FC<InputProps> = ({
           {...props}
           style={[styles.input, disabled && {color: theme.colors.muted}, propStyle]}
         />
-      </Animated.View>
+      </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );

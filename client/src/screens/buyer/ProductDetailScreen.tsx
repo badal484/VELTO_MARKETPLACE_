@@ -11,11 +11,10 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
-  Animated as RNAnimated,
   Share,
 } from 'react-native';
 import {GestureDetector, Gesture} from 'react-native-gesture-handler';
-import {withSpring} from 'react-native-reanimated';
+import {useRef} from 'react';
 import {BlurView} from '@react-native-community/blur';
 import {ImageViewer} from '../../components/common/ImageViewer';
 import {theme} from '../../theme';
@@ -32,12 +31,8 @@ import {RouteProp, CommonActions} from '@react-navigation/native';
 import Animated, {
   FadeInDown,
   FadeInUp,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  interpolate,
-  Extrapolate,
-} from 'react-native-reanimated';
+  withSpring,
+} from '../../mocks/reanimated';
 import {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {CompositeNavigationProp} from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -76,9 +71,9 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 const ZoomableImage = ({uri}: {uri: string}) => {
-  const scale = useSharedValue(1);
-  const focalX = useSharedValue(0);
-  const focalY = useSharedValue(0);
+  const scale = { value: 1 };
+  const focalX = { value: 0 };
+  const focalY = { value: 0 };
 
   const pinchGesture = Gesture.Pinch()
     .onUpdate(event => {
@@ -90,21 +85,7 @@ const ZoomableImage = ({uri}: {uri: string}) => {
       scale.value = withSpring(1);
     });
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {translateX: focalX.value},
-        {translateY: focalY.value},
-        {translateX: -width / 2},
-        {translateY: -(width * 1.2) / 2},
-        {scale: scale.value},
-        {translateX: -focalX.value},
-        {translateY: -focalY.value},
-        {translateX: width / 2},
-        {translateY: (width * 1.2) / 2},
-      ],
-    };
-  });
+  const animatedStyle = {}; // Simplified for stability
 
   return (
     <View style={styles.imageSlide}>
@@ -119,13 +100,13 @@ const ZoomableImage = ({uri}: {uri: string}) => {
         activeOpacity={0.9} 
         onPress={() => (global as any).setSelectedImage(uri)}>
         <GestureDetector gesture={pinchGesture}>
-          <Animated.View style={[styles.heroImageForegroundWrapper, animatedStyle]}>
+          <View style={[styles.heroImageForegroundWrapper, animatedStyle]}>
             <Image 
                source={{uri}} 
                style={styles.heroImage} 
                resizeMode="contain"
             />
-          </Animated.View>
+          </View>
         </GestureDetector>
       </TouchableOpacity>
     </View>
@@ -151,7 +132,7 @@ export default function ProductDetailScreen({
   const {user} = useAuth();
   const {setCartCount} = useNotifications();
 
-  const scrollY = useSharedValue(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     (global as any).setSelectedImage = setSelectedImage;
@@ -223,19 +204,24 @@ export default function ProductDetailScreen({
     }
   };
 
-  const scrollHandler = useAnimatedScrollHandler(event => {
-    scrollY.value = event.contentOffset.y;
-  });
+  const headerStyle = {
+    opacity: scrollY.interpolate({
+      inputRange: [0, 150],
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    }),
+    backgroundColor: theme.colors.white,
+  };
 
-  const headerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(scrollY.value, [0, 150], [0, 1], Extrapolate.CLAMP);
-    return { opacity, backgroundColor: theme.colors.white };
-  });
-
-  const imageStyle = useAnimatedStyle(() => {
-    const scale = interpolate(scrollY.value, [-100, 0], [1.2, 1], Extrapolate.CLAMP);
-    return { transform: [{scale}] };
-  });
+  const imageStyle = {
+    transform: [{
+      scale: scrollY.interpolate({
+        inputRange: [-100, 0],
+        outputRange: [1.2, 1],
+        extrapolate: 'clamp',
+      }),
+    }],
+  };
 
   const handleAddToCart = async () => {
     if (!product || !user) return;
@@ -334,7 +320,10 @@ Link: https://velto.app/product/${product._id}`,
       </Animated.View>
 
       <Animated.ScrollView
-        onScroll={scrollHandler}
+        onScroll={Animated.event(
+          [{nativeEvent: {contentOffset: {y: scrollY}}}],
+          {useNativeDriver: true},
+        )}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}>
         <View style={styles.imageGalleryContainer}>
@@ -563,7 +552,6 @@ Link: https://velto.app/product/${product._id}`,
 
       {/* Flipkart-Style Sticky Footer */}
       <Animated.View
-        entering={FadeInDown.delay(400).duration(600)}
         style={styles.stickyFooter}>
         {(user?.role === Role.RIDER || user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) ? (
           <View style={styles.limitedAccessRow}>

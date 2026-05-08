@@ -17,7 +17,7 @@ import {Loader} from '../../components/common/Loader';
 import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IProduct} from '@shared/types';
-import Animated, {FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInUp} from '../../mocks/reanimated';
 
 const {width} = Dimensions.get('window');
 const columnWidth = (width - 48) / 2;

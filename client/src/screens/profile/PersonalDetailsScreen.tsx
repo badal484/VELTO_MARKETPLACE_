@@ -17,7 +17,7 @@ import {Button} from '../../components/common/Button';
 import {Input} from '../../components/common/Input';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInDown, FadeInUp} from '../../mocks/reanimated';
 import {useToast} from '../../hooks/useToast';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {ProfileStackParamList} from '../../navigation/types';

@@ -30,7 +30,7 @@ import Animated, {
   Layout,
   useAnimatedStyle,
   withSpring,
-} from 'react-native-reanimated';
+} from '../../mocks/reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {DashboardStackParamList} from '../../navigation/types';
 import Geolocation from 'react-native-geolocation-service';

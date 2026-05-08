@@ -22,7 +22,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {IOrder, IProduct, IUser, OrderStatus} from '@shared/types';
 import {getStatusDisplay} from '@shared/constants/orderStatus';
 import {SocketEvent} from '@shared/constants/socketEvents';
-import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInDown, FadeInUp} from '../../mocks/reanimated';
 import {useToast} from '../../hooks/useToast';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {DashboardStackParamList} from '../../navigation/types';

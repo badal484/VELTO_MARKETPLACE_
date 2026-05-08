@@ -19,7 +19,7 @@ import {Loader} from '../../components/common/Loader';
 import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {ICart, ICartItem, IProduct} from '@shared/types';
-import Animated, {FadeInRight, FadeOutLeft} from 'react-native-reanimated';
+import Animated, {FadeInRight, FadeOutLeft} from '../../mocks/reanimated';
 import {useTranslation} from 'react-i18next';
 import {useNotifications} from '../../context/NotificationContext';
 
@@ -158,6 +158,9 @@ export default function CartScreen({navigation}: CartProps) {
   useFocusEffect(
     useCallback(() => {
       fetchCart();
+      // Background pulse every 30s to catch price/stock changes
+      const interval = setInterval(fetchCart, 30000);
+      return () => clearInterval(interval);
     }, [])
   );
 

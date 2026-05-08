@@ -25,7 +25,7 @@ import {Loader} from '../../components/common/Loader';
 import {Button} from '../../components/common/Button';
 import {Input} from '../../components/common/Input';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInDown, FadeInUp} from '../../mocks/reanimated';
 
 import { IProduct } from '@shared/types';
 import { StackNavigationProp } from '@react-navigation/stack';

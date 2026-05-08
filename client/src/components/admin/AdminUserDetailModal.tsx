@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { theme } from '../../theme';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from '../../mocks/reanimated';
 import { IUser, Role } from '@shared/types';
 
 interface ExtendedUser extends IUser {
@@ -29,6 +29,7 @@ interface AdminUserDetailModalProps {
   onVerifyRider?: (id: string) => void;
   onRejectRider?: (id: string, reason: string) => void;
   onToggleBlock?: (id: string, isBlocked: boolean) => void;
+  onSettleCash?: (id: string, amount: number) => void;
 }
 
 const { height } = Dimensions.get('window');
@@ -82,9 +83,12 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
   onVerifyRider,
   onRejectRider,
   onToggleBlock,
+  onSettleCash,
 }) => {
   const [rejectionReason, setRejectionReason] = React.useState('');
   const [showRejectInput, setShowRejectInput] = React.useState(false);
+  const [settleAmount, setSettleAmount] = React.useState('');
+  const [isSettling, setIsSettling] = React.useState(false);
 
   if (!user) return null;
 
@@ -399,6 +403,53 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                         label="IFSC Code"
                         value={(user as any).bankDetails.ifscCode || 'N/A'}
                       />
+                    </View>
+                  )}
+
+                  {/* Cash Settlement Section */}
+                  {user.role === Role.RIDER && (user as any).cashInHand > 0 && (
+                    <View style={[styles.detailSubset, { backgroundColor: '#F0F9FF', padding: 12, borderRadius: 12, marginTop: 16 }]}>
+                      <Text style={[styles.subsetLabel, { color: theme.colors.primary }]}>CASH LIABILITY SETTLEMENT</Text>
+                      <View style={styles.riderDetailRow}>
+                        <Text style={styles.riderDetailLabel}>Pending Cash:</Text>
+                        <Text style={[styles.riderDetailValue, { color: theme.colors.danger, fontSize: 14 }]}>
+                          ₹{(user as any).cashInHand.toLocaleString()}
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.inputWrapper, { marginTop: 12, backgroundColor: theme.colors.white }]}>
+                        <Icon name="cash-outline" size={16} color={theme.colors.primary} />
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="Amount received..."
+                          keyboardType="numeric"
+                          value={settleAmount}
+                          onChangeText={setSettleAmount}
+                        />
+                      </View>
+
+                      <TouchableOpacity 
+                        style={[styles.verifyBtn, { marginTop: 10, height: 44, backgroundColor: theme.colors.primary }]}
+                        onPress={() => {
+                          const amt = parseFloat(settleAmount);
+                          if (!amt || amt <= 0) return Alert.alert('Error', 'Enter a valid amount');
+                          if (amt > (user as any).cashInHand) return Alert.alert('Error', 'Amount exceeds liability');
+                          
+                          Alert.alert(
+                            'Confirm Settlement',
+                            `Are you sure you received ₹${amt} from ${user.name}?`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Confirm', onPress: () => {
+                                onSettleCash?.(String(user._id), amt);
+                                setSettleAmount('');
+                              }}
+                            ]
+                          );
+                        }}
+                      >
+                        <Text style={[styles.verifyBtnText, { fontSize: 12 }]}>Record Cash Deposit</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>

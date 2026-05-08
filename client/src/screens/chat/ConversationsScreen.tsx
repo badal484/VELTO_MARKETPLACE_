@@ -19,7 +19,7 @@ import {useNotifications} from '../../context/NotificationContext';
 import {useSocket} from '../../hooks/useSocket';
 import {SocketEvent} from '@shared/constants/socketEvents';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInUp, FadeInRight} from 'react-native-reanimated';
+import Animated, {FadeInUp, FadeInRight} from '../../mocks/reanimated';
 import {IConversation, IUser, IProduct, Role} from '@shared/types';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {ChatStackParamList} from '../../navigation/types';

@@ -1,4 +1,5 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useCallback} from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -18,7 +19,7 @@ import {Button} from '../../components/common/Button';
 import {AdminAnalyticsCard} from '../../components/admin/AdminAnalyticsCard';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useToast} from '../../hooks/useToast';
-import Animated, {FadeInUp, FadeInRight} from 'react-native-reanimated';
+import Animated, {FadeInUp, FadeInRight} from '../../mocks/reanimated';
 import {IShop, IUser} from '@shared/types';
 
 interface AdminStats {
@@ -46,9 +47,14 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // Auto-refresh stats when focused and every 60s
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+      const interval = setInterval(fetchData, 60000);
+      return () => clearInterval(interval);
+    }, [])
+  );
 
   const fetchData = async () => {
     try {

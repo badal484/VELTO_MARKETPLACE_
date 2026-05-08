@@ -16,7 +16,7 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
-} from 'react-native-reanimated';
+} from '../../mocks/reanimated';
 
 import { axiosInstance } from '../../api/axiosInstance';
 import { useSocket } from '../../hooks/useSocket';

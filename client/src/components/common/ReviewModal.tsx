@@ -15,7 +15,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {Button} from './Button';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useToast} from '../../hooks/useToast';
-import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInDown, FadeInUp} from '../../mocks/reanimated';
 
 interface ReviewModalProps {
   isVisible: boolean;
@@ -73,7 +73,7 @@ export const ReviewModal = ({
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}>
-          <Animated.View entering={FadeInUp} style={styles.content}>
+          <Animated.View style={styles.content}>
             <View style={styles.header}>
               <Text style={styles.title}>Review Product</Text>
               <TouchableOpacity onPress={onClose}>

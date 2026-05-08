@@ -32,7 +32,7 @@ import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../context/NotificationContext';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeIn, FadeInDown, Layout } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, Layout } from '../../mocks/reanimated';
 import { IMessage, IOrder, IUser, OrderStatus, Role } from '@shared/types';
 import { getStatusDisplay } from '@shared/constants/orderStatus';
 import { SocketEvent } from '@shared/constants/socketEvents';

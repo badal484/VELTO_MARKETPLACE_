@@ -13,7 +13,7 @@ import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {Loader} from '../../components/common/Loader';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInDown} from 'react-native-reanimated';
+import Animated, {FadeInDown} from '../../mocks/reanimated';
 
 interface INotification {
   _id: string;

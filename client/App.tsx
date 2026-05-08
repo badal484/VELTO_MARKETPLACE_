@@ -11,7 +11,8 @@ import {AuthNavigator} from './src/navigation/AuthNavigator';
 import {MainNavigator} from './src/navigation/MainNavigator';
 import {useAuth} from './src/hooks/useAuth';
 import {theme} from './src/theme';
-import {SplashScreen} from './src/components/common/SplashScreen';
+import {SplashScreenV2} from './src/components/common/SplashScreenV2';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 
 const NavigationWrapper = () => {
   const {user, isLoading} = useAuth();
@@ -27,7 +28,7 @@ const NavigationWrapper = () => {
   }, []);
 
   if (isLoading || isSplashVisible) {
-    return <SplashScreen />;
+    return <SplashScreenV2 />;
   }
 
   return (

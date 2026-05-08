@@ -23,7 +23,7 @@ import {launchImageLibrary} from 'react-native-image-picker';
 import {Image} from 'react-native';
 import {axiosInstance} from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInUp, FadeInRight} from 'react-native-reanimated';
+import Animated, {FadeInUp, FadeInRight} from '../../mocks/reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {CompositeNavigationProp} from '@react-navigation/native';

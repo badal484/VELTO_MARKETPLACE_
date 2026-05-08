@@ -32,7 +32,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from 'react-native-reanimated';
+} from '../../mocks/reanimated';
 
 import { IProduct, Category } from '@shared/types';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -384,14 +384,24 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   }, [selectedCategory, isGlobalMode]);
 
-  // Auto-refresh when screen gains focus to keep data in sync without manual refresh
+  // Auto-refresh when screen gains focus and every 60s to keep data in sync
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       if (currentCoords) {
         fetchProducts(currentCoords);
       }
     });
-    return unsubscribe;
+
+    const interval = setInterval(() => {
+      if (currentCoords) {
+        fetchProducts(currentCoords);
+      }
+    }, 60000); // 60s background pulse for buyers
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [navigation, currentCoords, isGlobalMode, selectedCategory]);
 
   const [isServiceable, setIsServiceable] = useState(true);
@@ -642,9 +652,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           )}
 
           <Text style={styles.mainHeader}>
-            {isGlobalMode
-              ? t('home.global_marketplace')
-              : t('home.find_nearby')}
+            {t('home.find_nearby')}
           </Text>
         </View>
         <View style={styles.topRowRight}>
@@ -683,7 +691,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <Text style={styles.sectionTitle}>Explore Categories</Text>
             <Text style={styles.categoryDivider}> | </Text>
             <Text style={styles.categoryActiveName}>
-              {selectedCategory ?? 'For You'}
+              {isGlobalMode ? 'Global' : (selectedCategory ?? 'For You')}
             </Text>
           </View>
         </View>
@@ -810,7 +818,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>
-          {isGlobalMode ? 'Global Marketplace' : t('home.near_you')}
+          {t('home.near_you')}
         </Text>
       </View>
     </View>

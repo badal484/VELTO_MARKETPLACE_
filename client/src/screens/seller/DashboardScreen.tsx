@@ -15,6 +15,7 @@ import {
   Image,
   Modal,
   TextInput,
+  Animated,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -24,7 +25,11 @@ import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IShop, IProduct, OrderStatus, IOrder, IUser} from '@shared/types';
 import { format, subDays, startOfDay, isSameDay } from 'date-fns';
-import Animated, { FadeInDown, FadeInUp, FadeInRight } from 'react-native-reanimated';
+
+// Mocks for reanimated layout animations to prevent crashes
+const FadeInDown = { delay: () => ({}) };
+const FadeInUp = { delay: () => ({}) };
+const FadeInRight = { delay: () => ({}) };
 import {useToast} from '../../hooks/useToast';
 import {useNotifications} from '../../context/NotificationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -57,6 +62,7 @@ export default function DashboardScreen({navigation}: DashboardProps) {
   // Analytics State
   const [chartData, setChartData] = useState<{label: string, value: number, isToday: boolean}[]>([]);
   const [maxEarnings, setMaxEarnings] = useState(1000);
+  const [growth, setGrowth] = useState<{ value: string, isPositive: boolean }>({ value: '0.0', isPositive: true });
 
   const {socket, isConnected} = useSocket();
   const {unreadCount, resetUnreadCount} = useNotifications();
@@ -80,6 +86,10 @@ export default function DashboardScreen({navigation}: DashboardProps) {
     useCallback(() => {
       fetchData();
       resetUnreadCount();
+
+      // Background pulse every 30s to ensure zero manual refresh
+      const interval = setInterval(fetchData, 30000);
+      return () => clearInterval(interval);
     }, [])
   );
 
@@ -118,6 +128,20 @@ export default function DashboardScreen({navigation}: DashboardProps) {
         }
         setChartData(days);
         setMaxEarnings(Math.ceil(maxVal / 500) * 500);
+
+        // -- Calculate Real Growth (Current 7d vs Prev 7d) --
+        const currentWeek = days.slice(7).reduce((acc, d) => acc + d.value, 0);
+        const prevWeek = days.slice(0, 7).reduce((acc, d) => acc + d.value, 0);
+        
+        if (prevWeek === 0) {
+          setGrowth({ value: currentWeek > 0 ? '100' : '0.0', isPositive: true });
+        } else {
+          const diff = ((currentWeek - prevWeek) / prevWeek) * 100;
+          setGrowth({ 
+            value: Math.abs(diff).toFixed(1), 
+            isPositive: diff >= 0 
+          });
+        }
       }
     } catch (error) {
       console.error('Dashboard Fetch Error:', error);
@@ -271,7 +295,7 @@ const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => vo
         animationType="fade"
         onRequestClose={() => setIsOtpModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <Animated.View entering={FadeInUp} style={styles.modalContent}>
+          <Animated.View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Handover Verification</Text>
               <TouchableOpacity onPress={() => setIsOtpModalVisible(false)}>
@@ -368,9 +392,21 @@ const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => vo
                   <Text style={styles.premiumTitle}>Store Analytics</Text>
                   <Text style={styles.premiumSubtitle}>Daily revenue trend (14-bit data)</Text>
                 </View>
-                <View style={styles.growthBadge}>
-                  <Icon name="trending-up" size={14} color={theme.colors.success} />
-                  <Text style={styles.growthText}>+12.8%</Text>
+                <View style={[
+                  styles.growthBadge, 
+                  !growth.isPositive && { backgroundColor: theme.colors.error + '15' }
+                ]}>
+                  <Icon 
+                    name={growth.isPositive ? "trending-up" : "trending-down"} 
+                    size={14} 
+                    color={growth.isPositive ? theme.colors.success : theme.colors.error} 
+                  />
+                  <Text style={[
+                    styles.growthText, 
+                    !growth.isPositive && { color: theme.colors.error }
+                  ]}>
+                    {growth.isPositive ? '+' : '-'}{growth.value}%
+                  </Text>
                 </View>
               </View>
               
@@ -391,7 +427,6 @@ const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => vo
                           <View style={styles.barGhost}>
                             <View style={{ opacity: day.value === 0 ? 0.3 : 1 }}>
                               <Animated.View 
-                                entering={FadeInUp.delay(i * 50)}
                                 style={[
                                   styles.chartBar, 
                                   {
@@ -439,7 +474,7 @@ const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => vo
 
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>Order Pipeline</Text>
-              <TouchableOpacity onPress={() => (navigation as any).navigate('SellerOrders')}>
+              <TouchableOpacity onPress={() => navigation.navigate('SellerOrders' as any)}>
                 <Text style={styles.seeAllText}>View All</Text>
               </TouchableOpacity>
             </View>

@@ -1,7 +1,6 @@
-import React from 'react';
-import {StyleSheet, ViewProps} from 'react-native';
+import React, {useEffect, useRef} from 'react';
+import {StyleSheet, ViewProps, Animated} from 'react-native';
 import {theme} from '../../theme';
-import Animated, {FadeInDown} from 'react-native-reanimated';
 
 interface CardProps extends ViewProps {
   variant?: 'elevated' | 'outline' | 'flat';
@@ -15,10 +14,20 @@ export const Card: React.FC<CardProps> = ({
   delay = 0,
   ...props
 }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      delay: delay,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   return (
     <Animated.View
-      entering={FadeInDown.delay(delay).duration(600)}
-      style={[styles.card, styles[variant], style]}
+      style={[styles.card, styles[variant], style, { opacity: fadeAnim }]}
       {...props}>
       {children}
     </Animated.View>

@@ -19,7 +19,7 @@ import {Badge} from '../../components/common/Badge';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IUser, Role} from '@shared/types';
 import {AdminUserDetailModal} from '../../components/admin/AdminUserDetailModal';
-import Animated, {FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInUp} from '../../mocks/reanimated';
 
 export default function AdminUsersScreen() {
   const [users, setUsers] = useState<IUser[]>([]);
@@ -109,6 +109,20 @@ export default function AdminUsersScreen() {
       setModalVisible(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to reject rider');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSettleCash = async (riderId: string, amount: number) => {
+    try {
+      setLoading(true);
+      await axiosInstance.post('/api/admin/cash-settlement', { riderId, amount });
+      Alert.alert('Success', `Recorded ₹${amount} cash settlement.`);
+      fetchUsers();
+      setModalVisible(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to record settlement');
     } finally {
       setLoading(false);
     }
@@ -282,6 +296,7 @@ export default function AdminUsersScreen() {
         onClose={() => setModalVisible(false)} 
         onVerifyRider={handleVerifyRider}
         onRejectRider={handleRejectRider}
+        onSettleCash={handleSettleCash}
       />
     </SafeAreaView>
   );

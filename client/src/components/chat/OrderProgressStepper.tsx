@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   interpolateColor,
   Layout
-} from 'react-native-reanimated';
+} from '../../mocks/reanimated';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { theme } from '../../theme';
 import { OrderStatus } from '@shared/types';

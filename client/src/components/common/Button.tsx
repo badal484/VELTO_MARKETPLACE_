@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useRef} from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -7,13 +7,9 @@ import {
   ViewStyle,
   TextStyle,
   View,
+  Animated,
 } from 'react-native';
 import {theme} from '../../theme';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
 
 interface ButtonProps {
   title: string;
@@ -29,9 +25,6 @@ interface ButtonProps {
   leftIcon?: React.ReactNode;
 }
 
-const AnimatedTouchableOpacity =
-  Animated.createAnimatedComponent(TouchableOpacity);
-
 export const Button: React.FC<ButtonProps> = ({
   title,
   onPress,
@@ -45,47 +38,37 @@ export const Button: React.FC<ButtonProps> = ({
   icon,
   leftIcon,
 }) => {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{scale: scale.value}],
-  }));
+  const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.96);
+    Animated.spring(scale, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 40,
+    }).start();
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1);
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 40,
+    }).start();
   };
 
   const getButtonStyles = (): ViewStyle[] => {
     const baseStyle: ViewStyle[] = [styles.button, styles[size] as ViewStyle];
 
-    if (type === 'primary') {
-      baseStyle.push(styles.primary as ViewStyle);
-    }
-    if (type === 'secondary') {
-      baseStyle.push(styles.secondary as ViewStyle);
-    }
-    if (type === 'outline') {
-      baseStyle.push(styles.outline as ViewStyle);
-    }
-    if (type === 'ghost') {
-      baseStyle.push(styles.ghost as ViewStyle);
-    }
-    if (type === 'accent') {
-      baseStyle.push(styles.accent as ViewStyle);
-    }
-    if (type === 'warning') {
-      baseStyle.push(styles.warning as ViewStyle);
-    }
-    if (type === 'success') {
-      baseStyle.push(styles.success as ViewStyle);
-    }
-    if (type === 'danger') {
-      baseStyle.push(styles.danger as ViewStyle);
-    }
+    if (type === 'primary') baseStyle.push(styles.primary as ViewStyle);
+    if (type === 'secondary') baseStyle.push(styles.secondary as ViewStyle);
+    if (type === 'outline') baseStyle.push(styles.outline as ViewStyle);
+    if (type === 'ghost') baseStyle.push(styles.ghost as ViewStyle);
+    if (type === 'accent') baseStyle.push(styles.accent as ViewStyle);
+    if (type === 'warning') baseStyle.push(styles.warning as ViewStyle);
+    if (type === 'success') baseStyle.push(styles.success as ViewStyle);
+    if (type === 'danger') baseStyle.push(styles.danger as ViewStyle);
 
     if (disabled || isLoading || loading) {
       baseStyle.push(styles.disabled as ViewStyle);
@@ -100,46 +83,40 @@ export const Button: React.FC<ButtonProps> = ({
       styles[`text_${size}` as keyof typeof styles] as TextStyle,
     ];
 
-    if (type === 'outline') {
-      baseTextStyle.push(styles.textOutline as TextStyle);
-    }
-    if (type === 'ghost') {
-      baseTextStyle.push(styles.textGhost as TextStyle);
-    }
-    if (type === 'secondary') {
-      baseTextStyle.push(styles.textSecondary as TextStyle);
-    }
-    if (type === 'accent') {
-      baseTextStyle.push(styles.textAccent as TextStyle);
-    }
+    if (type === 'outline') baseTextStyle.push(styles.textOutline as TextStyle);
+    if (type === 'ghost') baseTextStyle.push(styles.textGhost as TextStyle);
+    if (type === 'secondary') baseTextStyle.push(styles.textSecondary as TextStyle);
+    if (type === 'accent') baseTextStyle.push(styles.textAccent as TextStyle);
 
     return baseTextStyle;
   };
 
   return (
-    <AnimatedTouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      disabled={disabled || isLoading || loading}
-      style={[getButtonStyles(), animatedStyle, style]}>
-      {(isLoading || loading) ? (
-        <ActivityIndicator
-          color={
-            type === 'outline' || type === 'ghost'
-              ? theme.colors.primary
-              : theme.colors.white
-          }
-        />
-      ) : (
-        <>
-          {leftIcon && <View style={{marginRight: 8}}>{leftIcon}</View>}
-          <Text style={[getTextStyles(), textStyle]}>{title}</Text>
-          {icon && <View style={{marginLeft: 8}}>{icon}</View>}
-        </>
-      )}
-    </AnimatedTouchableOpacity>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || isLoading || loading}
+        style={[getButtonStyles(), style]}>
+        {(isLoading || loading) ? (
+          <ActivityIndicator
+            color={
+              type === 'outline' || type === 'ghost'
+                ? theme.colors.primary
+                : theme.colors.white
+            }
+          />
+        ) : (
+          <>
+            {leftIcon && <View style={{marginRight: 8}}>{leftIcon}</View>}
+            <Text style={[getTextStyles(), textStyle]}>{title}</Text>
+            {icon && <View style={{marginLeft: 8}}>{icon}</View>}
+          </>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
@@ -151,12 +128,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     ...theme.shadow.sm,
   },
-  // Sizes
   sm: {paddingVertical: 8, paddingHorizontal: 16},
   md: {paddingVertical: 14, paddingHorizontal: 24},
   lg: {paddingVertical: 18, paddingHorizontal: 32},
 
-  // Types
   primary: {backgroundColor: theme.colors.primary},
   secondary: {backgroundColor: theme.colors.secondary},
   accent: {backgroundColor: theme.colors.accent},
@@ -170,28 +145,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     elevation: 0,
   },
-  warning: {
-    backgroundColor: theme.colors.warning,
-  },
-  success: {
-    backgroundColor: theme.colors.success,
-  },
-  danger: {
-    backgroundColor: theme.colors.danger,
-  },
-  disabled: {
-    opacity: 0.6,
-  },
+  warning: {backgroundColor: theme.colors.warning},
+  success: {backgroundColor: theme.colors.success},
+  danger: {backgroundColor: theme.colors.danger},
+  disabled: {opacity: 0.6},
 
-  // Text Styles
-  input: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.text,
-    height: '100%',
-  },
-  errorBorder: {
-    borderColor: theme.colors.danger as string,
-  },
   text: {
     fontWeight: '700',
     color: theme.colors.white,

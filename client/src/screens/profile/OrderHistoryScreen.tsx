@@ -20,7 +20,7 @@ import {axiosInstance} from '../../api/axiosInstance';
 import {Loader} from '../../components/common/Loader';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
+import Animated, {FadeInDown, FadeInUp} from '../../mocks/reanimated';
 import {useTranslation} from 'react-i18next';
 import {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {CompositeNavigationProp} from '@react-navigation/native';
@@ -70,6 +70,9 @@ export default function OrderHistoryScreen({
   useFocusEffect(
     useCallback(() => {
       fetchOrders();
+      // Background pulse every 30s to keep order statuses live
+      const interval = setInterval(fetchOrders, 30000);
+      return () => clearInterval(interval);
     }, [historyMode])
   );
 

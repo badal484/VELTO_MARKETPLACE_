@@ -7,9 +7,9 @@ module.exports = {
         root: ['./'],
         alias: {
           '@shared': '../shared',
+          'react-native-reanimated': './src/mocks/reanimated',
         },
       },
     ],
-    'react-native-reanimated/plugin',
   ],
 };

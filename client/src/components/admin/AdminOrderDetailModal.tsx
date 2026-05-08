@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { theme } from '../../theme';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from '../../mocks/reanimated';
 import { IOrder, OrderStatus, IUser, IShop, IProduct, Role } from '@shared/types';
 import { Badge } from '../common/Badge';
 import { useNavigation } from '@react-navigation/native';

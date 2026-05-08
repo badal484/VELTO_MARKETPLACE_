@@ -24,7 +24,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {Category} from '@shared/types';
 import {useToast} from '../../hooks/useToast';
-import Animated, {FadeInUp, FadeInRight} from 'react-native-reanimated';
+import Animated, {FadeInUp, FadeInRight} from '../../mocks/reanimated';
 
 const {width} = Dimensions.get('window');
 

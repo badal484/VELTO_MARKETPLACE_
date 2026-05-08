@@ -2,7 +2,7 @@ import React from 'react';
 import {View, Text, StyleSheet, Dimensions} from 'react-native';
 import {theme} from '../../theme';
 import {Card} from '../common/Card';
-import Animated, {FadeInDown} from 'react-native-reanimated';
+import Animated, {FadeInDown} from '../../mocks/reanimated';
 
 const {width} = Dimensions.get('window');
 

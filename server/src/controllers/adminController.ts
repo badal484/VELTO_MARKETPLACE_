@@ -201,7 +201,9 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
             riderRejectionReason: 1,
             riderDocuments: 1,
             licenseNumber: 1,
-            vehicleDetails: 1
+            vehicleDetails: 1,
+            cashInHand: 1,
+            walletBalance: 1
          }
        },
       { $sort: { createdAt: -1 } }

@@ -29,7 +29,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   useAnimatedStyle,
-} from 'react-native-reanimated';
+} from '../../mocks/reanimated';
 import { RangeSlider } from '../../components/common/RangeSlider';
 import { IProduct, Category, IShop } from '@shared/types';
 import { StackNavigationProp } from '@react-navigation/stack';
