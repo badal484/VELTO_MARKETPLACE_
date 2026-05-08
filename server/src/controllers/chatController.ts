@@ -87,7 +87,7 @@ export const startConversation = async (req: Request, res: Response): Promise<vo
 
     if (populated) {
       populated.participants = (populated.participants as any).map((p: any) => {
-        if (p.role === Role.ADMIN && p.name.toLowerCase().includes('nexbuy')) {
+        if (p.role === Role.ADMIN && p.name.toLowerCase().includes('velto')) {
           p.name = 'Velto Support Team';
         }
         return p;
