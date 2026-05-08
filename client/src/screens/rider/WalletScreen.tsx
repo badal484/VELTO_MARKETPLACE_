@@ -180,7 +180,7 @@ export default function WalletScreen({navigation}: any) {
           )}
         </View>
 
-        {/* 🚨 Cash Liability Dashboard - ONLY for Riders 🚨 */}
+        {/*  Cash Liability Dashboard - ONLY for Riders  */}
         {user?.role === Role.RIDER && (
           <View style={styles.liabilityCard}>
             <View style={styles.liabilityHeader}>

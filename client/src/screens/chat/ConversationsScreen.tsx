@@ -129,6 +129,7 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
               conversationId: item._id,
               otherUser: otherParticipant!,
               orderId: order?._id || (typeof item.order === 'string' ? item.order : undefined),
+              productId: (item.product as any)?._id?.toString(),
             })
           }>
           <View style={styles.avatarBox}>
@@ -184,9 +185,9 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
 
             <Text style={styles.snippet} numberOfLines={1}>
               {item.lastMessage?.startsWith('__img__') 
-                ? '📷 Image' 
+                ? ' Image' 
                 : item.lastMessage?.startsWith('__audio__') 
-                ? '🎵 Audio' 
+                ? ' Audio' 
                 : (item.lastMessage || 'Open to view conversation')}
             </Text>
           </View>

@@ -153,7 +153,7 @@ export const generateInvoice = async (req: Request, res: Response): Promise<void
     });
 
   } catch (error: any) {
-    console.error('❌ [INVOICE] Generation Error:', error.message || error);
+    console.error(' [INVOICE] Generation Error:', error.message || error);
     res.status(500).json({ success: false, message: error.message || 'Could not generate invoice' });
   }
 };

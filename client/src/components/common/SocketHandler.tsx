@@ -42,7 +42,7 @@ export const SocketHandler: React.FC = () => {
       
       showToast({
         message: data.isVerified 
-          ? '🎉 Shop Approved! You are now live.' 
+          ? ' Shop Approved! You are now live.' 
           : (data.rejectionReason ? `Shop Update: ${data.rejectionReason}` : data.message),
         type: data.isVerified ? 'success' : 'info',
         duration: 5000,

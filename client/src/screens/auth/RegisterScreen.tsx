@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,17 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import {Input} from '../../components/common/Input';
-import {Button} from '../../components/common/Button';
-import {theme} from '../../theme';
-import {useAuth} from '../../hooks/useAuth';
-import {useToast} from '../../hooks/useToast';
-import {axiosInstance} from '../../api/axiosInstance';
+import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
+import { theme } from '../../theme';
+import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
+import { axiosInstance } from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeInUp, FadeIn} from 'react-native-reanimated';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {AuthStackParamList} from '../../navigation/AuthNavigator';
-import {registerSchema} from '@shared/validation';
+import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { AuthStackParamList } from '../../navigation/types';
+import { registerSchema } from '@shared/validation';
 
 type RegisterScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -31,22 +31,22 @@ interface RegisterScreenProps {
   navigation: RegisterScreenNavigationProp;
 }
 
-export default function RegisterScreen({navigation}: RegisterScreenProps) {
+export default function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const {login} = useAuth();
-  const {showToast} = useToast();
+  const { login } = useAuth();
+  const { showToast } = useToast();
 
   const handleRegister = async () => {
     if (loading) return;
-    
+
     // Zod Validation
-    const validation = registerSchema.safeParse({name, email, password});
+    const validation = registerSchema.safeParse({ name, email, password });
     if (!validation.success) {
-      setError(validation.error.errors[0].message);
+      setError(validation.error.issues[0].message);
       return;
     }
 
@@ -58,7 +58,7 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
         email,
         password,
       });
-      
+
       // If we got a token, it means verification is bypassed
       if (res.data.token && res.data.user) {
         showToast({
@@ -72,11 +72,11 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
           message: 'Verification code sent to your email.',
           type: 'success',
         });
-        navigation.navigate('VerifyOTP', {email, type: 'register'});
+        navigation.navigate('VerifyOTP', { email, type: 'register' });
       }
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
-        const axiosErr = err as {response: {data: {message: string}}};
+        const axiosErr = err as { response: { data: { message: string } } };
         setError(
           axiosErr.response?.data?.message ||
             'Registration failed. Try a different email.',
@@ -94,24 +94,27 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}>
+        style={styles.flex}
+      >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+        >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Icon name="chevron-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
 
           <Animated.View
             entering={FadeInUp.delay(200).duration(600)}
-            style={styles.header}>
+            style={styles.header}
+          >
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>
-              Join Velto and start discovering the finest local shops in
-              India.
+              Join Velto and start discovering the finest local shops in India.
             </Text>
           </Animated.View>
 
@@ -181,9 +184,9 @@ export default function RegisterScreen({navigation}: RegisterScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: theme.colors.background},
-  flex: {flex: 1},
-  scrollContent: {padding: 24, flexGrow: 1},
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scrollContent: { padding: 24, flexGrow: 1 },
   backButton: {
     width: 48,
     height: 48,

@@ -17,9 +17,9 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify((error, success) => {
   if (error) {
-    console.error('❌ SMTP Connection Error:', error);
+    console.error(' SMTP Connection Error:', error);
   } else {
-    console.log('✅ SMTP Server is ready to take our messages');
+    console.log(' SMTP Server is ready to take our messages');
   }
 });
 
@@ -35,7 +35,7 @@ const templates = {
 };
 
 export const sendEmail = async (to: string, type: keyof typeof templates, data: any) => {
-  console.log(`✉️ [DEBUG] Attempting to send email [${type}] to: ${to}...`);
+  console.log(`Sending email [${type}] to: ${to}...`);
   try {
     const tpl = (templates as any)[type](data);
     const info = await transporter.sendMail({
@@ -44,10 +44,10 @@ export const sendEmail = async (to: string, type: keyof typeof templates, data: 
       subject: tpl.subject,
       html: tpl.html,
     });
-    console.log(`✅ Email [${type}] sent successfully. MessageID: ${info.messageId}`);
+    console.log(` Email [${type}] sent successfully. MessageID: ${info.messageId}`);
     return info;
   } catch (error: any) {
-    console.error('❌ [EMAIL ERROR] Detailed failure:', {
+    console.error(' [EMAIL ERROR] Detailed failure:', {
       message: error.message,
       code: error.code,
       command: error.command,

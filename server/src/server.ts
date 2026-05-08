@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 console.log('-------------------------------------------');
-console.log('🚀 VELTO SERVER: BOOTING UP...');
+console.log(' VELTO SERVER: BOOTING UP...');
 console.log('-------------------------------------------');
 import express from 'express';
 import cors from 'cors';
@@ -9,24 +9,6 @@ import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { initSocket } from './socket/socket';
 
-// Global Log Cache for remote debugging
-const logCache: string[] = [];
-const originalLog = console.log;
-const originalError = console.error;
-
-console.log = (...args) => {
-  const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
-  logCache.push(`[${new Date().toLocaleTimeString()}] [LOG] ${msg}`);
-  if (logCache.length > 50) logCache.shift();
-  originalLog.apply(console, args);
-};
-
-console.error = (...args) => {
-  const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
-  logCache.push(`[${new Date().toLocaleTimeString()}] [ERR] ${msg}`);
-  if (logCache.length > 50) logCache.shift();
-  originalError.apply(console, args);
-};
 
 import authRoutes from './routes/auth';
 import shopRoutes from './routes/shop';
@@ -47,7 +29,7 @@ import zoneRoutes from './routes/zone';
 
 // Global Model Registration to prevent Mongoose "Cold Start" Schema errors
 import './models/index';
-import { User, Shop, Product, Banner } from './models/index';
+import { Banner } from './models/index';
 import { Category } from '@shared/types';
 
 
@@ -64,44 +46,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Simple Request Logger
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Diagnostic endpoint
-app.get('/api/debug/count', async (req, res) => {
-  const userCount = await User.countDocuments();
-  const shopCount = await Shop.countDocuments();
-  const productCount = await Product.countDocuments();
-  const verifiedShopCount = await Shop.countDocuments({ isVerified: true });
-  
-  res.json({
-    users: userCount,
-    shops: shopCount,
-    verifiedShops: verifiedShopCount,
-    products: productCount
-  });
-});
-
 app.get('/', (_req, res) => res.json({ success: true, message: 'Velto API is running', version: '1.0.0' }));
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
-
-// Remote Log Viewer for debugging production issues
-app.get('/api/debug/logs', (req, res) => {
-  const logs = [...logCache].reverse();
-  res.send(`
-    <html>
-      <body style="background: #1e1e1e; color: #d4d4d4; font-family: monospace; padding: 20px;">
-        <h2>🚀 Velto Server Logs (Last 50)</h2>
-        <div style="border: 1px solid #333; padding: 10px; background: #000;">
-          ${logs.map(log => `<div style="margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px;">${log}</div>`).join('')}
-        </div>
-        <script>setTimeout(() => location.reload(), 5000);</script>
-      </body>
-    </html>
-  `);
-});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/shops', shopRoutes);
@@ -181,9 +132,9 @@ mongoose.connect(FINAL_MONGO_URI)
         // Start background jobs & Seed
         await seedBanners();
         FundReleaseJob.init();
-        console.log('🚀 Velto Server fully initialized and ready.');
+        console.log(' Velto Server fully initialized and ready.');
       } catch (err) {
-        console.error('❌ CRITICAL ERROR DURING STARTUP JOBS:', err);
+        console.error(' CRITICAL ERROR DURING STARTUP JOBS:', err);
       }
     });
   })
@@ -192,8 +143,8 @@ mongoose.connect(FINAL_MONGO_URI)
   });
 
 // Global Error Catchers to prevent silent nodemon crashes
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('\n🚫 --- UNHANDLED REJECTION --- 🚫');
+process.on('unhandledRejection', (reason, _promise) => {
+  console.error('\n --- UNHANDLED REJECTION --- ');
   console.error('Reason:', reason instanceof Error ? reason.stack : reason);
   console.error('-------------------------------\n');
 });

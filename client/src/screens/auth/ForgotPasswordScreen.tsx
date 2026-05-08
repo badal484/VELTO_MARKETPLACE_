@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,15 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Input} from '../../components/common/Input';
-import {Button} from '../../components/common/Button';
-import {theme} from '../../theme';
-import {axiosInstance} from '../../api/axiosInstance';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
+import { theme } from '../../theme';
+import { axiosInstance } from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeIn} from 'react-native-reanimated';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {AuthStackParamList} from '../../navigation/AuthNavigator';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { AuthStackParamList } from '../../navigation/types';
 import toast from 'react-native-toast-message';
 
 type ForgotPasswordScreenNavigationProp = StackNavigationProp<
@@ -29,7 +29,9 @@ interface ForgotPasswordScreenProps {
   navigation: ForgotPasswordScreenNavigationProp;
 }
 
-export default function ForgotPasswordScreen({navigation}: ForgotPasswordScreenProps) {
+export default function ForgotPasswordScreen({
+  navigation,
+}: ForgotPasswordScreenProps) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,9 +46,11 @@ export default function ForgotPasswordScreen({navigation}: ForgotPasswordScreenP
     try {
       setLoading(true);
       setError('');
-      const res = await axiosInstance.post('/api/auth/forgot-password', {email});
+      const res = await axiosInstance.post('/api/auth/forgot-password', {
+        email,
+      });
       if (res.data.success) {
-        navigation.navigate('ResetPassword', {email});
+        navigation.navigate('ResetPassword', { email });
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send reset code');
@@ -60,23 +64,27 @@ export default function ForgotPasswordScreen({navigation}: ForgotPasswordScreenP
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}>
+        style={styles.flex}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            {paddingTop: Math.max(insets.top, 24)},
+            { paddingTop: Math.max(insets.top, 24) },
           ]}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Icon name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
 
           <Animated.View entering={FadeIn.delay(200)} style={styles.header}>
             <Text style={styles.title}>Forgot Password</Text>
             <Text style={styles.subtitle}>
-              Enter your email address and we'll send you a code to reset your password.
+              Enter your email address and we'll send you a code to reset your
+              password.
             </Text>
           </Animated.View>
 
@@ -115,9 +123,9 @@ export default function ForgotPasswordScreen({navigation}: ForgotPasswordScreenP
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: theme.colors.background},
-  flex: {flex: 1},
-  scrollContent: {padding: theme.spacing.xl, flexGrow: 1},
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scrollContent: { padding: theme.spacing.xl, flexGrow: 1 },
   backButton: {
     width: 44,
     height: 44,

@@ -41,12 +41,12 @@ export class FCMService {
           credential: admin.credential.cert(serviceAccount)
         });
         this.isInitialized = true;
-        console.log('✅ FCM Service Initialized Successfully');
+        console.log(' FCM Service Initialized Successfully');
       } else {
-        console.warn('⚠️ FCM Service not initialized: No service account credentials found.');
+        console.warn('️ FCM Service not initialized: No service account credentials found.');
       }
     } catch (error) {
-      console.error('❌ FCM Initialization Error:', error);
+      console.error(' FCM Initialization Error:', error);
     }
   }
 

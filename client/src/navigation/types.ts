@@ -2,7 +2,7 @@ export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
-  ForgotPassword: {email?: string};
+  ForgotPassword: {email?: string} | undefined;
   ResetPassword: {email: string};
   VerifyOTP: {email: string; type: 'register' | 'forgot_password'};
 };
@@ -18,6 +18,7 @@ export type ChatStackParamList = {
       avatar?: string;
     };
     productTitle?: string;
+    productId?: string;
     shopName?: string;
     shopLogo?: string;
     orderId?: string;
@@ -42,4 +43,44 @@ export type MainTabParamList = {
   ProfileTab: {screen?: string};
   AdminTab: undefined;
   RiderTab: undefined;
+};
+
+export type HomeStackParamList = {
+  Home: undefined;
+  Notifications: undefined;
+  ProductDetail: {id: string};
+  ShopProfile: {id: string};
+  Checkout: {products: Array<{product: any; quantity: number}>};
+  OrderSuccess: {
+    orderId?: string;
+    paymentMethod?: string;
+    fulfillmentMethod?: 'delivery' | 'pickup';
+    deliveryCode?: string | null;
+    pickupCode?: string | null;
+  };
+  Support: undefined;
+  Conversations: undefined;
+  ChatRoom: ChatStackParamList['ChatRoom'];
+};
+
+export type BrowseStackParamList = {
+  Browse: undefined;
+  ProductDetail: {id: string};
+};
+
+export type CartStackParamList = {
+  Cart: undefined;
+  Checkout: {products: Array<{product: any; quantity: number}>};
+};
+
+export type ProfileStackParamList = {
+  Profile: undefined;
+  OrderHistory: undefined;
+  ShopSetup: undefined;
+  Wishlist: undefined;
+  PersonalDetails: undefined;
+  AddEditAddress: Record<string, unknown> | undefined;
+  RiderSetup: undefined;
+  ProductDetail: {id: string};
+  Support: undefined;
 };

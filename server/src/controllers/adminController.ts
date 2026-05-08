@@ -584,7 +584,7 @@ export const forceReleaseOrder = async (req: Request, res: Response): Promise<vo
     await WorkflowService.syncOrderState(
       order._id.toString(), 
       OrderStatus.SEARCHING_RIDER, 
-      '⚠️ Admin Override: Previous rider unassigned. Re-searching for a new delivery partner...'
+      '️ Admin Override: Previous rider unassigned. Re-searching for a new delivery partner...'
     );
 
     res.json({ success: true, message: 'Order released and reset to searching rider' });

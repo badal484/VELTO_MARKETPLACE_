@@ -7,6 +7,7 @@ import { Cart } from '../models/Cart';
 import { Notification, NotificationType } from '../models/Notification';
 import { io } from '../socket/socket';
 import { OrderStatus, Role } from '@shared/types';
+import { SocketEvent } from '@shared/constants/socketEvents';
 import { AppError } from '../utils/errors';
 import { WalletService } from './WalletService';
 import { WorkflowService } from './workflowService';
@@ -42,7 +43,7 @@ export class OrderService {
     session.startTransaction();
 
     try {
-      // 🚨 SERVICE ZONE VALIDATION 🚨
+      //  SERVICE ZONE VALIDATION 
       if (data.fulfillmentMethod === 'delivery' && data.lat && data.lng) {
         const zone = await ZoneService.checkServiceability(data.lng, data.lat);
         if (!zone) {
@@ -104,7 +105,7 @@ export class OrderService {
       }
       
       if (sellerId) {
-        io.to(sellerId).emit('new_order', order[0]);
+        io.to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order[0]);
       }
 
       return order[0];
@@ -180,7 +181,7 @@ export class OrderService {
     order.status = newStatus;
     await order.save();
 
-    // 💸 FINANCIAL FULFILLMENT 💸
+    //  FINANCIAL FULFILLMENT 
     if (newStatus === OrderStatus.COMPLETED || newStatus === OrderStatus.COMPLETED_PENDING_RELEASE) {
       if (order.rider) {
         await WalletService.creditEarnings(orderId).catch(err => console.error('Rider credit failed:', err));
@@ -399,7 +400,7 @@ export class OrderService {
         await WorkflowService.syncOrderState(
           orderId, 
           OrderStatus.RIDER_ASSIGNED, 
-          `🚀 Velto Express: Delivery partner assigned (${(assignedRider.distanceMetres/1000).toFixed(2)}km away).`
+          ` Velto Express: Delivery partner assigned (${(assignedRider.distanceMetres/1000).toFixed(2)}km away).`
         );
 
         io.to(assignedRider._id.toString()).emit('order_assigned', {
@@ -432,7 +433,7 @@ export class OrderService {
     await WorkflowService.syncOrderState(
       order._id.toString(), 
       OrderStatus.SEARCHING_RIDER, 
-      '⚠️ Rider Update: Delivery partner had an emergency and unassigned. Searching for a new partner...'
+      '️ Rider Update: Delivery partner had an emergency and unassigned. Searching for a new partner...'
     );
 
     return order;
@@ -443,7 +444,7 @@ export class OrderService {
     session.startTransaction();
  
     try {
-      // 🚨 SERVICE ZONE VALIDATION 🚨
+      //  SERVICE ZONE VALIDATION 
       if (data.fulfillmentMethod === 'delivery' && data.lat && data.lng) {
         const zone = await ZoneService.checkServiceability(data.lng, data.lat);
         if (!zone) {
@@ -607,7 +608,7 @@ export class OrderService {
         }
         
         if (sellerId) {
-          io.to(sellerId).emit('new_order', order);
+          io.to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
         }
       }
 
@@ -617,8 +618,8 @@ export class OrderService {
 
         if (firstOrderId) {
           const summaryMsg = createdOrders.length === 1 
-            ? `🎉 Success! Your order for ${firstOrder.productSnapshot?.title || 'item'} has been placed.`
-            : `🎉 Success! Your batch order for ${createdOrders.length} items has been placed successfully.`;
+            ? ` Success! Your order for ${firstOrder.productSnapshot?.title || 'item'} has been placed.`
+            : ` Success! Your batch order for ${createdOrders.length} items has been placed successfully.`;
           
           await WorkflowService.syncOrderState(
             firstOrderId,

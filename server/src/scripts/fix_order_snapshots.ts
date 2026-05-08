@@ -59,7 +59,7 @@ async function fixSnapshots() {
           { $set: updates }
         );
         successCount++;
-        console.log(`✅ Fixed order ${order._id}: ${Object.keys(updates).join(', ')}`);
+        console.log(` Fixed order ${order._id}: ${Object.keys(updates).join(', ')}`);
       }
     }
 

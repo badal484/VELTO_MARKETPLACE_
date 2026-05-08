@@ -6,20 +6,29 @@ import { AppError } from '../utils/errors';
 import { sendEmail } from './emailService';
 import { generateOTP, hashOTP } from '../utils/otp';
 
+const JWT_SECRET = (() => {
+  const s = process.env.JWT_SECRET;
+  if (!s) throw new Error('JWT_SECRET environment variable is required');
+  return s;
+})();
+
 export class AuthService {
   static async requestRegister(data: any) {
     const existing = await User.findOne({ email: data.email });
     if (existing) throw new AppError('Email already in use', 409);
 
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
     // Create user directly
     const user = await User.create({
       ...data,
+      password: hashedPassword,
       isVerified: true, // Auto-verify for now
     });
 
     const token = jwt.sign(
       { id: String(user._id), role: user.role },
-      process.env.JWT_SECRET || 'super_secret_velto_key_123',
+      JWT_SECRET,
       { expiresIn: '30d' } as any
     );
     
@@ -57,7 +66,7 @@ export class AuthService {
 
     const token = jwt.sign(
       { id: String(user._id), role: user.role },
-      process.env.JWT_SECRET || 'super_secret_velto_key_123',
+      JWT_SECRET,
       { expiresIn: '30d' } as any
     );
 
@@ -121,7 +130,7 @@ export class AuthService {
 
     const token = jwt.sign(
       { id: String(user._id), role: user.role },
-      process.env.JWT_SECRET || 'super_secret_velto_key_123',
+      JWT_SECRET,
       { expiresIn: '30d' } as any
     );
 

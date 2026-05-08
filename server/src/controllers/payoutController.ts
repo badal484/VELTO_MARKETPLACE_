@@ -106,7 +106,7 @@ export const updatePayoutStatus = async (req: Request, res: Response): Promise<v
     // Re-populate to maintain UI consistency on frontend
     await request.populate('rider', 'name email walletBalance role phoneNumber');
 
-    // 📬 Notify User of Status Change 📬
+    //  Notify User of Status Change 
     const statusMsg = status === PayoutRequestStatus.COMPLETED 
       ? `Your payout of ₹${request.amount} has been successfully processed!`
       : status === PayoutRequestStatus.REJECTED

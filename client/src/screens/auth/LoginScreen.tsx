@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,16 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {Input} from '../../components/common/Input';
-import {Button} from '../../components/common/Button';
-import {theme} from '../../theme';
-import {useAuth} from '../../hooks/useAuth';
-import {axiosInstance, BASE_URL} from '../../api/axiosInstance';
+import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
+import { theme } from '../../theme';
+import { useAuth } from '../../hooks/useAuth';
+import { axiosInstance, BASE_URL } from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeIn} from 'react-native-reanimated';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {AuthStackParamList} from '../../navigation/AuthNavigator';
-import {loginSchema} from '@shared/validation';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { AuthStackParamList } from '../../navigation/types';
+import { loginSchema } from '@shared/validation';
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -30,21 +30,21 @@ interface LoginScreenProps {
   navigation: LoginScreenNavigationProp;
 }
 
-export default function LoginScreen({navigation}: LoginScreenProps) {
+export default function LoginScreen({ navigation }: LoginScreenProps) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const {login} = useAuth();
+  const { login } = useAuth();
 
   const handleLogin = async () => {
     if (loading) return;
-    
+
     // Zod Validation
-    const validation = loginSchema.safeParse({email, password});
+    const validation = loginSchema.safeParse({ email, password });
     if (!validation.success) {
-      setError(validation.error.errors[0].message);
+      setError(validation.error.issues[0].message);
       return;
     }
 
@@ -63,13 +63,21 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
       console.log('[LOGIN_ERROR]', err);
       if (err?.response) {
         // The request was made and the server responded with a status code
-        setError(err.response.data?.message || 'Login failed. Please check your credentials.');
+        setError(
+          err.response.data?.message ||
+            'Login failed. Please check your credentials.',
+        );
       } else if (err?.request || err?.message === 'Network request failed') {
         // The request was made but no response was received (or fetch network error)
-        setError(`Could not reach the server at ${BASE_URL}. Please ensure the backend is running and your device is on the same Wi-Fi.`);
+        setError(
+          `Could not reach the server at ${BASE_URL}. Please ensure the backend is running and your device is on the same Wi-Fi.`,
+        );
       } else {
         // Something happened in setting up the request that triggered an Error
-        setError(err?.message || 'An error occurred while signing in. Please try again.');
+        setError(
+          err?.message ||
+            'An error occurred while signing in. Please try again.',
+        );
       }
     } finally {
       setLoading(false);
@@ -81,16 +89,19 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}>
+        style={styles.flex}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top, 24) }
+            { paddingTop: Math.max(insets.top, 24) },
           ]}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Icon name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
 
@@ -130,9 +141,10 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
               secureTextEntry
             />
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.forgotPassword}
-              onPress={() => navigation.navigate('ForgotPassword')}>
+              onPress={() => navigation.navigate('ForgotPassword')}
+            >
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
 
@@ -157,9 +169,9 @@ export default function LoginScreen({navigation}: LoginScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: theme.colors.background},
-  flex: {flex: 1},
-  scrollContent: {padding: theme.spacing.xl, flexGrow: 1},
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scrollContent: { padding: theme.spacing.xl, flexGrow: 1 },
   backButton: {
     width: 44,
     height: 44,

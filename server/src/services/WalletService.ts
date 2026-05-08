@@ -46,7 +46,7 @@ export class WalletService {
       const rider = await User.findById(order.rider).session(session);
       if (!rider) throw new AppError('Rider not found', 404);
 
-      // 🚨 AUTOMATED OFFSETTING LOGIC 🚨
+      //  AUTOMATED OFFSETTING LOGIC 
       let finalCredit = earnings;
       let offsetReduction = 0;
       
@@ -60,7 +60,7 @@ export class WalletService {
           { session }
         );
 
-        // 🚨 Record Offset Transaction 🚨
+        //  Record Offset Transaction 
         await WalletTransaction.create([{
           user: order.rider,
           amount: offsetReduction,
@@ -88,7 +88,7 @@ export class WalletService {
         orderId: order._id
       }], { session });
 
-      // 🚨 RECORD SYSTEM REVENUE (COMMISSION) 🚨
+      //  RECORD SYSTEM REVENUE (COMMISSION) 
       await WalletTransaction.create([{
         user: new mongoose.Types.ObjectId("000000000000000000000000"), // Virtual System ID
         amount: commission,
@@ -152,7 +152,7 @@ export class WalletService {
         orderId: order._id
       }], { session });
 
-      // 🚨 RECORD SYSTEM REVENUE (COMMISSION) 🚨
+      //  RECORD SYSTEM REVENUE (COMMISSION) 
       await WalletTransaction.create([{
         user: new mongoose.Types.ObjectId("000000000000000000000000"), // Virtual System ID
         amount: commission,
@@ -197,7 +197,7 @@ export class WalletService {
         { session, new: true, select: 'walletBalance cashInHand' }
       );
 
-      // 🚨 Record COD Collection Liability 🚨
+      //  Record COD Collection Liability 
       await WalletTransaction.create([{
         user: order.rider,
         amount: order.totalPrice,
@@ -263,7 +263,7 @@ export class WalletService {
         orderId: order._id
       }], { session });
 
-      // 🚨 PLATFORM ABSORBS COST: Debit from System Revenue 🚨
+      //  PLATFORM ABSORBS COST: Debit from System Revenue 
       await WalletTransaction.create([{
         user: new mongoose.Types.ObjectId("000000000000000000000000"), // Virtual System ID
         amount: this.RIDER_CANCEL_COMPENSATION,

@@ -26,6 +26,7 @@ export const theme = {
     // Feedback Colors
     success: '#10B981', // Emerald 500
     danger: '#EF4444', // Red 500
+    error: '#EF4444', // alias for danger
     warning: '#FBBF24', // Amber 400
     info: '#3B82F6', // Blue 500
 

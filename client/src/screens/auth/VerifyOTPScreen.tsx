@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,40 +9,40 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Input} from '../../components/common/Input';
-import {Button} from '../../components/common/Button';
-import {theme} from '../../theme';
-import {axiosInstance} from '../../api/axiosInstance';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
+import { theme } from '../../theme';
+import { axiosInstance } from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeIn} from 'react-native-reanimated';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {RouteProp} from '@react-navigation/native';
-import {AuthStackParamList} from '../../navigation/AuthNavigator';
-import {useAuth} from '../../hooks/useAuth';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
+import { AuthStackParamList } from '../../navigation/types';
+import { useAuth } from '../../hooks/useAuth';
 
 type VerifyOTPScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
   'VerifyOTP'
 >;
 
-type VerifyOTPScreenRouteProp = RouteProp<
-  AuthStackParamList,
-  'VerifyOTP'
->;
+type VerifyOTPScreenRouteProp = RouteProp<AuthStackParamList, 'VerifyOTP'>;
 
 interface VerifyOTPScreenProps {
   navigation: VerifyOTPScreenNavigationProp;
   route: VerifyOTPScreenRouteProp;
 }
 
-export default function VerifyOTPScreen({navigation, route}: VerifyOTPScreenProps) {
-  const {email, type} = route.params;
+export default function VerifyOTPScreen({
+  navigation,
+  route,
+}: VerifyOTPScreenProps) {
+  const { email, type } = route.params;
   const insets = useSafeAreaInsets();
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const {login} = useAuth();
+  const { login } = useAuth();
 
   const handleVerify = async () => {
     if (!otp) {
@@ -53,8 +53,11 @@ export default function VerifyOTPScreen({navigation, route}: VerifyOTPScreenProp
     try {
       setLoading(true);
       setError('');
-      
-      const endpoint = type === 'register' ? '/api/auth/verify-otp' : '/api/auth/reset-password';
+
+      const endpoint =
+        type === 'register'
+          ? '/api/auth/verify-otp'
+          : '/api/auth/reset-password';
       const res = await axiosInstance.post(endpoint, {
         email,
         otp,
@@ -64,7 +67,7 @@ export default function VerifyOTPScreen({navigation, route}: VerifyOTPScreenProp
         if (type === 'register') {
           await login(res.data.token, res.data.user);
         } else {
-          navigation.navigate('ResetPassword', {email});
+          navigation.navigate('ResetPassword', { email });
         }
       }
     } catch (err: any) {
@@ -79,16 +82,19 @@ export default function VerifyOTPScreen({navigation, route}: VerifyOTPScreenProp
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}>
+        style={styles.flex}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            {paddingTop: Math.max(insets.top, 24)},
+            { paddingTop: Math.max(insets.top, 24) },
           ]}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Icon name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
 
@@ -134,9 +140,9 @@ export default function VerifyOTPScreen({navigation, route}: VerifyOTPScreenProp
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: theme.colors.background},
-  flex: {flex: 1},
-  scrollContent: {padding: theme.spacing.xl, flexGrow: 1},
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scrollContent: { padding: theme.spacing.xl, flexGrow: 1 },
   backButton: {
     width: 44,
     height: 44,

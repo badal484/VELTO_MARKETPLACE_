@@ -1,5 +1,5 @@
 // Rider Dashboard Screen - Real-time fleet management
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,25 +15,28 @@ import {
   Linking,
   Image,
 } from 'react-native';
-import {theme} from '../../theme';
-import {axiosInstance} from '../../api/axiosInstance';
-import {Button} from '../../components/common/Button';
-import Animated, {FadeInUp} from 'react-native-reanimated';
-import {Loader} from '../../components/common/Loader';
-import {Role, OrderStatus} from '../../../../shared/types';
-import { ACTIVE_DELIVERY_STATUSES, FINISHED_DELIVERY_STATUSES } from '../../../../shared/constants/orderStatus';
-import {useAuth} from '../../hooks/useAuth';
-import {useSocket} from '../../hooks/useSocket';
-import {useToast} from '../../hooks/useToast';
+import { theme } from '../../theme';
+import { axiosInstance } from '../../api/axiosInstance';
+import { Button } from '../../components/common/Button';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { Loader } from '../../components/common/Loader';
+import { Role, OrderStatus } from '../../../../shared/types';
+import {
+  ACTIVE_DELIVERY_STATUSES,
+  FINISHED_DELIVERY_STATUSES,
+} from '../../../../shared/constants/orderStatus';
+import { useAuth } from '../../hooks/useAuth';
+import { useSocket } from '../../hooks/useSocket';
+import { useToast } from '../../hooks/useToast';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Geolocation from 'react-native-geolocation-service';
-import {Platform, PermissionsAndroid} from 'react-native';
-import {useNotifications} from '../../context/NotificationContext';
-import {openMap} from '../../utils/mapUtils';
+import { Platform, PermissionsAndroid } from 'react-native';
+import { useNotifications } from '../../context/NotificationContext';
+import { openMap } from '../../utils/mapUtils';
 import OrderCard from '../../components/rider/OrderCard';
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F8FAFC'},
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -88,7 +91,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  headerTitle: {fontSize: 24, fontWeight: '900', color: theme.colors.text},
+  headerTitle: { fontSize: 24, fontWeight: '900', color: theme.colors.text },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -143,7 +146,7 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: theme.colors.primary,
   },
-  list: {padding: 16},
+  list: { padding: 16 },
   card: {
     backgroundColor: theme.colors.white,
     borderRadius: 20,
@@ -151,19 +154,35 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...theme.shadow.sm,
   },
-  cardHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16},
-  shopInfo: {flexDirection: 'row', alignItems: 'center', gap: 8},
-  shopName: {fontSize: 16, fontWeight: '700', color: theme.colors.text},
-  price: {fontSize: 18, fontWeight: '900', color: theme.colors.primary},
-  addressSection: {marginBottom: 20},
-  addressLine: {
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    gap: 12, 
-    marginBottom: 8
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.primary, marginTop: 6},
-  addressText: {fontSize: 14, color: theme.colors.textSecondary, flex: 1, lineHeight: 20},
+  shopInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  shopName: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
+  price: { fontSize: 18, fontWeight: '900', color: theme.colors.primary },
+  addressSection: { marginBottom: 20 },
+  addressLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
+    marginTop: 6,
+  },
+  addressText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    flex: 1,
+    lineHeight: 20,
+  },
   locationBlock: {
     marginBottom: 16,
     padding: 2,
@@ -178,15 +197,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.primary,
   },
-  footer: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  itemBadge: {backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8},
-  itemText: {fontSize: 12, fontWeight: '600', color: theme.colors.muted},
-  claimBtn: {backgroundColor: theme.colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12},
-  claimText: {color: theme.colors.white, fontWeight: '800'},
-  empty: {flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100},
-  emptyText: {fontSize: 16, color: theme.colors.muted, marginTop: 16, fontWeight: '600'},
-  retryBtn: {marginTop: 20, padding: 12},
-  retryText: {color: theme.colors.primary, fontWeight: '700'},
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  itemText: { fontSize: 12, fontWeight: '600', color: theme.colors.muted },
+  claimBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  claimText: { color: theme.colors.white, fontWeight: '800' },
+  empty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 100,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: theme.colors.muted,
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  retryBtn: { marginTop: 20, padding: 12 },
+  retryText: { color: theme.colors.primary, fontWeight: '700' },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -316,11 +359,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.muted,
   },
-  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24},
-  modalContent: {backgroundColor: theme.colors.white, borderRadius: 28, padding: 24, ...theme.shadow.lg},
-  modalHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16},
-  modalTitle: {fontSize: 22, fontWeight: '900', color: theme.colors.text},
-  modalSubtitle: {fontSize: 14, color: theme.colors.textSecondary, marginBottom: 24, lineHeight: 20},
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 28,
+    padding: 24,
+    ...theme.shadow.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: theme.colors.text },
+  modalSubtitle: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 24,
+    lineHeight: 20,
+  },
   otpInput: {
     backgroundColor: '#F1F5F9',
     borderRadius: 16,
@@ -521,18 +584,20 @@ const styles = StyleSheet.create({
   },
 });
 
-export default function RiderDashboardScreen({navigation}: any) {
-  const {user, refreshUser} = useAuth();
-  const {showToast} = useToast();
-  const {socket, isConnected} = useSocket();
-  const {unreadCount} = useNotifications();
+export default function RiderDashboardScreen({ navigation }: any) {
+  const { user, refreshUser } = useAuth();
+  const { showToast } = useToast();
+  const { socket, isConnected } = useSocket();
+  const { unreadCount } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'available' | 'active' | 'history'>('available');
+  const [activeTab, setActiveTab] = useState<
+    'available' | 'active' | 'history'
+  >('available');
   const [jobs, setJobs] = useState<any[]>([]);
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [historyJobs, setHistoryJobs] = useState<any[]>([]);
-  const [stats, setStats] = useState({earnings: 0, deliveries: 0});
+  const [stats, setStats] = useState({ earnings: 0, deliveries: 0 });
 
   const [isOtpModalVisible, setIsOtpModalVisible] = useState(false);
   const [otpValue, setOtpValue] = useState('');
@@ -547,9 +612,9 @@ export default function RiderDashboardScreen({navigation}: any) {
       setIsToggling(true);
       await axiosInstance.patch('/api/user/toggle-online');
       await refreshUser();
-      showToast({ 
-        message: `You are now ${!user?.isOnline ? 'Online' : 'Offline'}`, 
-        type: 'success' 
+      showToast({
+        message: `You are now ${!user?.isOnline ? 'Online' : 'Offline'}`,
+        type: 'success',
       });
     } catch (error: any) {
       showToast({ message: 'Failed to update status', type: 'error' });
@@ -561,20 +626,29 @@ export default function RiderDashboardScreen({navigation}: any) {
   useEffect(() => {
     if (socket && isConnected) {
       socket.on('new_job_available', (data: any) => {
-        showToast({ message: `New job available at ${data.shopName}!`, type: 'info' });
+        showToast({
+          message: `New job available at ${data.shopName}!`,
+          type: 'info',
+        });
         fetchJobs();
       });
 
       socket.on('order_status_updated', (updatedOrder: any) => {
-        showToast({ message: `Order status updated: ${updatedOrder.status}`, type: 'info' });
+        showToast({
+          message: `Order status updated: ${updatedOrder.status}`,
+          type: 'info',
+        });
         fetchJobs(true); // Silent refresh
       });
 
-      socket.on('order_assigned', (data: { orderId: string; message: string; order: any }) => {
-        showToast({ message: data.message, type: 'success' });
-        fetchJobs(true); // Silent refresh
-      });
-      
+      socket.on(
+        'order_assigned',
+        (data: { orderId: string; message: string; order: any }) => {
+          showToast({ message: data.message, type: 'success' });
+          fetchJobs(true); // Silent refresh
+        },
+      );
+
       socket.on('available_jobs_updated', () => {
         if (activeTab === 'available') {
           fetchJobs(true); // Silent real-time sync
@@ -592,26 +666,29 @@ export default function RiderDashboardScreen({navigation}: any) {
 
   useEffect(() => {
     let watchId: number | null = null;
-    
+
     // Track location if there are active transit jobs OR if the rider is online and looking for jobs
-    const shouldTrack = activeJobs.some(job => job.status === 'in_transit') || 
-                       (activeTab === 'available' && user?.isRiderVerified);
+    const shouldTrack =
+      activeJobs.some(job => job.status === 'in_transit') ||
+      (activeTab === 'available' && user?.isRiderVerified);
 
     if (shouldTrack && socket && isConnected) {
       const startTracking = async () => {
         const hasPermission = await requestLocationPermission();
         if (hasPermission) {
           watchId = Geolocation.watchPosition(
-            (position) => {
-              const inTransitJobs = activeJobs.filter(job => job.status === 'in_transit');
-              
+            position => {
+              const inTransitJobs = activeJobs.filter(
+                job => job.status === 'in_transit',
+              );
+
               // 1. Broadcast to buyers for active orders
               inTransitJobs.forEach(job => {
                 socket.emit('update_rider_location', {
                   orderId: job._id,
                   lat: position.coords.latitude,
                   lng: position.coords.longitude,
-                  buyerId: job.buyer?._id || job.buyer
+                  buyerId: job.buyer?._id || job.buyer,
                 });
               });
 
@@ -619,12 +696,12 @@ export default function RiderDashboardScreen({navigation}: any) {
               if (activeTab === 'available') {
                 socket.emit('rider_active_location', {
                   lat: position.coords.latitude,
-                  lng: position.coords.longitude
+                  lng: position.coords.longitude,
                 });
               }
             },
-            (error) => console.log('Location track error:', error),
-            {enableHighAccuracy: true, distanceFilter: 10, interval: 5000}
+            error => console.log('Location track error:', error),
+            { enableHighAccuracy: true, distanceFilter: 10, interval: 5000 },
           );
         }
       };
@@ -644,7 +721,7 @@ export default function RiderDashboardScreen({navigation}: any) {
     if (Platform.OS === 'ios') return true;
     try {
       const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       );
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
@@ -655,41 +732,63 @@ export default function RiderDashboardScreen({navigation}: any) {
   const fetchJobs = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      
+
       let lat = null;
       let lng = null;
 
       const hasPermission = await requestLocationPermission();
       if (hasPermission) {
         const position: any = await new Promise((resolve, reject) => {
-          Geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy: true, timeout: 15000});
+          Geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+          });
         });
         lat = position.coords.latitude;
         lng = position.coords.longitude;
       }
 
-      const endpoint = activeTab === 'available' 
-        ? `/api/orders/jobs/available?lat=${lat}&lng=${lng}` 
-        : '/api/orders/rider';
+      const endpoint =
+        activeTab === 'available'
+          ? `/api/orders/jobs/available?lat=${lat}&lng=${lng}`
+          : '/api/orders/rider';
 
       const response = await axiosInstance.get(endpoint);
       const fetchedData = response.data.data || [];
-      
+
       if (activeTab === 'available') {
         setJobs(fetchedData);
         // Also fetch active/history in background for badges
         const riderRes = await axiosInstance.get('/api/orders/rider');
         const riderData = riderRes.data.data || [];
-        
-        setActiveJobs(riderData.filter((o: any) => ACTIVE_DELIVERY_STATUSES.includes(o.status)));
-        setHistoryJobs(riderData.filter((o: any) => ![...ACTIVE_DELIVERY_STATUSES, OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER].includes(o.status)));
+
+        setActiveJobs(
+          riderData.filter((o: any) =>
+            ACTIVE_DELIVERY_STATUSES.includes(o.status),
+          ),
+        );
+        setHistoryJobs(
+          riderData.filter(
+            (o: any) =>
+              ![
+                ...ACTIVE_DELIVERY_STATUSES,
+                OrderStatus.PENDING,
+                OrderStatus.CONFIRMED,
+                OrderStatus.SEARCHING_RIDER,
+              ].includes(o.status),
+          ),
+        );
         if (riderRes.data.stats) {
           setStats(riderRes.data.stats);
         }
       } else {
-        const active = fetchedData.filter((o: any) => ACTIVE_DELIVERY_STATUSES.includes(o.status));
-        const history = fetchedData.filter((o: any) => FINISHED_DELIVERY_STATUSES.includes(o.status));
-        
+        const active = fetchedData.filter((o: any) =>
+          ACTIVE_DELIVERY_STATUSES.includes(o.status),
+        );
+        const history = fetchedData.filter((o: any) =>
+          FINISHED_DELIVERY_STATUSES.includes(o.status),
+        );
+
         setActiveJobs(active);
         setHistoryJobs(history);
       }
@@ -701,7 +800,11 @@ export default function RiderDashboardScreen({navigation}: any) {
     } catch (error: any) {
       console.error('Fetch error:', error);
       if (error.response?.status !== 404) {
-        showToast({ message: 'GPS coordinates required. Please enable location permissions.', type: 'error' });
+        showToast({
+          message:
+            'GPS coordinates required. Please enable location permissions.',
+          type: 'error',
+        });
       }
     } finally {
       if (!silent) setLoading(false);
@@ -721,7 +824,10 @@ export default function RiderDashboardScreen({navigation}: any) {
       setActiveTab('active');
       fetchJobs();
     } catch (error: any) {
-      showToast({ message: error.response?.data?.message || 'Failed to claim job', type: 'error' });
+      showToast({
+        message: error.response?.data?.message || 'Failed to claim job',
+        type: 'error',
+      });
     }
   };
 
@@ -732,11 +838,14 @@ export default function RiderDashboardScreen({navigation}: any) {
     }
 
     try {
-      await axiosInstance.patch(`/api/orders/${orderId}/status`, {status});
+      await axiosInstance.patch(`/api/orders/${orderId}/status`, { status });
       showToast({ message: `Status updated to ${status}`, type: 'success' });
       fetchJobs();
     } catch (error: any) {
-      showToast({ message: error.response?.data?.message || 'Update failed', type: 'error' });
+      showToast({
+        message: error.response?.data?.message || 'Update failed',
+        type: 'error',
+      });
     }
   };
 
@@ -758,37 +867,50 @@ export default function RiderDashboardScreen({navigation}: any) {
 
     try {
       setVerifying(true);
-      await axiosInstance.post(`/api/orders/${activeOrderId}/verify-delivery`, {otp: otpValue});
-      showToast({ message: 'Delivery verified successfully!', type: 'success' });
+      await axiosInstance.post(`/api/orders/${activeOrderId}/verify-delivery`, {
+        otp: otpValue,
+      });
+      showToast({
+        message: 'Delivery verified successfully!',
+        type: 'success',
+      });
       setIsOtpModalVisible(false);
       setOtpValue('');
       setActiveTab('history');
       fetchJobs();
     } catch (error: any) {
-      showToast({ message: error.response?.data?.message || 'Verification failed', type: 'error' });
+      showToast({
+        message: error.response?.data?.message || 'Verification failed',
+        type: 'error',
+      });
     } finally {
       setVerifying(false);
     }
   };
 
-  const renderActiveCard = ({item}: {item: any}) => (
-    <OrderCard 
-      item={item} 
-      activeTab={activeTab} 
-      handleStatusUpdate={handleStatusUpdate} 
+  const renderActiveCard = ({ item }: { item: any }) => (
+    <OrderCard
+      item={item}
+      activeTab={activeTab}
+      handleStatusUpdate={handleStatusUpdate}
       navigation={navigation}
     />
   );
 
-  const renderJobCard = ({item}: {item: any}) => (
+  const renderJobCard = ({ item }: { item: any }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <TouchableOpacity 
-          style={styles.shopInfo} 
-          onPress={() => openShopDetails(item.shop)}>
+        <TouchableOpacity
+          style={styles.shopInfo}
+          onPress={() => openShopDetails(item.shop)}
+        >
           <Icon name="storefront" size={20} color={theme.colors.primary} />
           <Text style={styles.shopName}>{item.shop?.name}</Text>
-          <Icon name="information-circle-outline" size={16} color={theme.colors.muted} />
+          <Icon
+            name="information-circle-outline"
+            size={16}
+            color={theme.colors.muted}
+          />
         </TouchableOpacity>
         <Text style={styles.price}>₹{item.totalPrice}</Text>
       </View>
@@ -796,86 +918,126 @@ export default function RiderDashboardScreen({navigation}: any) {
       <View style={styles.addressSection}>
         <View style={styles.addressLine}>
           <View style={styles.dot} />
-          <Text style={styles.addressText} numberOfLines={1}>Pickup: {item.shop?.address}</Text>
+          <Text style={styles.addressText} numberOfLines={1}>
+            Pickup: {item.shop?.address}
+          </Text>
         </View>
         <View style={styles.addressLine}>
-          <View style={[styles.dot, {backgroundColor: '#64748B'}]} />
+          <View style={[styles.dot, { backgroundColor: '#64748B' }]} />
           <Text style={styles.addressText} numberOfLines={1}>
-            Drop: {item.deliveryAddress ? `${item.deliveryAddress.street}, ${item.deliveryAddress.city} - ${item.deliveryAddress.pincode}` : 'Pick-up only'}
+            Drop:{' '}
+            {item.deliveryAddress
+              ? `${item.deliveryAddress.street}, ${item.deliveryAddress.city} - ${item.deliveryAddress.pincode}`
+              : 'Pick-up only'}
           </Text>
         </View>
         {item.distance && (
           <View style={styles.distanceRow}>
             <Icon name="location" size={12} color={theme.colors.muted} />
-            <Text style={styles.distanceText}>{item.distance.toFixed(1)} km away</Text>
+            <Text style={styles.distanceText}>
+              {item.distance.toFixed(1)} km away
+            </Text>
           </View>
         )}
       </View>
 
       <View style={styles.footer}>
         <View style={styles.itemBadge}>
-          <Text style={styles.itemText}>{item.quantity}x {item.product?.title || 'Product'}</Text>
+          <Text style={styles.itemText}>
+            {item.quantity}x {item.product?.title || 'Product'}
+          </Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.claimBtn}
-          onPress={() => handleClaim(item._id)}>
+          onPress={() => handleClaim(item._id)}
+        >
           <Text style={styles.claimText}>Claim Job</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-    return (
+  return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Modals */}
       <Modal
         visible={isShopModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setIsShopModalVisible(false)}>
+        onRequestClose={() => setIsShopModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, {padding: 0, overflow: 'hidden'}]}>
-             <View style={styles.shopModalHeader}>
-                <View style={styles.shopLogoBox}>
-                  {selectedShop?.logo ? (
-                    <Image source={{uri: selectedShop.logo}} style={styles.shopLogo} />
-                  ) : (
-                    <Icon name="storefront" size={40} color={theme.colors.primary} />
-                  )}
-                </View>
-                <TouchableOpacity style={styles.closeBtn} onPress={() => setIsShopModalVisible(false)}>
-                   <Icon name="close" size={24} color={theme.colors.white} />
-                </TouchableOpacity>
-             </View>
-             
-             <View style={styles.shopModalBody}>
-                <Text style={styles.modalShopName}>{selectedShop?.name}</Text>
-                <View style={styles.categoryPill}>
-                   <Text style={styles.categoryText}>{selectedShop?.category || 'General Store'}</Text>
-                </View>
+          <View
+            style={[styles.modalContent, { padding: 0, overflow: 'hidden' }]}
+          >
+            <View style={styles.shopModalHeader}>
+              <View style={styles.shopLogoBox}>
+                {selectedShop?.logo ? (
+                  <Image
+                    source={{ uri: selectedShop.logo }}
+                    style={styles.shopLogo}
+                  />
+                ) : (
+                  <Icon
+                    name="storefront"
+                    size={40}
+                    color={theme.colors.primary}
+                  />
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setIsShopModalVisible(false)}
+              >
+                <Icon name="close" size={24} color={theme.colors.white} />
+              </TouchableOpacity>
+            </View>
 
-                <View style={styles.infoSection}>
-                   <View style={styles.infoRow}>
-                      <Icon name="location-outline" size={20} color={theme.colors.muted} />
-                      <Text style={styles.infoText}>{selectedShop?.address}</Text>
-                   </View>
-                   <View style={styles.infoRow}>
-                      <Icon name="call-outline" size={20} color={theme.colors.muted} />
-                      <Text style={styles.infoText}>{selectedShop?.phoneNumber || 'No contact info'}</Text>
-                   </View>
-                </View>
+            <View style={styles.shopModalBody}>
+              <Text style={styles.modalShopName}>{selectedShop?.name}</Text>
+              <View style={styles.categoryPill}>
+                <Text style={styles.categoryText}>
+                  {selectedShop?.category || 'General Store'}
+                </Text>
+              </View>
 
-                <Button 
-                   title="Navigate to Shop" 
-                   onPress={() => {
-                     openMap(selectedShop?.location?.coordinates[1], selectedShop?.location?.coordinates[0], selectedShop?.name, selectedShop?.address);
-                     setIsShopModalVisible(false);
-                   }}
-                   style={{marginTop: 24, width: '100%'}}
-                />
-             </View>
+              <View style={styles.infoSection}>
+                <View style={styles.infoRow}>
+                  <Icon
+                    name="location-outline"
+                    size={20}
+                    color={theme.colors.muted}
+                  />
+                  <Text style={styles.infoText}>{selectedShop?.address}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Icon
+                    name="call-outline"
+                    size={20}
+                    color={theme.colors.muted}
+                  />
+                  <Text style={styles.infoText}>
+                    {selectedShop?.phoneNumber || 'No contact info'}
+                  </Text>
+                </View>
+              </View>
+
+              <Button
+                title="Navigate to Shop"
+                onPress={() => {
+                  openMap(
+                    selectedShop?.location?.coordinates[1],
+                    selectedShop?.location?.coordinates[0],
+                    selectedShop?.name,
+                    selectedShop?.address,
+                  );
+                  setIsShopModalVisible(false);
+                }}
+                style={{ marginTop: 24, width: '100%' }}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -884,7 +1046,8 @@ export default function RiderDashboardScreen({navigation}: any) {
         visible={isOtpModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsOtpModalVisible(false)}>
+        onRequestClose={() => setIsOtpModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -893,8 +1056,11 @@ export default function RiderDashboardScreen({navigation}: any) {
                 <Icon name="close" size={24} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSubtitle}>Please enter the 4-digit PIN provided by the customer to complete delivery.</Text>
-            
+            <Text style={styles.modalSubtitle}>
+              Please enter the 4-digit PIN provided by the customer to complete
+              delivery.
+            </Text>
+
             <TextInput
               style={styles.otpInput}
               placeholder="0 0 0 0"
@@ -905,8 +1071,8 @@ export default function RiderDashboardScreen({navigation}: any) {
               autoFocus
             />
 
-            <Button 
-              title="Confirm & Complete" 
+            <Button
+              title="Confirm & Complete"
               loading={verifying}
               onPress={submitOtp}
               disabled={otpValue.length < 4}
@@ -921,40 +1087,84 @@ export default function RiderDashboardScreen({navigation}: any) {
           <Text style={styles.headerSubtitle}>Fleet Management</Text>
           <Text style={styles.headerTitle}>Rider Console</Text>
           <View style={styles.liveIndicatorRow}>
-            <View style={[styles.livePulseDot, !user?.isOnline && {backgroundColor: theme.colors.muted}]} />
-            <Text style={[styles.liveSearchText, !user?.isOnline && {color: theme.colors.muted}]}>
+            <View
+              style={[
+                styles.livePulseDot,
+                !user?.isOnline && { backgroundColor: theme.colors.muted },
+              ]}
+            />
+            <Text
+              style={[
+                styles.liveSearchText,
+                !user?.isOnline && { color: theme.colors.muted },
+              ]}
+            >
               {user?.isOnline ? 'LIVE SEARCH ACTIVE' : 'OFFLINE'}
             </Text>
           </View>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={[styles.iconBtn, {backgroundColor: user?.isOnline ? '#DCFCE7' : '#F1F5F9'}]} 
+          <TouchableOpacity
+            style={[
+              styles.iconBtn,
+              { backgroundColor: user?.isOnline ? '#DCFCE7' : '#F1F5F9' },
+            ]}
             onPress={handleToggleOnline}
-            disabled={isToggling}>
-            <Icon 
-              name={user?.isOnline ? "radio-button-on" : "radio-button-off"} 
-              size={22} 
-              color={user?.isOnline ? '#059669' : theme.colors.muted} 
+            disabled={isToggling}
+          >
+            <Icon
+              name={user?.isOnline ? 'radio-button-on' : 'radio-button-off'}
+              size={22}
+              color={user?.isOnline ? '#059669' : theme.colors.muted}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Notifications')}>
-            <Icon name="notifications-outline" size={24} color={theme.colors.text} />
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Icon
+              name="notifications-outline"
+              size={24}
+              color={theme.colors.text}
+            />
             {unreadCount > 0 && <View style={styles.notificationDot} />}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Support')}>
-            <Icon name="help-buoy-outline" size={24} color={theme.colors.primary} />
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Support')}
+          >
+            <Icon
+              name="help-buoy-outline"
+              size={24}
+              color={theme.colors.primary}
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Wallet')}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Wallet')}
+          >
             <Icon name="wallet-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
       {!user?.isRiderVerified && (
-        <View style={{backgroundColor: '#FFFBEB', padding: 12, marginHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10}}>
+        <View
+          style={{
+            backgroundColor: '#FFFBEB',
+            padding: 12,
+            marginHorizontal: 20,
+            borderRadius: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
           <Icon name="warning" size={18} color="#92400E" />
-          <Text style={{color: '#92400E', fontSize: 12, fontWeight: '600'}}>Your account is pending admin verification.</Text>
+          <Text style={{ color: '#92400E', fontSize: 12, fontWeight: '600' }}>
+            Your account is pending admin verification.
+          </Text>
         </View>
       )}
 
@@ -973,41 +1183,92 @@ export default function RiderDashboardScreen({navigation}: any) {
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
-         <TouchableOpacity 
-           style={[styles.tab, activeTab === 'available' && styles.activeTab]} 
-           onPress={() => setActiveTab('available')}>
-           <Text style={[styles.tabText, activeTab === 'available' && styles.activeTabText]}>Available</Text>
-         </TouchableOpacity>
-         <TouchableOpacity 
-           style={[styles.tab, activeTab === 'active' && styles.activeTab]} 
-           onPress={() => setActiveTab('active')}>
-           <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>Active ({activeJobs.length})</Text>
-         </TouchableOpacity>
-         <TouchableOpacity 
-           style={[styles.tab, activeTab === 'history' && styles.activeTab]} 
-           onPress={() => setActiveTab('history')}>
-           <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>History</Text>
-         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'available' && styles.activeTab]}
+          onPress={() => setActiveTab('available')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'available' && styles.activeTabText,
+            ]}
+          >
+            Available
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'active' && styles.activeTab]}
+          onPress={() => setActiveTab('active')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'active' && styles.activeTabText,
+            ]}
+          >
+            Active ({activeJobs.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'history' && styles.activeTab]}
+          onPress={() => setActiveTab('history')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'history' && styles.activeTabText,
+            ]}
+          >
+            History
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {loading && !refreshing ? (
         <Loader fullScreen />
       ) : (
         <FlatList
-          data={activeTab === 'available' ? jobs : activeTab === 'active' ? activeJobs : historyJobs}
-          renderItem={activeTab === 'available' ? renderJobCard : renderActiveCard}
-          keyExtractor={(item) => item._id}
+          data={
+            activeTab === 'available'
+              ? jobs
+              : activeTab === 'active'
+              ? activeJobs
+              : historyJobs
+          }
+          renderItem={
+            activeTab === 'available' ? renderJobCard : renderActiveCard
+          }
+          keyExtractor={item => item._id}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Icon name={activeTab === 'available' ? "bicycle" : activeTab === 'active' ? "clipboard-outline" : "checkmark-circle-outline"} size={64} color={theme.colors.muted} />
+              <Icon
+                name={
+                  activeTab === 'available'
+                    ? 'bicycle'
+                    : activeTab === 'active'
+                    ? 'clipboard-outline'
+                    : 'checkmark-circle-outline'
+                }
+                size={64}
+                color={theme.colors.muted}
+              />
               <Text style={styles.emptyText}>
-                {activeTab === 'available' ? "No available jobs" : activeTab === 'active' ? "No active tasks" : "No history yet"}
+                {activeTab === 'available'
+                  ? 'No available jobs'
+                  : activeTab === 'active'
+                  ? 'No active tasks'
+                  : 'No history yet'}
               </Text>
-              <TouchableOpacity onPress={fetchJobs} style={styles.retryBtn}>
+              <TouchableOpacity
+                onPress={() => {
+                  fetchJobs();
+                }}
+                style={styles.retryBtn}
+              >
                 <Text style={styles.retryText}>Refresh</Text>
               </TouchableOpacity>
             </View>

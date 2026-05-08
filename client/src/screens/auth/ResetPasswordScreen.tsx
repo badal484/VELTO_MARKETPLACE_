@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,16 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Input} from '../../components/common/Input';
-import {Button} from '../../components/common/Button';
-import {theme} from '../../theme';
-import {axiosInstance} from '../../api/axiosInstance';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
+import { theme } from '../../theme';
+import { axiosInstance } from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeIn} from 'react-native-reanimated';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {RouteProp} from '@react-navigation/native';
-import {AuthStackParamList} from '../../navigation/AuthNavigator';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
+import { AuthStackParamList } from '../../navigation/types';
 
 type ResetPasswordScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -35,8 +35,11 @@ interface ResetPasswordScreenProps {
   route: ResetPasswordScreenRouteProp;
 }
 
-export default function ResetPasswordScreen({navigation, route}: ResetPasswordScreenProps) {
-  const {email} = route.params;
+export default function ResetPasswordScreen({
+  navigation,
+  route,
+}: ResetPasswordScreenProps) {
+  const { email } = route.params;
   const insets = useSafeAreaInsets();
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -78,23 +81,27 @@ export default function ResetPasswordScreen({navigation, route}: ResetPasswordSc
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}>
+        style={styles.flex}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            {paddingTop: Math.max(insets.top, 24)},
+            { paddingTop: Math.max(insets.top, 24) },
           ]}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => navigation.goBack()}
+          >
             <Icon name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
 
           <Animated.View entering={FadeIn.delay(200)} style={styles.header}>
             <Text style={styles.title}>Reset Password</Text>
             <Text style={styles.subtitle}>
-              We've sent a 6-digit code to {email}. Enter it below along with your new password.
+              We've sent a 6-digit code to {email}. Enter it below along with
+              your new password.
             </Text>
           </Animated.View>
 
@@ -149,9 +156,9 @@ export default function ResetPasswordScreen({navigation, route}: ResetPasswordSc
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: theme.colors.background},
-  flex: {flex: 1},
-  scrollContent: {padding: theme.spacing.xl, flexGrow: 1},
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  flex: { flex: 1 },
+  scrollContent: { padding: theme.spacing.xl, flexGrow: 1 },
   backButton: {
     width: 44,
     height: 44,

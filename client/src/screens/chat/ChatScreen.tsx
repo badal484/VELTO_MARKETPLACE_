@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useRef} from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import {
   Alert,
   PermissionsAndroid,
 } from 'react-native';
-import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import AudioRecorderPlayer, {
   AVEncoderAudioQualityIOSType,
   AVEncodingOption,
@@ -26,23 +26,23 @@ import AudioRecorderPlayer, {
   AudioSourceAndroidType,
   OutputFormatAndroidType,
 } from 'react-native-audio-recorder-player';
-import {theme} from '../../theme';
-import {axiosInstance} from '../../api/axiosInstance';
-import {useSocket} from '../../hooks/useSocket';
-import {useAuth} from '../../hooks/useAuth';
-import {useNotifications} from '../../context/NotificationContext';
+import { theme } from '../../theme';
+import { axiosInstance } from '../../api/axiosInstance';
+import { useSocket } from '../../hooks/useSocket';
+import { useAuth } from '../../hooks/useAuth';
+import { useNotifications } from '../../context/NotificationContext';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, {FadeIn, FadeInDown, Layout} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, Layout } from 'react-native-reanimated';
 import { IMessage, IOrder, IUser, OrderStatus, Role } from '@shared/types';
 import { getStatusDisplay } from '@shared/constants/orderStatus';
 import { SocketEvent } from '@shared/constants/socketEvents';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {RouteProp} from '@react-navigation/native';
-import {ChatStackParamList} from '../../navigation/types';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
+import { ChatStackParamList } from '../../navigation/types';
 import OrderProgressStepper from '../../components/chat/OrderProgressStepper';
-import {ImageViewer} from '../../components/common/ImageViewer';
+import { ImageViewer } from '../../components/common/ImageViewer';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 type ChatNavigationProp = StackNavigationProp<ChatStackParamList, 'ChatRoom'>;
 type ChatRouteProp = RouteProp<ChatStackParamList, 'ChatRoom'>;
@@ -52,8 +52,15 @@ interface ChatScreenProps {
   navigation: ChatNavigationProp;
 }
 
-export default function ChatScreen({route, navigation}: ChatScreenProps) {
-  const {conversationId, otherUser, productTitle, shopName, shopLogo, orderId} = route.params;
+export default function ChatScreen({ route, navigation }: ChatScreenProps) {
+  const {
+    conversationId,
+    otherUser,
+    productTitle,
+    shopName,
+    shopLogo,
+    orderId,
+  } = route.params;
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [order, setOrder] = useState<any>(null);
   const [text, setText] = useState('');
@@ -72,32 +79,35 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
   const recordTimer = useRef<NodeJS.Timeout | null>(null);
   const audioPlayer = useRef(new AudioRecorderPlayer()).current;
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const {socket, isConnected, setActiveConversationId} = useSocket();
-  const {user} = useAuth();
-  const {markConversationAsRead} = useNotifications();
+  const { socket, isConnected, setActiveConversationId } = useSocket();
+  const { user } = useAuth();
+  const { markConversationAsRead } = useNotifications();
   const flatlistRef = useRef<FlatList>(null);
 
-  const fetchMessages = React.useCallback(async (pageNum = 1) => {
-    try {
-      const res = await axiosInstance.get(
-        `/api/chat/messages/${conversationId}?page=${pageNum}&limit=30`,
-      );
-      const { data, pagination } = res.data;
-      setMessages(prev => pageNum === 1 ? data : [...data, ...prev]);
-      setHasMore(pagination.hasMore);
-      setPage(pageNum);
+  const fetchMessages = React.useCallback(
+    async (pageNum = 1) => {
+      try {
+        const res = await axiosInstance.get(
+          `/api/chat/messages/${conversationId}?page=${pageNum}&limit=30`,
+        );
+        const { data, pagination } = res.data;
+        setMessages(prev => (pageNum === 1 ? data : [...data, ...prev]));
+        setHasMore(pagination.hasMore);
+        setPage(pageNum);
 
-      if (orderId && pageNum === 1) {
-        const orderRes = await axiosInstance.get(`/api/orders/${orderId}`);
-        if (orderRes.data.success) setOrder(orderRes.data.data);
+        if (orderId && pageNum === 1) {
+          const orderRes = await axiosInstance.get(`/api/orders/${orderId}`);
+          if (orderRes.data.success) setOrder(orderRes.data.data);
+        }
+      } catch (err: unknown) {
+        console.log('Fetch Messages Error:', err);
+      } finally {
+        setFetching(false);
+        setLoadingMore(false);
       }
-    } catch (err: unknown) {
-      console.log('Fetch Messages Error:', err);
-    } finally {
-      setFetching(false);
-      setLoadingMore(false);
-    }
-  }, [conversationId, orderId]);
+    },
+    [conversationId, orderId],
+  );
 
   const loadMoreMessages = async () => {
     if (!hasMore || loadingMore) return;
@@ -128,17 +138,28 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
         }
       });
 
-      socket.on(SocketEvent.TYPING, (data: { conversationId: string; userId: string }) => {
-        if (data.conversationId === conversationId && data.userId !== user?._id) {
-          setIsTyping(true);
-          setTypingUser(otherUser?.role === Role.ADMIN ? 'Support Team' : otherUser?.name || 'Someone');
-          
-          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-          typingTimeoutRef.current = setTimeout(() => {
-            setIsTyping(false);
-          }, 3000);
-        }
-      });
+      socket.on(
+        SocketEvent.TYPING,
+        (data: { conversationId: string; userId: string }) => {
+          if (
+            data.conversationId === conversationId &&
+            data.userId !== user?._id
+          ) {
+            setIsTyping(true);
+            setTypingUser(
+              otherUser?.role === Role.ADMIN
+                ? 'Support Team'
+                : otherUser?.name || 'Someone',
+            );
+
+            if (typingTimeoutRef.current)
+              clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+              setIsTyping(false);
+            }, 3000);
+          }
+        },
+      );
     }
 
     return () => {
@@ -150,14 +171,26 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
       }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [socket, isConnected, conversationId, fetchMessages, setActiveConversationId, markConversationAsRead, user?._id, orderId]);
+  }, [
+    socket,
+    isConnected,
+    conversationId,
+    fetchMessages,
+    setActiveConversationId,
+    markConversationAsRead,
+    user?._id,
+    orderId,
+  ]);
 
   const sendMessage = async () => {
     if (!text.trim()) {
       return;
     }
     if (!conversationId || !otherUser?._id) {
-      require('react-native').Alert.alert('Session Error', 'Chat session is missing valid identifiers. Please go back and try again.');
+      require('react-native').Alert.alert(
+        'Session Error',
+        'Chat session is missing valid identifiers. Please go back and try again.',
+      );
       return;
     }
 
@@ -187,14 +220,17 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
         });
       }
     } catch (err: any) {
-      console.log('Error sending message', err.response?.data?.message || err.message);
+      console.log(
+        'Error sending message',
+        err.response?.data?.message || err.message,
+      );
     }
   };
 
   const sendImageMessage = async (uri: string, type: string, name: string) => {
     try {
       const form = new FormData();
-      form.append('image', {uri, type, name} as any);
+      form.append('image', { uri, type, name } as any);
       const uploadRes = await axiosInstance.post('/api/upload/image', form);
       const imageUrl = uploadRes.data.data?.url || uploadRes.data.url;
       if (!imageUrl) return;
@@ -206,7 +242,9 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
       });
       const sentMessage: IMessage = res.data.data;
       setMessages(prev =>
-        prev.some(m => m._id === sentMessage._id) ? prev : [...prev, sentMessage],
+        prev.some(m => m._id === sentMessage._id)
+          ? prev
+          : [...prev, sentMessage],
       );
       if (socket && isConnected) {
         socket.emit(SocketEvent.SEND_MESSAGE, {
@@ -217,7 +255,10 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
         });
       }
     } catch (err: any) {
-      Alert.alert('Upload Failed', err.response?.data?.message || 'Could not send image');
+      Alert.alert(
+        'Upload Failed',
+        err.response?.data?.message || 'Could not send image',
+      );
     }
   };
 
@@ -225,7 +266,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
     const pick = (fromCamera: boolean) => {
       const launch = fromCamera ? launchCamera : launchImageLibrary;
       launch(
-        {mediaType: 'photo', quality: 0.7, includeBase64: false},
+        { mediaType: 'photo', quality: 0.7, includeBase64: false },
         response => {
           if (response.didCancel || response.errorCode) return;
           const asset = response.assets?.[0];
@@ -242,7 +283,10 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        {options: ['Cancel', 'Take Photo', 'Choose from Library'], cancelButtonIndex: 0},
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Library'],
+          cancelButtonIndex: 0,
+        },
         idx => {
           if (idx === 1) pick(true);
           if (idx === 2) pick(false);
@@ -250,9 +294,9 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
       );
     } else {
       Alert.alert('Send Image', 'Choose source', [
-        {text: 'Camera', onPress: () => pick(true)},
-        {text: 'Gallery', onPress: () => pick(false)},
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Camera', onPress: () => pick(true) },
+        { text: 'Gallery', onPress: () => pick(false) },
+        { text: 'Cancel', style: 'cancel' },
       ]);
     }
   };
@@ -261,7 +305,11 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
     if (Platform.OS === 'android') {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {title: 'Microphone', message: 'Velto needs mic access to send voice messages.', buttonPositive: 'Allow'},
+        {
+          title: 'Microphone',
+          message: 'Velto needs mic access to send voice messages.',
+          buttonPositive: 'Allow',
+        },
       );
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     }
@@ -271,7 +319,10 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
   const startRecording = async () => {
     const allowed = await requestMicPermission();
     if (!allowed) {
-      Alert.alert('Permission Denied', 'Microphone permission is required to send voice messages.');
+      Alert.alert(
+        'Permission Denied',
+        'Microphone permission is required to send voice messages.',
+      );
       return;
     }
     try {
@@ -289,11 +340,25 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
     } catch (e: any) {
       const msg = e?.message || '';
       if (msg.includes('permission') || msg.includes('Permission')) {
-        Alert.alert('Microphone Permission', 'Please grant microphone permission in Settings and try again.');
-      } else if (msg.includes('emulator') || msg.includes('stub') || msg.includes('ENOENT')) {
-        Alert.alert('Not Supported', 'Audio recording is not available on this emulator. Test on a physical device.');
+        Alert.alert(
+          'Microphone Permission',
+          'Please grant microphone permission in Settings and try again.',
+        );
+      } else if (
+        msg.includes('emulator') ||
+        msg.includes('stub') ||
+        msg.includes('ENOENT')
+      ) {
+        Alert.alert(
+          'Not Supported',
+          'Audio recording is not available on this emulator. Test on a physical device.',
+        );
       } else {
-        Alert.alert('Recording Error', msg || 'Could not start recording. Make sure microphone permission is granted.');
+        Alert.alert(
+          'Recording Error',
+          msg ||
+            'Could not start recording. Make sure microphone permission is granted.',
+        );
       }
     }
   };
@@ -315,15 +380,20 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
   const sendAudioMessage = async (uri: string) => {
     try {
       // Android recorder returns an absolute path without file:// prefix
-      const fileUri = Platform.OS === 'android' && !uri.startsWith('file://')
-        ? `file://${uri}`
-        : uri;
+      const fileUri =
+        Platform.OS === 'android' && !uri.startsWith('file://')
+          ? `file://${uri}`
+          : uri;
 
       const ext = Platform.OS === 'android' ? 'mp4' : 'm4a';
       const mime = Platform.OS === 'android' ? 'audio/mp4' : 'audio/m4a';
 
       const form = new FormData();
-      form.append('audio', {uri: fileUri, type: mime, name: `voice_${Date.now()}.${ext}`} as any);
+      form.append('audio', {
+        uri: fileUri,
+        type: mime,
+        name: `voice_${Date.now()}.${ext}`,
+      } as any);
       const uploadRes = await axiosInstance.post('/api/upload/audio', form);
       const audioUrl = uploadRes.data.url;
       if (!audioUrl) return;
@@ -335,7 +405,9 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
       });
       const sentMessage: IMessage = res.data.data;
       setMessages(prev =>
-        prev.some(m => m._id === sentMessage._id) ? prev : [...prev, sentMessage],
+        prev.some(m => m._id === sentMessage._id)
+          ? prev
+          : [...prev, sentMessage],
       );
       if (socket && isConnected) {
         socket.emit(SocketEvent.SEND_MESSAGE, {
@@ -346,7 +418,10 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
         });
       }
     } catch (err: any) {
-      Alert.alert('Upload Failed', err.response?.data?.message || 'Could not send voice message.');
+      Alert.alert(
+        'Upload Failed',
+        err.response?.data?.message || 'Could not send voice message.',
+      );
     }
   };
 
@@ -366,8 +441,8 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
     setPlayingMsgId(msgId);
     await audioPlayer.startPlayer(uri);
     audioPlayer.addPlayBackListener(e => {
-      setPlaybackPos(prev => ({...prev, [msgId]: e.currentPosition}));
-      setPlaybackDur(prev => ({...prev, [msgId]: e.duration}));
+      setPlaybackPos(prev => ({ ...prev, [msgId]: e.currentPosition }));
+      setPlaybackDur(prev => ({ ...prev, [msgId]: e.duration }));
       if (e.currentPosition >= e.duration && e.duration > 0) {
         audioPlayer.stopPlayer();
         audioPlayer.removePlayBackListener();
@@ -381,21 +456,26 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
-  const renderMessage = ({item}: {item: IMessage}) => {
+  const renderMessage = ({ item }: { item: IMessage }) => {
     if (item.isSystem) {
       return (
         <Animated.View entering={FadeIn} style={styles.systemMessageContainer}>
           <View style={styles.systemMessageBadge}>
-            <Icon name="information-circle" size={12} color={theme.colors.muted} />
+            <Icon
+              name="information-circle"
+              size={12}
+              color={theme.colors.muted}
+            />
             <Text style={styles.systemMessageText}>{item.text}</Text>
           </View>
         </Animated.View>
       );
     }
 
-    const senderId = typeof item.sender === 'object' && item.sender !== null
-      ? (item.sender as any)._id
-      : item.sender;
+    const senderId =
+      typeof item.sender === 'object' && item.sender !== null
+        ? (item.sender as any)._id
+        : item.sender;
     const isMe = String(senderId) === user?._id;
     const updatedAt = new Date(item.createdAt ?? Date.now());
     const time = updatedAt.toLocaleTimeString([], {
@@ -410,15 +490,18 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
         style={[
           styles.messageWrapper,
           isMe ? styles.myMessageWrapper : styles.theirMessageWrapper,
-        ]}>
+        ]}
+      >
         <View
-          style={[styles.messageCard, isMe ? styles.myCard : styles.theirCard]}>
+          style={[styles.messageCard, isMe ? styles.myCard : styles.theirCard]}
+        >
           {item.text.startsWith('__img__') ? (
-            <TouchableOpacity 
-              activeOpacity={0.9} 
-              onPress={() => setSelectedImage(item.text.replace('__img__', ''))}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setSelectedImage(item.text.replace('__img__', ''))}
+            >
               <Image
-                source={{uri: item.text.replace('__img__', '')}}
+                source={{ uri: item.text.replace('__img__', '') }}
                 style={styles.msgImage}
                 resizeMode="cover"
               />
@@ -435,7 +518,8 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                 <TouchableOpacity
                   style={styles.audioPlayer}
                   onPress={() => toggleAudioPlayback(msgId, uri)}
-                  activeOpacity={0.8}>
+                  activeOpacity={0.8}
+                >
                   <Icon
                     name={isPlaying ? 'pause-circle' : 'play-circle'}
                     size={32}
@@ -443,9 +527,28 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                   />
                   <View style={styles.audioTrack}>
                     <View style={styles.audioBarBg}>
-                      <View style={[styles.audioBarFill, {width: `${progress * 100}%`, backgroundColor: isMe ? 'rgba(255,255,255,0.8)' : theme.colors.primary}]} />
+                      <View
+                        style={[
+                          styles.audioBarFill,
+                          {
+                            width: `${progress * 100}%`,
+                            backgroundColor: isMe
+                              ? 'rgba(255,255,255,0.8)'
+                              : theme.colors.primary,
+                          },
+                        ]}
+                      />
                     </View>
-                    <Text style={[styles.audioDuration, {color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.muted}]}>
+                    <Text
+                      style={[
+                        styles.audioDuration,
+                        {
+                          color: isMe
+                            ? 'rgba(255,255,255,0.7)'
+                            : theme.colors.muted,
+                        },
+                      ]}
+                    >
                       {isPlaying && dur > 0 ? fmtMs(pos) : fmtMs(dur)}
                     </Text>
                   </View>
@@ -457,7 +560,8 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
               style={[
                 styles.chatText,
                 isMe ? styles.myChatText : styles.theirChatText,
-              ]}>
+              ]}
+            >
               {item.text}
             </Text>
           )}
@@ -466,7 +570,8 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
               style={[
                 styles.timeTag,
                 isMe ? styles.myTimeTag : styles.theirTimeTag,
-              ]}>
+              ]}
+            >
               {time}
             </Text>
             {isMe && (
@@ -474,7 +579,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                 name="checkmark-done"
                 size={14}
                 color="rgba(255,255,255,0.6)"
-                style={{marginLeft: 4}}
+                style={{ marginLeft: 4 }}
               />
             )}
           </View>
@@ -489,10 +594,10 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-        
-        <ImageBackground 
-          source={require('../../assets/images/chat_bg.png')} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ImageBackground
+          source={require('../../assets/images/chat_bg.png')}
           style={StyleSheet.absoluteFill}
           imageStyle={styles.wallpaperImage}
           resizeMode="repeat"
@@ -504,9 +609,14 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
           <View style={styles.headerContent}>
             {/* BACK BUTTON */}
             <TouchableOpacity
-              onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Conversations')}
+              onPress={() =>
+                navigation.canGoBack()
+                  ? navigation.goBack()
+                  : navigation.navigate('Conversations')
+              }
               style={styles.backBtn}
-              activeOpacity={0.7}>
+              activeOpacity={0.7}
+            >
               <Icon name="chevron-back" size={24} color={theme.colors.text} />
             </TouchableOpacity>
 
@@ -514,34 +624,58 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
             <View style={styles.headerProfile}>
               <View style={styles.headerAvatar}>
                 {shopLogo ? (
-                  <Image source={{uri: shopLogo}} style={styles.headerAvatarImg} />
+                  <Image
+                    source={{ uri: shopLogo }}
+                    style={styles.headerAvatarImg}
+                  />
                 ) : otherUser?.avatar ? (
-                  <Image source={{uri: otherUser.avatar}} style={styles.headerAvatarImg} />
+                  <Image
+                    source={{ uri: otherUser.avatar }}
+                    style={styles.headerAvatarImg}
+                  />
                 ) : (
                   <Text style={styles.headerAvatarTxt}>
                     {(shopName || otherUser?.name)?.charAt(0).toUpperCase()}
                   </Text>
                 )}
               </View>
-              
+
               <View style={styles.headerTitleContainer}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                    {otherUser?.role === Role.ADMIN ? 'Velto Support Team' : (shopName || otherUser?.name)}
+                  <Text
+                    style={styles.displayName}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {otherUser?.role === Role.ADMIN
+                      ? 'Velto Support Team'
+                      : shopName || otherUser?.name}
                   </Text>
                   {otherUser?.role && otherUser.role !== Role.ADMIN && (
-                    <View style={[
-                      styles.roleBadge,
-                      {backgroundColor: (otherUser?.role === Role.SELLER || otherUser?.role === Role.SHOP_OWNER) ? '#3B82F6' : '#10B981'}
-                    ]}>
+                    <View
+                      style={[
+                        styles.roleBadge,
+                        {
+                          backgroundColor:
+                            otherUser?.role === Role.SELLER ||
+                            otherUser?.role === Role.SHOP_OWNER
+                              ? '#3B82F6'
+                              : '#10B981',
+                        },
+                      ]}
+                    >
                       <Text style={styles.roleText}>
-                        {otherUser?.role === Role.RIDER ? 'DELIVERY PARTNER' :
-                         (otherUser?.role === Role.SELLER || otherUser?.role === Role.SHOP_OWNER) ? 'MERCHANT' : 'BUYER'}
+                        {otherUser?.role === Role.RIDER
+                          ? 'DELIVERY PARTNER'
+                          : otherUser?.role === Role.SELLER ||
+                            otherUser?.role === Role.SHOP_OWNER
+                          ? 'MERCHANT'
+                          : 'BUYER'}
                       </Text>
                     </View>
                   )}
                 </View>
-                
+
                 <View style={styles.productStatus}>
                   <View style={styles.indicatorPulse} />
                   <Text style={styles.productLink} numberOfLines={1}>
@@ -556,85 +690,146 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
               <TouchableOpacity
                 style={styles.headerAction}
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('ProductDetail', {id: route.params.productId!})}>
-                <Icon name="information-circle" size={24} color={theme.colors.primary} />
+                onPress={() =>
+                  (navigation as any).navigate('ProductDetail', {
+                    id: route.params.productId!,
+                  })
+                }
+              >
+                <Icon
+                  name="information-circle"
+                  size={24}
+                  color={theme.colors.primary}
+                />
               </TouchableOpacity>
             ) : (
-              <View style={{width: 44}} />
+              <View style={{ width: 44 }} />
             )}
           </View>
         </SafeAreaView>
 
         {order && (
-          <Animated.View entering={FadeInDown} style={styles.premiumOrderBanner}>
+          <Animated.View
+            entering={FadeInDown}
+            style={styles.premiumOrderBanner}
+          >
             <View style={styles.bannerMain}>
               <View style={styles.bannerIconBox}>
                 <Icon name="receipt" size={20} color={theme.colors.primary} />
               </View>
-               <View style={styles.orderBannerText}>
-                  <Text style={styles.orderBannerTitle}>
-                    Order #{order._id.slice(-6).toUpperCase()} • {(getStatusDisplay(order.status)?.label || 'ACTIVE').toUpperCase()}
-                  </Text>
-                  <Text style={styles.orderBannerSub}>
-                    {order.status === OrderStatus.IN_TRANSIT && "Express delivery is on its way to you!"}
-                    {order.status === OrderStatus.DELIVERED && "Arrived! Please share the OTP with the rider."}
-                    {order.status === OrderStatus.COMPLETED && "Order successfully delivered. Enjoy!"}
-                    {order.status === OrderStatus.CANCELLED && "This order was cancelled."}
-                  </Text>
-               </View>
-               
-               {/* CONTEXTUAL ACTION HUB */}
-               <View style={styles.orderActions}>
-                 {user?.role === Role.ADMIN && order.status === 'payment_under_review' && (
-                   <TouchableOpacity 
-                     style={[styles.actionBtn, {backgroundColor: theme.colors.success}]}
-                     onPress={async () => {
-                       try {
-                          await axiosInstance.patch(`/api/orders/${order._id}/status`, { status: 'confirmed' });
-                       } catch (err) { console.log(err); }
-                     }}>
-                     <Text style={styles.actionBtnText}>APPROVE</Text>
-                   </TouchableOpacity>
-                 )}
+              <View style={styles.orderBannerText}>
+                <Text style={styles.orderBannerTitle}>
+                  Order #{order._id.slice(-6).toUpperCase()} •{' '}
+                  {(
+                    getStatusDisplay(order.status)?.label || 'ACTIVE'
+                  ).toUpperCase()}
+                </Text>
+                <Text style={styles.orderBannerSub}>
+                  {order.status === OrderStatus.IN_TRANSIT &&
+                    'Express delivery is on its way to you!'}
+                  {order.status === OrderStatus.DELIVERED &&
+                    'Arrived! Please share the OTP with the rider.'}
+                  {order.status === OrderStatus.COMPLETED &&
+                    'Order successfully delivered. Enjoy!'}
+                  {order.status === OrderStatus.CANCELLED &&
+                    'This order was cancelled.'}
+                </Text>
+              </View>
 
-                 {user?.role === Role.RIDER && order.status === 'confirmed' && (
-                   <TouchableOpacity 
-                     style={[styles.actionBtn, {backgroundColor: theme.colors.primary}]}
-                     onPress={async () => {
-                       try {
-                          await axiosInstance.patch(`/api/orders/${order._id}/status`, { status: 'picked_up' });
-                       } catch (err) { console.log(err); }
-                     }}>
-                     <Text style={styles.actionBtnText}>PICKED UP</Text>
-                   </TouchableOpacity>
-                 )}
+              {/* CONTEXTUAL ACTION HUB */}
+              <View style={styles.orderActions}>
+                {user?.role === Role.ADMIN &&
+                  order.status === 'payment_under_review' && (
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn,
+                        { backgroundColor: theme.colors.success },
+                      ]}
+                      onPress={async () => {
+                        try {
+                          await axiosInstance.patch(
+                            `/api/orders/${order._id}/status`,
+                            { status: 'confirmed' },
+                          );
+                        } catch (err) {
+                          console.log(err);
+                        }
+                      }}
+                    >
+                      <Text style={styles.actionBtnText}>APPROVE</Text>
+                    </TouchableOpacity>
+                  )}
 
-                 {user?.role === Role.BUYER && order.status === 'ready_for_pickup' && (
-                   <TouchableOpacity 
-                     style={[styles.actionBtn, {backgroundColor: theme.colors.accent}]}
-                     onPress={() => {
-                       require('react-native').Alert.alert('Store Pickup', `Your pickup code is: ${order.pickupCode}. Show this to the seller to collect your items.`);
-                     }}>
-                     <Text style={styles.actionBtnText}>CODE</Text>
-                   </TouchableOpacity>
-                 )}
+                {user?.role === Role.RIDER && order.status === 'confirmed' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.actionBtn,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={async () => {
+                      try {
+                        await axiosInstance.patch(
+                          `/api/orders/${order._id}/status`,
+                          { status: 'picked_up' },
+                        );
+                      } catch (err) {
+                        console.log(err);
+                      }
+                    }}
+                  >
+                    <Text style={styles.actionBtnText}>PICKED UP</Text>
+                  </TouchableOpacity>
+                )}
 
-                 <TouchableOpacity 
-                    style={styles.orderViewBtn}
-                    onPress={() => {
-                       if (user?.role === Role.RIDER) (navigation as any).navigate('RiderTab');
-                       else if (user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) (navigation as any).navigate('DashboardTab', { screen: 'SellerOrders' });
-                       else (navigation as any).navigate('ProfileTab', { screen: 'OrderHistory' });
-                    }}>
-                    <Icon name="eye-outline" size={14} color={theme.colors.white} />
-                 </TouchableOpacity>
-               </View>
+                {user?.role === Role.BUYER &&
+                  order.status === 'ready_for_pickup' && (
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn,
+                        { backgroundColor: theme.colors.accent },
+                      ]}
+                      onPress={() => {
+                        require('react-native').Alert.alert(
+                          'Store Pickup',
+                          `Your pickup code is: ${order.pickupCode}. Show this to the seller to collect your items.`,
+                        );
+                      }}
+                    >
+                      <Text style={styles.actionBtnText}>CODE</Text>
+                    </TouchableOpacity>
+                  )}
+
+                <TouchableOpacity
+                  style={styles.orderViewBtn}
+                  onPress={() => {
+                    if (user?.role === Role.RIDER)
+                      (navigation as any).navigate('RiderTab');
+                    else if (
+                      user?.role === Role.SELLER ||
+                      user?.role === Role.SHOP_OWNER
+                    )
+                      (navigation as any).navigate('DashboardTab', {
+                        screen: 'SellerOrders',
+                      });
+                    else
+                      (navigation as any).navigate('ProfileTab', {
+                        screen: 'OrderHistory',
+                      });
+                  }}
+                >
+                  <Icon
+                    name="eye-outline"
+                    size={14}
+                    color={theme.colors.white}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* VISUAL PROGRESS STEPPER */}
-            <OrderProgressStepper 
-              status={order.status} 
-              fulfillmentMethod={order.fulfillmentMethod} 
+            <OrderProgressStepper
+              status={order.status}
+              fulfillmentMethod={order.fulfillmentMethod}
             />
           </Animated.View>
         )}
@@ -651,7 +846,7 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
             renderItem={renderMessage}
             contentContainerStyle={styles.messageList}
             onContentSizeChange={() =>
-              flatlistRef.current?.scrollToEnd({animated: true})
+              flatlistRef.current?.scrollToEnd({ animated: true })
             }
             onEndReached={loadMoreMessages}
             onEndReachedThreshold={0.1}
@@ -661,12 +856,18 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                 {loadingMore && (
                   <ActivityIndicator
                     color={theme.colors.primary}
-                    style={{marginVertical: 8}}
+                    style={{ marginVertical: 8 }}
                   />
                 )}
                 <View style={styles.auditInfo}>
-                  <Icon name="shield-checkmark" size={14} color={theme.colors.success} />
-                  <Text style={styles.auditText}>End-to-End Encrypted Session</Text>
+                  <Icon
+                    name="shield-checkmark"
+                    size={14}
+                    color={theme.colors.success}
+                  />
+                  <Text style={styles.auditText}>
+                    End-to-End Encrypted Session
+                  </Text>
                 </View>
               </>
             }
@@ -674,7 +875,9 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
               isTyping ? (
                 <View style={styles.typingIndicator}>
                   <View style={styles.typingPulse} />
-                  <Text style={styles.typingText}>{typingUser} is typing...</Text>
+                  <Text style={styles.typingText}>
+                    {typingUser} is typing...
+                  </Text>
                 </View>
               ) : null
             }
@@ -691,16 +894,23 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
 
         <View style={styles.composerWrapper}>
           <View style={styles.composerInner}>
-            <TouchableOpacity style={styles.composerAdd} activeOpacity={0.7} onPress={handleAttachment}>
+            <TouchableOpacity
+              style={styles.composerAdd}
+              activeOpacity={0.7}
+              onPress={handleAttachment}
+            >
               <Icon name="add-circle" size={26} color={theme.colors.primary} />
             </TouchableOpacity>
             <TextInput
               style={styles.composerInput}
               value={text}
-              onChangeText={(val) => {
+              onChangeText={val => {
                 setText(val);
                 if (socket && isConnected) {
-                  socket.emit(SocketEvent.TYPING, {conversationId, userId: user?._id});
+                  socket.emit(SocketEvent.TYPING, {
+                    conversationId,
+                    userId: user?._id,
+                  });
                 }
               }}
               placeholder="Type your message..."
@@ -712,25 +922,38 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
                 <TouchableOpacity
                   style={styles.composerSend}
                   onPress={sendMessage}
-                  activeOpacity={0.8}>
-                  <Icon name="paper-plane" size={18} color={theme.colors.white} />
+                  activeOpacity={0.8}
+                >
+                  <Icon
+                    name="paper-plane"
+                    size={18}
+                    color={theme.colors.white}
+                  />
                 </TouchableOpacity>
               </Animated.View>
             ) : (
               <TouchableOpacity
-                style={[styles.composerMic, recording && styles.composerMicActive]}
+                style={[
+                  styles.composerMic,
+                  recording && styles.composerMicActive,
+                ]}
                 onPressIn={startRecording}
                 onPressOut={stopAndSendRecording}
-                activeOpacity={0.8}>
-                <Icon name="mic" size={22} color={recording ? theme.colors.white : theme.colors.muted} />
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="mic"
+                  size={22}
+                  color={recording ? theme.colors.white : theme.colors.muted}
+                />
               </TouchableOpacity>
             )}
           </View>
         </View>
-        <ImageViewer 
-          visible={!!selectedImage} 
-          imageUrl={selectedImage} 
-          onClose={() => setSelectedImage(null)} 
+        <ImageViewer
+          visible={!!selectedImage}
+          imageUrl={selectedImage}
+          onClose={() => setSelectedImage(null)}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -738,8 +961,8 @@ export default function ChatScreen({route, navigation}: ChatScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
-  container: {flex: 1, backgroundColor: '#FFFFFF'},
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -753,7 +976,7 @@ const styles = StyleSheet.create({
   },
   wallpaperOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#F1F5F9', 
+    backgroundColor: '#F1F5F9',
     opacity: 0.85, // More subtle overlay to let the pattern breathe
   },
   wallpaperImage: {
@@ -799,8 +1022,13 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 12,
   },
-  headerTitleContainer: {flex: 1},
-  displayName: {fontSize: 16, fontWeight: '900', color: theme.colors.text, marginRight: 6},
+  headerTitleContainer: { flex: 1 },
+  displayName: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginRight: 6,
+  },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -816,7 +1044,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
-  productStatus: {flexDirection: 'row', alignItems: 'center', marginTop: 2},
+  productStatus: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   indicatorPulse: {
     width: 6,
     height: 6,
@@ -830,8 +1058,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     maxWidth: width * 0.4,
   },
-  loaderContainer: {flex: 1, justifyContent: 'center', alignItems: 'center'},
-  messageList: {paddingHorizontal: 20, paddingBottom: 32},
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  messageList: { paddingHorizontal: 20, paddingBottom: 32 },
   auditInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -853,9 +1081,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
-  messageWrapper: {marginBottom: 12, maxWidth: '82%'},
-  myMessageWrapper: {alignSelf: 'flex-end'},
-  theirMessageWrapper: {alignSelf: 'flex-start'},
+  messageWrapper: { marginBottom: 12, maxWidth: '82%' },
+  myMessageWrapper: { alignSelf: 'flex-end' },
+  theirMessageWrapper: { alignSelf: 'flex-start' },
   messageCard: {
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -880,7 +1108,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(226, 232, 240, 0.8)',
     ...theme.shadow.sm,
   },
-  msgImage: {width: 220, height: 160, borderRadius: 14},
+  msgImage: { width: 220, height: 160, borderRadius: 14 },
   audioPlayer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -888,17 +1116,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     minWidth: 180,
   },
-  audioTrack: {flex: 1, gap: 4},
+  audioTrack: { flex: 1, gap: 4 },
   audioBarBg: {
     height: 4,
     backgroundColor: 'rgba(0,0,0,0.12)',
     borderRadius: 2,
     overflow: 'hidden',
   },
-  audioBarFill: {height: '100%', borderRadius: 2},
-  audioDuration: {fontSize: 10, fontWeight: '700'},
-  composerMic: {padding: 8, borderRadius: 14},
-  composerMicActive: {backgroundColor: '#EF4444', padding: 8, borderRadius: 14},
+  audioBarFill: { height: '100%', borderRadius: 2 },
+  audioDuration: { fontSize: 10, fontWeight: '700' },
+  composerMic: { padding: 8, borderRadius: 14 },
+  composerMicActive: {
+    backgroundColor: '#EF4444',
+    padding: 8,
+    borderRadius: 14,
+  },
   recordingBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -913,20 +1145,20 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#EF4444',
   },
-  recordingText: {fontSize: 13, fontWeight: '700', color: '#EF4444', flex: 1},
-  recordingHint: {fontSize: 11, color: '#9CA3AF', fontWeight: '600'},
-  chatText: {fontSize: 15, lineHeight: 22, fontWeight: '600'},
-  myChatText: {color: theme.colors.white},
-  theirChatText: {color: theme.colors.text},
+  recordingText: { fontSize: 13, fontWeight: '700', color: '#EF4444', flex: 1 },
+  recordingHint: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+  chatText: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
+  myChatText: { color: theme.colors.white },
+  theirChatText: { color: theme.colors.text },
   chatFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-end',
     marginTop: 6,
   },
-  timeTag: {fontSize: 10, fontWeight: '700'},
-  myTimeTag: {color: 'rgba(255,255,255,0.6)'},
-  theirTimeTag: {color: theme.colors.muted},
+  timeTag: { fontSize: 10, fontWeight: '700' },
+  myTimeTag: { color: 'rgba(255,255,255,0.6)' },
+  theirTimeTag: { color: theme.colors.muted },
   composerWrapper: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -944,7 +1176,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  composerAdd: {padding: 8},
+  composerAdd: { padding: 8 },
   composerInput: {
     flex: 1,
     fontSize: 15,
@@ -1034,7 +1266,7 @@ const styles = StyleSheet.create({
   },
   stepActive: {
     backgroundColor: theme.colors.primary,
-    transform: [{scale: 1.2}],
+    transform: [{ scale: 1.2 }],
   },
   stepInactive: {
     backgroundColor: '#CBD5E1',

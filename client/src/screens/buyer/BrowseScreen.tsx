@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,15 @@ import {
   Modal,
 } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {theme} from '../../theme';
-import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
-import {Card} from '../../components/common/Card';
-import {LocationSearch} from '../../components/common/LocationSearch';
-import {LocationResult} from '../../services/locationService';
-import {Input} from '../../components/common/Input';
-import {Button} from '../../components/common/Button';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { theme } from '../../theme';
+import { axiosInstance } from '../../api/axiosInstance';
+import { Loader } from '../../components/common/Loader';
+import { Card } from '../../components/common/Card';
+import { LocationSearch } from '../../components/common/LocationSearch';
+import { LocationResult } from '../../services/locationService';
+import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {
   FadeInUp,
@@ -30,17 +30,17 @@ import Animated, {
   withSpring,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import {RangeSlider} from '../../components/common/RangeSlider';
-import {IProduct, Category, IShop} from '@shared/types';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import { RangeSlider } from '../../components/common/RangeSlider';
+import { IProduct, Category, IShop } from '@shared/types';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BrowseStackParamList,
   HomeStackParamList,
   MainTabParamList,
 } from '../../navigation/types';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 type BrowseScreenNavigationProp = StackNavigationProp<
   BrowseStackParamList & HomeStackParamList,
@@ -63,18 +63,18 @@ function CategoryChip({
   return (
     <Animated.View entering={FadeInLeft.delay(100).duration(500)}>
       <TouchableOpacity
-        style={[
-          styles.catChip,
-          isActive && styles.catChipActive,
-        ]}
+        style={[styles.catChip, isActive && styles.catChipActive]}
         onPress={onPress}
-        activeOpacity={0.9}>
+        activeOpacity={0.9}
+      >
         <Icon
           name={item.icon}
           size={16}
           color={isActive ? '#fff' : theme.colors.primary}
         />
-        <Text style={[styles.catChipText, isActive && styles.catChipTextActive]}>
+        <Text
+          style={[styles.catChipText, isActive && styles.catChipTextActive]}
+        >
           {item.label}
         </Text>
       </TouchableOpacity>
@@ -82,26 +82,23 @@ function CategoryChip({
   );
 }
 
-
-
 const categoriesList = [
-  {id: null, icon: 'sparkles', label: 'For You'},
-  {id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics'},
-  {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
-  {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
-  {id: Category.HOME, icon: 'home', label: 'Home'},
-  {id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction'},
-  {id: Category.SPORTS, icon: 'football', label: 'Sports'},
+  { id: null, icon: 'sparkles', label: 'For You' },
+  { id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics' },
+  { id: Category.FOOD, icon: 'fast-food', label: 'Food' },
+  { id: Category.CLOTHING, icon: 'shirt', label: 'Clothing' },
+  { id: Category.HOME, icon: 'home', label: 'Home' },
+  { id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction' },
+  { id: Category.SPORTS, icon: 'football', label: 'Sports' },
 ];
 // Distance calculation helper (Haversine formula)
 
-
-export default function BrowseScreen({navigation}: BrowseScreenProps) {
+export default function BrowseScreen({ navigation }: BrowseScreenProps) {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<IProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState<{lat: number; lng: number} | null>(
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
     null,
   );
 
@@ -116,18 +113,16 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-
-
   useEffect(() => {
     Geolocation.getCurrentPosition(
       pos => {
-        setLocation({lat: pos.coords.latitude, lng: pos.coords.longitude});
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
       error => {
         console.warn('Location Error:', error);
-        setLocation({lat: 12.9716, lng: 77.5946}); // Bengaluru fallback
+        setLocation({ lat: 12.9716, lng: 77.5946 }); // Bengaluru fallback
       },
-      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
   }, []);
 
@@ -137,7 +132,11 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
     }
   }, [location, selectedCategory]);
 
-  const fetchProducts = async (searchLat?: number, searchLng?: number, searchText?: string) => {
+  const fetchProducts = async (
+    searchLat?: number,
+    searchLng?: number,
+    searchText?: string,
+  ) => {
     const lat = searchLat || location?.lat;
     const lng = searchLng || location?.lng;
 
@@ -174,12 +173,10 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
 
   const handleToggleWishlist = async (productId: string) => {
     try {
-      setProducts(current => 
-        current.map(p => 
-          p._id === productId 
-            ? { ...p, isWishlisted: !p.isWishlisted } 
-            : p
-        )
+      setProducts(current =>
+        current.map(p =>
+          p._id === productId ? { ...p, isWishlisted: !p.isWishlisted } : p,
+        ),
       );
       await axiosInstance.post('/api/wishlist/toggle', { productId });
     } catch (err) {
@@ -188,7 +185,7 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
   };
 
   const handleAreaSelect = (locationResult: LocationResult) => {
-    setLocation({lat: locationResult.lat, lng: locationResult.lon});
+    setLocation({ lat: locationResult.lat, lng: locationResult.lon });
     setAddressName(locationResult.formatted.split(',')[0]);
     setShowLocationModal(false);
   };
@@ -196,28 +193,31 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
   const handleLocate = () => {
     Geolocation.getCurrentPosition(
       position => {
-        const {latitude, longitude} = position.coords;
-        setLocation({lat: latitude, lng: longitude});
+        const { latitude, longitude } = position.coords;
+        setLocation({ lat: latitude, lng: longitude });
       },
       error => {
         console.log('Location Refresh Error:', error);
       },
-      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
   };
 
-  const renderItem = ({item}: {item: IProduct; index: number}) => {
+  const renderItem = ({ item }: { item: IProduct; index: number }) => {
     const shop = item.shop as unknown as IShop | null;
     return (
       <Animated.View entering={FadeInUp.duration(250)}>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => navigation.navigate("ProductDetail", {id: String(item._id)})}>
+          onPress={() =>
+            navigation.navigate('ProductDetail', { id: String(item._id) })
+          }
+        >
           <Card style={styles.listCard} variant="elevated">
             <View style={styles.imageWrapper}>
               {item.images && item.images.length > 0 ? (
                 <Image
-                  source={{uri: item.images[0]}}
+                  source={{ uri: item.images[0] }}
                   style={styles.listImage}
                   resizeMode="cover"
                 />
@@ -240,14 +240,14 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
                 onPress={e => {
                   e.stopPropagation();
                   handleToggleWishlist(String(item._id));
-                }}>
-                <Icon 
-                  name={item.isWishlisted ? "heart" : "heart-outline"} 
-                  size={14} 
-                  color={item.isWishlisted ? "#FF476E" : theme.colors.muted} 
+                }}
+              >
+                <Icon
+                  name={item.isWishlisted ? 'heart' : 'heart-outline'}
+                  size={14}
+                  color={item.isWishlisted ? '#FF476E' : theme.colors.muted}
                 />
               </TouchableOpacity>
-
             </View>
             <View style={styles.listContent}>
               <View style={styles.listHeader}>
@@ -285,15 +285,18 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
   };
 
   return (
-    <View style={[styles.container, {paddingTop: insets.top}]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
         <View style={styles.searchRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.locationContainer}
-            onPress={() => setShowLocationModal(true)}>
-            <Text style={styles.addressText} numberOfLines={1}>{addressName}</Text>
+            onPress={() => setShowLocationModal(true)}
+          >
+            <Text style={styles.addressText} numberOfLines={1}>
+              {addressName}
+            </Text>
           </TouchableOpacity>
           <View style={styles.inputContainer}>
             <Icon name="search-outline" size={18} color={theme.colors.muted} />
@@ -303,7 +306,8 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
               value={search}
               onChangeText={text => {
                 setSearch(text);
-                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                if (searchDebounceRef.current)
+                  clearTimeout(searchDebounceRef.current);
                 searchDebounceRef.current = setTimeout(() => {
                   fetchProducts(undefined, undefined, text);
                 }, 500);
@@ -316,7 +320,8 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
           <View style={styles.actionContainer}>
             <TouchableOpacity
               style={styles.filterBtn}
-              onPress={() => setShowFilterModal(true)}>
+              onPress={() => setShowFilterModal(true)}
+            >
               <Icon
                 name="options-outline"
                 size={22}
@@ -333,18 +338,18 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
             data={categoriesList}
             keyExtractor={c => c.label}
             contentContainerStyle={styles.catContent}
-            renderItem={({item, index}) => (
-                <CategoryChip
-                  item={item}
-                  isActive={selectedCategory === item.id}
-                  onPress={() => setSelectedCategory(item.id)}
-                />
+            renderItem={({ item, index }) => (
+              <CategoryChip
+                item={item}
+                isActive={selectedCategory === item.id}
+                onPress={() => setSelectedCategory(item.id)}
+              />
             )}
           />
         </View>
       </View>
 
-      <View style={{flex: 1}}>
+      <View style={{ flex: 1 }}>
         {loading && products.length === 0 ? (
           <Loader />
         ) : (
@@ -381,83 +386,93 @@ export default function BrowseScreen({navigation}: BrowseScreenProps) {
         visible={showFilterModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowFilterModal(false)}>
+        onRequestClose={() => setShowFilterModal(false)}
+      >
         <View style={styles.modalOverlay}>
-          <GestureHandlerRootView style={{width: '100%', flex: 1, justifyContent: 'flex-end'}}>
+          <GestureHandlerRootView
+            style={{ width: '100%', flex: 1, justifyContent: 'flex-end' }}
+          >
             <View style={styles.modalContent}>
-            <View style={styles.filterSection}>
-              <View style={styles.filterTitleRow}>
-                <Text style={styles.filterSectionTitle}>Price Range</Text>
-                <Text style={styles.priceRangeLabel}>
-                  ₹{minPrice.toLocaleString()} - ₹{maxPrice.toLocaleString()}{maxPrice === 200000 ? '+' : ''}
-                </Text>
+              <View style={styles.filterSection}>
+                <View style={styles.filterTitleRow}>
+                  <Text style={styles.filterSectionTitle}>Price Range</Text>
+                  <Text style={styles.priceRangeLabel}>
+                    ₹{minPrice.toLocaleString()} - ₹{maxPrice.toLocaleString()}
+                    {maxPrice === 200000 ? '+' : ''}
+                  </Text>
+                </View>
+
+                <RangeSlider
+                  min={0}
+                  max={200000}
+                  initialMin={minPrice}
+                  initialMax={maxPrice}
+                  step={100}
+                  onValueChange={(min, max) => {
+                    setMinPrice(min);
+                    setMaxPrice(max);
+                  }}
+                />
               </View>
-              
-              <RangeSlider
-                min={0}
-                max={200000}
-                initialMin={minPrice}
-                initialMax={maxPrice}
-                step={100}
-                onValueChange={(min, max) => {
-                  setMinPrice(min);
-                  setMaxPrice(max);
+
+              <Button
+                title="Apply Filters"
+                onPress={() => {
+                  setShowFilterModal(false);
+                  fetchProducts();
                 }}
+                style={{ marginTop: 20 }}
+              />
+              <Button
+                title="Reset"
+                type="outline"
+                onPress={() => {
+                  setMinPrice(0);
+                  setMaxPrice(200000);
+                  setSelectedCategory(null);
+                  setShowFilterModal(false);
+                  fetchProducts();
+                }}
+                style={{ marginTop: 12 }}
               />
             </View>
-
-            <Button
-              title="Apply Filters"
-              onPress={() => {
-                setShowFilterModal(false);
-                fetchProducts();
-              }}
-              style={{marginTop: 20}}
-            />
-            <Button
-              title="Reset"
-              type="outline"
-              onPress={() => {
-                setMinPrice(0);
-                setMaxPrice(200000);
-                setSelectedCategory(null);
-                setShowFilterModal(false);
-                fetchProducts();
-              }}
-              style={{marginTop: 12}}
-            />
-          </View>
-        </GestureHandlerRootView>
-      </View>
-    </Modal>
+          </GestureHandlerRootView>
+        </View>
+      </Modal>
 
       {/* Location Search Modal */}
       <Modal
         visible={showLocationModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowLocationModal(false)}>
+        onRequestClose={() => setShowLocationModal(false)}
+      >
         <View style={styles.modalOverlay}>
-          <GestureHandlerRootView style={{width: '100%', flex: 1, justifyContent: 'flex-end'}}>
+          <GestureHandlerRootView
+            style={{ width: '100%', flex: 1, justifyContent: 'flex-end' }}
+          >
             <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Search Area</Text>
-              <TouchableOpacity onPress={() => setShowLocationModal(false)}>
-                <Icon name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Search Area</Text>
+                <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+                  <Icon name="close" size={24} color={theme.colors.text} />
+                </TouchableOpacity>
+              </View>
+              <LocationSearch
+                onSelect={handleAreaSelect}
+                placeholder="Search area in Bangalore..."
+              />
             </View>
-            <LocationSearch onSelect={handleAreaSelect} placeholder="Search area in Bangalore..." />
-          </View>
-        </GestureHandlerRootView>
-      </View>
-    </Modal>
+          </GestureHandlerRootView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, 
+    flex: 1,
     backgroundColor: theme.colors.background,
   },
   header: {
@@ -524,8 +539,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryScroll: {borderTopWidth: 1, borderTopColor: '#F1F5F9'},
-  catContent: {paddingHorizontal: 16, paddingVertical: 14, gap: 10},
+  categoryScroll: { borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  catContent: { paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
   catChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -541,7 +556,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
     shadowColor: theme.colors.primary,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,
@@ -551,7 +566,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.text,
   },
-  catChipTextActive: {color: '#fff', fontWeight: '800'},
+  catChipTextActive: { color: '#fff', fontWeight: '800' },
   lowStockBadgeBox: {
     position: 'absolute',
     top: 8,
@@ -585,7 +600,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
     textTransform: 'uppercase',
   },
-  radiusContent: {gap: 8},
+  radiusContent: { gap: 8 },
   radiusChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -606,7 +621,7 @@ const styles = StyleSheet.create({
   radiusChipTextActive: {
     color: theme.colors.primary,
   },
-  map: {flex: 1},
+  map: { flex: 1 },
   markerWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -631,7 +646,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     maxWidth: 120,
   },
-  calloutWrapper: {alignItems: 'center', width: 180},
+  calloutWrapper: { alignItems: 'center', width: 180 },
   calloutContainer: {
     backgroundColor: theme.colors.white,
     padding: 14,
@@ -661,7 +676,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     textAlign: 'center',
   },
-  calloutPriceRow: {flexDirection: 'row', alignItems: 'center', marginTop: 6},
+  calloutPriceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   calloutPriceText: {
     fontSize: 12,
     color: theme.colors.primary,
@@ -672,7 +687,7 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontWeight: '600',
   },
-  listScroll: {padding: 16, paddingBottom: 40},
+  listScroll: { padding: 16, paddingBottom: 40 },
   listCard: {
     flexDirection: 'row',
     marginBottom: 16,
@@ -719,6 +734,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
   },
+  placeholderImg: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+  },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   listContent: {
     padding: 12,
     flex: 1,
@@ -761,7 +786,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#D97706',
   },
-  shopInRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  shopInRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   shopInName: {
     fontSize: 12,
     color: theme.colors.textSecondary,
@@ -786,7 +811,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
-  emptyTitle: {fontSize: 20, fontWeight: '900', color: theme.colors.text},
+  emptyTitle: { fontSize: 20, fontWeight: '900', color: theme.colors.text },
   emptySub: {
     fontSize: 14,
     color: theme.colors.muted,

@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { User } from '../models/User';
 import { UserService } from '../services/userService';
-import { updateProfileSchema, addressSchema, riderRegisterSchema } from '../utils/validation';
 import { handleError, AppError } from '../utils/errors';
 import { imageKitService } from '../services/imageKitService';
+import { Role } from '@shared/types';
 
 export const updateAvatar = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -118,6 +118,16 @@ export const deleteAddress = async (req: Request, res: Response): Promise<void> 
     await user.save();
 
     res.status(200).json({ success: true, data: user.addresses, message: 'Address removed' });
+  } catch (error: any) {
+    handleError(error, res);
+  }
+};
+
+export const getAdminContact = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const admin = await User.findOne({ role: Role.ADMIN }).select('_id name avatar');
+    if (!admin) throw new AppError('Admin contact not found', 404);
+    res.json({ success: true, data: admin });
   } catch (error: any) {
     handleError(error, res);
   }

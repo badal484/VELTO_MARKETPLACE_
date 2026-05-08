@@ -54,7 +54,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
         }
       });
 
-      socket.on('new_order', (newOrder: IOrder) => {
+      socket.on(SocketEvent.NEW_ORDER_FOR_SELLER, (newOrder: IOrder) => {
         if (newOrder?._id) {
           showToast({ message: `New Order Received! #${newOrder._id.slice(-6).toUpperCase()}`, type: 'success' });
           fetchOrders();
@@ -64,7 +64,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     return () => {
       if (socket) {
         socket.off(SocketEvent.ORDER_STATUS_UPDATED);
-        socket.off('new_order');
+        socket.off(SocketEvent.NEW_ORDER_FOR_SELLER);
       }
     };
   }, [socket, isConnected]);

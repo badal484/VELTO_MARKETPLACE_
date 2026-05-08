@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useRef, useMemo, memo} from 'react';
+import React, { useEffect, useState, useRef, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,12 @@ import {
   Share,
 } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
-import {theme} from '../../theme';
-import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
-import {Button} from '../../components/common/Button';
-import {LocationSearch} from '../../components/common/LocationSearch';
-import {LocationResult} from '../../services/locationService';
+import { theme } from '../../theme';
+import { axiosInstance } from '../../api/axiosInstance';
+import { Loader } from '../../components/common/Loader';
+import { Button } from '../../components/common/Button';
+import { LocationSearch } from '../../components/common/LocationSearch';
+import { LocationResult } from '../../services/locationService';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {
   FadeInUp,
@@ -34,16 +34,16 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import {IProduct, Category} from '@shared/types';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {useToast} from '../../hooks/useToast';
-import {useAuth} from '../../hooks/useAuth';
-import {useTranslation} from 'react-i18next';
-import {useNotifications} from '../../context/NotificationContext';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {HomeStackParamList, MainTabParamList} from '../../navigation/types';
+import { IProduct, Category } from '@shared/types';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { useToast } from '../../hooks/useToast';
+import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from 'react-i18next';
+import { useNotifications } from '../../context/NotificationContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HomeStackParamList, MainTabParamList } from '../../navigation/types';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 type HomeScreenNavigationProp = StackNavigationProp<
   HomeStackParamList & MainTabParamList,
@@ -55,7 +55,12 @@ interface HomeScreenProps {
 }
 
 // Distance calculation helper (Haversine formula)
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) => {
   const R = 6371; // km
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -69,157 +74,181 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 };
 
-const ProductCard = memo(({
-  item,
-  index: _index,
-  navigation,
-  handleToggleWishlist,
-  customWidth,
-  currentCoords,
-}: {
-  item: IProduct;
-  index: number;
-  navigation: any;
-  handleToggleWishlist: (id: string) => void;
-  customWidth?: number;
-  currentCoords?: {lat: number; lng: number} | null;
-}) => {
-  const scale = useSharedValue(1);
+const ProductCard = memo(
+  ({
+    item,
+    index: _index,
+    navigation,
+    handleToggleWishlist,
+    customWidth,
+    currentCoords,
+  }: {
+    item: IProduct;
+    index: number;
+    navigation: any;
+    handleToggleWishlist: (id: string) => void;
+    customWidth?: number;
+    currentCoords?: { lat: number; lng: number } | null;
+  }) => {
+    const scale = useSharedValue(1);
 
-  const handleShare = async (e: any) => {
-    e.stopPropagation();
-    try {
-      await Share.share({
-        title: item.title,
-        message: `Check out this ${item.title} on Velto Marketplace! 
+    const handleShare = async (e: any) => {
+      e.stopPropagation();
+      try {
+        await Share.share({
+          title: item.title,
+          message: `Check out this ${item.title} on Velto Marketplace! 
 Price: ₹${item.price.toLocaleString()}
 Link: https://velto.app/product/${item._id}`,
-      });
-    } catch (error: any) {
-      console.log('Share error:', error.message);
-    }
-  };
+        });
+      } catch (error: any) {
+        console.log('Share error:', error.message);
+      }
+    };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{scale: scale.value}],
-  }));
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.96);
-  };
+    const handlePressIn = () => {
+      scale.value = withSpring(0.96);
+    };
 
-  const handlePressOut = () => {
-    scale.value = withSpring(1);
-  };
+    const handlePressOut = () => {
+      scale.value = withSpring(1);
+    };
 
-  return (
-    <Animated.View entering={FadeInDown.duration(250)}>
-      <Animated.View
-        style={[
-          styles.cardWrapper,
-          animatedStyle,
-          customWidth ? {width: customWidth} : {},
-        ]}>
-        <Pressable
-          style={styles.card}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onPress={() => navigation.navigate('ProductDetail', {id: item._id})}
-          delayLongPress={100}>
-          <View style={styles.imageContainer}>
-            <Image
-              source={{uri: item.images[0]}}
-              style={styles.image}
-              resizeMode="cover"
-            />
-            <View style={styles.badgeContainer}>
-              {item.isNearby && (
-                <View
-                  style={[
-                    styles.nearbyBadge,
-                    {backgroundColor: theme.colors.primary},
-                  ]}>
-                  <Text style={styles.nearbyBadgeText}>NEARBY</Text>
-                </View>
-              )}
-              {item.stock > 0 && item.stock < 5 && (
-                <View style={styles.lowStockBadge}>
-                  <Text style={styles.lowStockBadgeText}>LIMITED</Text>
-                </View>
-              )}
-            </View>
-            <TouchableOpacity
-              style={styles.favoriteButton}
-              activeOpacity={0.8}
-              onPress={e => {
-                e.stopPropagation();
-                handleToggleWishlist(item._id);
-              }}>
-              <Icon
-                name={item.isWishlisted ? 'heart' : 'heart-outline'}
-                size={16}
-                color={
-                  item.isWishlisted ? theme.colors.primary : theme.colors.muted
-                }
+    return (
+      <Animated.View entering={FadeInDown.duration(250)}>
+        <Animated.View
+          style={[
+            styles.cardWrapper,
+            animatedStyle,
+            customWidth ? { width: customWidth } : {},
+          ]}
+        >
+          <Pressable
+            style={styles.card}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            onPress={() =>
+              navigation.navigate('ProductDetail', { id: item._id })
+            }
+            delayLongPress={100}
+          >
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ uri: item.images[0] }}
+                style={styles.image}
+                resizeMode="cover"
               />
-            </TouchableOpacity>
-          </View>
+              <View style={styles.badgeContainer}>
+                {item.isNearby && (
+                  <View
+                    style={[
+                      styles.nearbyBadge,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    <Text style={styles.nearbyBadgeText}>NEARBY</Text>
+                  </View>
+                )}
+                {item.stock > 0 && item.stock < 5 && (
+                  <View style={styles.lowStockBadge}>
+                    <Text style={styles.lowStockBadgeText}>LIMITED</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.favoriteButton}
+                activeOpacity={0.8}
+                onPress={e => {
+                  e.stopPropagation();
+                  handleToggleWishlist(item._id);
+                }}
+              >
+                <Icon
+                  name={item.isWishlisted ? 'heart' : 'heart-outline'}
+                  size={16}
+                  color={
+                    item.isWishlisted
+                      ? theme.colors.primary
+                      : theme.colors.muted
+                  }
+                />
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.content}>
-            <View style={styles.titleRow}>
-              <Text style={styles.categoryLabel}>{item.category}</Text>
-              {item.distance !== undefined || (currentCoords && (item.location?.coordinates || (item.shop as any)?.location?.coordinates)) ? (
-                <View style={styles.distanceBadgeSmall}>
-                  <Icon name="location-sharp" size={10} color={theme.colors.primary} />
-                  <Text style={styles.distanceText}>
-                    {(item.distance !== undefined 
-                      ? item.distance 
-                      : calculateDistance(
-                          currentCoords!.lat, 
-                          currentCoords!.lng, 
-                          (item.location?.coordinates?.[1] ?? (item.shop as any)?.location?.coordinates?.[1]), 
-                          (item.location?.coordinates?.[0] ?? (item.shop as any)?.location?.coordinates?.[0])
-                        )
-                    ).toFixed(1)} km
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.distanceBadgeSmall}>
-                  <Icon name="navigate-outline" size={10} color={theme.colors.primary} />
-                  <Text style={styles.distanceText}>Nearby</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.productTitle} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>
-                ₹{item.price.toLocaleString('en-IN')}
+            <View style={styles.content}>
+              <View style={styles.titleRow}>
+                <Text style={styles.categoryLabel}>{item.category}</Text>
+                {item.distance !== undefined ||
+                (currentCoords &&
+                  (item.location?.coordinates ||
+                    (item.shop as any)?.location?.coordinates)) ? (
+                  <View style={styles.distanceBadgeSmall}>
+                    <Icon
+                      name="location-sharp"
+                      size={10}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={styles.distanceText}>
+                      {(item.distance !== undefined
+                        ? item.distance
+                        : calculateDistance(
+                            currentCoords!.lat,
+                            currentCoords!.lng,
+                            item.location?.coordinates?.[1] ??
+                              (item.shop as any)?.location?.coordinates?.[1],
+                            item.location?.coordinates?.[0] ??
+                              (item.shop as any)?.location?.coordinates?.[0],
+                          )
+                      ).toFixed(1)}{' '}
+                      km
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.distanceBadgeSmall}>
+                    <Icon
+                      name="navigate-outline"
+                      size={10}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={styles.distanceText}>Nearby</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.productTitle} numberOfLines={2}>
+                {item.title}
               </Text>
-              {(item.numReviews ?? 0) > 0 && (
-                <View style={styles.ratingBox}>
-                  <Text style={styles.ratingText}>{item.rating}</Text>
-                  <Icon name="star" size={10} color="#fff" />
-                </View>
-              )}
+              <View style={styles.priceRow}>
+                <Text style={styles.price}>
+                  ₹{item.price.toLocaleString('en-IN')}
+                </Text>
+                {(item.numReviews ?? 0) > 0 && (
+                  <View style={styles.ratingBox}>
+                    <Text style={styles.ratingText}>{item.rating}</Text>
+                    <Icon name="star" size={10} color="#fff" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.shopInRow}>
+                <Icon
+                  name="storefront-outline"
+                  size={12}
+                  color={theme.colors.muted}
+                />
+                <Text style={styles.shopInName} numberOfLines={1}>
+                  {(item.shop as any)?.name || 'City Seller'}
+                </Text>
+              </View>
             </View>
-            <View style={styles.shopInRow}>
-              <Icon
-                name="storefront-outline"
-                size={12}
-                color={theme.colors.muted}
-              />
-              <Text style={styles.shopInName} numberOfLines={1}>
-                {(item.shop as any)?.name || 'City Seller'}
-              </Text>
-            </View>
-          </View>
-        </Pressable>
+          </Pressable>
+        </Animated.View>
       </Animated.View>
-    </Animated.View>
-  );
-});
+    );
+  },
+);
 
 interface IBanner {
   _id: string;
@@ -230,11 +259,11 @@ interface IBanner {
   isActive: boolean;
 }
 
-export default function HomeScreen({navigation}: HomeScreenProps) {
+export default function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
-  const {t} = useTranslation();
-  const {user} = useAuth();
-  const {showToast} = useToast();
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const [products, setProducts] = useState<IProduct[]>([]);
   const [banners, setBanners] = useState<IBanner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,11 +282,16 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           headers: {
             'User-Agent': 'VeltoMarketplace/1.0',
           },
-        }
+        },
       );
       const data = await response.json();
       if (data && data.address) {
-        const area = data.address.suburb || data.address.neighbourhood || data.address.road || data.address.city || 'Unknown Area';
+        const area =
+          data.address.suburb ||
+          data.address.neighbourhood ||
+          data.address.road ||
+          data.address.city ||
+          'Unknown Area';
         setAddressName(area);
       }
     } catch (error) {
@@ -268,7 +302,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     lat: number;
     lng: number;
   } | null>(null);
-  const {unreadCount} = useNotifications();
+  const { unreadCount } = useNotifications();
   const [isGlobalMode, setIsGlobalMode] = useState(false);
 
   // Auto-scrolling carousel logic
@@ -318,8 +352,8 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
   useEffect(() => {
     pulse.value = withRepeat(
       withSequence(
-        withTiming(1.2, {duration: 800}),
-        withTiming(1, {duration: 800}),
+        withTiming(1.2, { duration: 800 }),
+        withTiming(1, { duration: 800 }),
       ),
       -1,
       true,
@@ -327,7 +361,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
   }, []);
 
   const animatedBannerStyle = useAnimatedStyle(() => ({
-    transform: [{scale: scale.value}],
+    transform: [{ scale: scale.value }],
   }));
 
   const handleBannerPressIn = () => {
@@ -355,7 +389,9 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
 
   const checkZoneServiceability = async (lat: number, lng: number) => {
     try {
-      const res = await axiosInstance.get(`/api/zones/check?lat=${lat}&lng=${lng}`);
+      const res = await axiosInstance.get(
+        `/api/zones/check?lat=${lat}&lng=${lng}`,
+      );
       setIsServiceable(res.data.isServiceable);
       setServiceZoneName(res.data.zoneName);
     } catch (error) {
@@ -371,20 +407,23 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
         if (hasPermission) {
           Geolocation.getCurrentPosition(
             pos => {
-              const coords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+              const coords = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              };
               setCurrentCoords(coords);
               fetchProducts(coords);
               reverseGeocode(coords.lat, coords.lng);
               checkZoneServiceability(coords.lat, coords.lng);
             },
             error => {
-              const fallback = {lat: 12.9716, lng: 77.5946};
+              const fallback = { lat: 12.9716, lng: 77.5946 };
               setCurrentCoords(fallback);
               fetchProducts(fallback);
               setAddressName('Bangalore');
               checkZoneServiceability(fallback.lat, fallback.lng);
             },
-            {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
           );
         } else {
           setAddressName('Global Marketplace');
@@ -400,7 +439,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
   };
 
   const handleAreaSelect = (location: LocationResult) => {
-    const coords = {lat: location.lat, lng: location.lon};
+    const coords = { lat: location.lat, lng: location.lon };
     setCurrentCoords(coords);
     setAddressName(location.formatted.split(',')[0]); // Use first part of address
     setShowLocationModal(false);
@@ -427,7 +466,9 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     return true;
   };
 
-  const fetchProducts = async (coords?: {lat: number; lng: number} | null) => {
+  const fetchProducts = async (
+    coords?: { lat: number; lng: number } | null,
+  ) => {
     try {
       let url = '/api/products';
       const params = [];
@@ -452,7 +493,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       const res = await axiosInstance.get(url);
       setProducts(res.data.data);
     } catch (e: unknown) {
-      showToast({message: 'Could not fetch products', type: 'error'});
+      showToast({ message: 'Could not fetch products', type: 'error' });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -469,18 +510,24 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
       // Optimistic Update
       setProducts(current =>
         current.map(p =>
-          p._id === productId ? {...p, isWishlisted: !p.isWishlisted} : p,
+          p._id === productId ? { ...p, isWishlisted: !p.isWishlisted } : p,
         ),
       );
 
-      await axiosInstance.post('/api/wishlist/toggle', {productId});
+      await axiosInstance.post('/api/wishlist/toggle', { productId });
     } catch (err) {
       // Revert on error
       fetchProducts(currentCoords);
     }
   };
 
-  const renderProduct = ({item, index}: {item: IProduct; index: number}) => (
+  const renderProduct = ({
+    item,
+    index,
+  }: {
+    item: IProduct;
+    index: number;
+  }) => (
     <ProductCard
       item={item}
       index={index}
@@ -494,29 +541,37 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
     handleToggleWishlist(productId);
   };
 
-  const categoriesList: {id: Category | 'GLOBAL' | null; icon: string; label: string}[] = [
-    {id: null, icon: 'sparkles', label: 'For You'},
-    {id: 'GLOBAL', icon: 'globe-outline', label: 'Global'},
-    {id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics'},
-    {id: Category.FOOD, icon: 'fast-food', label: 'Food'},
-    {id: Category.CLOTHING, icon: 'shirt', label: 'Clothing'},
-    {id: Category.HOME, icon: 'home', label: 'Home'},
-    {id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction'},
-    {id: Category.OTHER, icon: 'apps', label: 'Other'},
+  const categoriesList: {
+    id: Category | 'GLOBAL' | null;
+    icon: string;
+    label: string;
+  }[] = [
+    { id: null, icon: 'sparkles', label: 'For You' },
+    { id: 'GLOBAL', icon: 'globe-outline', label: 'Global' },
+    { id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics' },
+    { id: Category.FOOD, icon: 'fast-food', label: 'Food' },
+    { id: Category.CLOTHING, icon: 'shirt', label: 'Clothing' },
+    { id: Category.HOME, icon: 'home', label: 'Home' },
+    { id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction' },
+    { id: Category.OTHER, icon: 'apps', label: 'Other' },
   ];
 
-  const renderCategory = ({item}: {item: (typeof categoriesList)[0]}) => {
+  const renderCategory = ({ item }: { item: (typeof categoriesList)[0] }) => {
     const isActive = selectedCategory === item.id;
     return (
       <TouchableOpacity
         style={[styles.categoryBtn, isActive && styles.categoryBtnActive]}
         activeOpacity={0.8}
-        onPress={() => setSelectedCategory(isActive ? null : item.id)}>
+        onPress={() =>
+          setSelectedCategory(isActive ? null : (item.id as Category | null))
+        }
+      >
         <View
           style={[
             styles.categoryIconCircle,
-            isActive && {backgroundColor: 'rgba(255,255,255,0.2)'},
-          ]}>
+            isActive && { backgroundColor: 'rgba(255,255,255,0.2)' },
+          ]}
+        >
           <Icon
             name={item.icon}
             size={18}
@@ -527,7 +582,8 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           style={[
             styles.categoryBtnText,
             isActive && styles.categoryBtnTextActive,
-          ]}>
+          ]}
+        >
           {item.id}
         </Text>
       </TouchableOpacity>
@@ -544,15 +600,15 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       {!isServiceable && (
-        <Animated.View 
-          entering={FadeInDown}
-          style={styles.unserviceableBanner}
-        >
+        <Animated.View entering={FadeInDown} style={styles.unserviceableBanner}>
           <View style={styles.bannerInner}>
             <Icon name="alert-circle" size={20} color="#B91C1C" />
             <View style={styles.bannerTextContent}>
               <Text style={styles.bannerTitle}>Area Not Yet Serviced</Text>
-              <Text style={styles.bannerSub}>We haven't launched in this location yet. Orders might be restricted.</Text>
+              <Text style={styles.bannerSub}>
+                We haven't launched in this location yet. Orders might be
+                restricted.
+              </Text>
             </View>
           </View>
         </Animated.View>
@@ -561,7 +617,8 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
         <View style={styles.topRowLeft}>
           <TouchableOpacity
             style={styles.locationSelector}
-            onPress={() => setShowLocationModal(true)}>
+            onPress={() => setShowLocationModal(true)}
+          >
             <Icon name="location" size={12} color={theme.colors.primary} />
             <Text style={styles.areaText} numberOfLines={1}>
               {addressName}
@@ -575,13 +632,16 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           )}
 
           <Text style={styles.mainHeader}>
-            {isGlobalMode ? t('home.global_marketplace') : t('home.find_nearby')}
+            {isGlobalMode
+              ? t('home.global_marketplace')
+              : t('home.find_nearby')}
           </Text>
         </View>
         <View style={styles.topRowRight}>
           <TouchableOpacity
             style={styles.notificationBtn}
-            onPress={() => navigation.navigate('Notifications')}>
+            onPress={() => navigation.navigate('Notifications')}
+          >
             <Icon
               name="notifications-outline"
               size={26}
@@ -601,8 +661,9 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
 
       <TouchableOpacity
         style={styles.searchBar}
-        onPress={() => navigation.navigate('BrowseTab', {screen: 'Browse'})}
-        activeOpacity={0.9}>
+        onPress={() => navigation.navigate('BrowseTab', { screen: 'Browse' })}
+        activeOpacity={0.9}
+      >
         <Text style={styles.searchText}>{t('common.search')}</Text>
       </TouchableOpacity>
 
@@ -622,8 +683,11 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           data={categoriesList}
           keyExtractor={item => item.label}
           contentContainerStyle={styles.quickNavContent}
-          renderItem={({item}) => {
-            const isActive = item.id === 'GLOBAL' ? isGlobalMode : (selectedCategory === item.id && !isGlobalMode);
+          renderItem={({ item }) => {
+            const isActive =
+              item.id === 'GLOBAL'
+                ? isGlobalMode
+                : selectedCategory === item.id && !isGlobalMode;
             return (
               <TouchableOpacity
                 style={styles.quickNavBtn}
@@ -636,12 +700,14 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
                     setIsGlobalMode(false);
                     setSelectedCategory(item.id as Category | null);
                   }
-                }}>
+                }}
+              >
                 <View
                   style={[
                     styles.quickNavIconBox,
                     isActive && styles.quickNavIconBoxActive,
-                  ]}>
+                  ]}
+                >
                   {isActive && <View style={styles.quickNavActiveDot} />}
                   <Icon
                     name={item.icon}
@@ -655,7 +721,8 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
                     isActive && styles.quickNavTextActive,
                   ]}
                   numberOfLines={1}
-                  adjustsFontSizeToFit>
+                  adjustsFontSizeToFit
+                >
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -677,7 +744,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
             const newIndex = Math.round(contentOffsetX / width);
 
             if (newIndex === banners.length) {
-              carouselRef.current?.scrollToIndex({index: 0, animated: false});
+              carouselRef.current?.scrollToIndex({ index: 0, animated: false });
               scrollIndex.current = 0;
             } else {
               scrollIndex.current = newIndex;
@@ -694,15 +761,20 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
           }}
           data={banners.length > 0 ? [...banners, banners[0]] : []}
           keyExtractor={(item, index) => item._id + '_' + index}
-          renderItem={({item}) => (
+          renderItem={({ item }) => (
             <Pressable
               onPressIn={handleBannerPressIn}
               onPressOut={handleBannerPressOut}
-              onPress={() => setSelectedCategory(selectedCategory === item.category ? null : item.category)}
-              style={styles.bannerItemContainer}>
+              onPress={() =>
+                setSelectedCategory(
+                  selectedCategory === item.category ? null : item.category,
+                )
+              }
+              style={styles.bannerItemContainer}
+            >
               <Animated.View style={[styles.heroBanner, animatedBannerStyle]}>
                 <Image
-                  source={{uri: item.imageUrl}}
+                  source={{ uri: item.imageUrl }}
                   style={styles.heroImage}
                   resizeMode="cover"
                 />
@@ -735,15 +807,15 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
   );
 
   const displayedProducts = useMemo(() => {
-    return isGlobalMode 
-      ? products 
+    return isGlobalMode
+      ? products
       : products.filter(p => {
           if (!currentCoords || !p.shop?.location?.coordinates) return true;
           const d = calculateDistance(
             currentCoords.lat,
             currentCoords.lng,
             p.shop.location.coordinates[1],
-            p.shop.location.coordinates[0]
+            p.shop.location.coordinates[0],
           );
           return d <= 5;
         });
@@ -754,7 +826,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
   }
 
   return (
-    <View style={[styles.container, {paddingTop: insets.top}]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" />
       <FlatList
         data={displayedProducts}
@@ -775,12 +847,15 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
         ListEmptyComponent={
           <Animated.View
             entering={FadeInUp.duration(800)}
-            style={styles.emptyContainer}>
+            style={styles.emptyContainer}
+          >
             <View style={styles.emptyImageCircle}>
               <Icon name="search" size={48} color={theme.colors.muted} />
             </View>
             <Text style={styles.emptyTitle}>
-              {isGlobalMode ? t('home.no_products_global') : t('common.nothing_nearby')}
+              {isGlobalMode
+                ? t('home.no_products_global')
+                : t('common.nothing_nearby')}
             </Text>
             <Text style={styles.emptyText}>
               {isGlobalMode
@@ -793,7 +868,7 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
                 type="outline"
                 size="sm"
                 onPress={() => setSelectedCategory(null)}
-                style={{marginTop: 10}}
+                style={{ marginTop: 10 }}
               />
             </View>
           </Animated.View>
@@ -804,7 +879,8 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
         visible={showLocationModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowLocationModal(false)}>
+        onRequestClose={() => setShowLocationModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -825,7 +901,8 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
               onPress={() => {
                 setShowLocationModal(false);
                 getUserLocationAndFetch();
-              }}>
+              }}
+            >
               <Icon
                 name="navigate-outline"
                 size={20}
@@ -843,9 +920,9 @@ export default function HomeScreen({navigation}: HomeScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: theme.colors.background},
-  list: {paddingBottom: 40},
-  columnWrapper: {justifyContent: 'space-between', paddingHorizontal: 16},
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  list: { paddingBottom: 40 },
+  columnWrapper: { justifyContent: 'space-between', paddingHorizontal: 16 },
   headerContainer: {
     padding: 16,
     paddingBottom: 8,
@@ -876,28 +953,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     fontWeight: '600',
-  },
-  locationSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  areaText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.text,
-    marginHorizontal: 4,
-    maxWidth: 150,
-  },
-  greetingText: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
-    marginTop: 8,
   },
   mainHeader: {
     fontSize: 22,
@@ -1217,7 +1272,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   productTitle: {
-    fontSize: 15,
     fontSize: 14,
     fontWeight: '700',
     color: theme.colors.text,

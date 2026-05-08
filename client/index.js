@@ -8,15 +8,15 @@ import App from './App';
 import {name as appName} from './app.json';
 import { getApps, initializeApp } from '@react-native-firebase/app';
 
-console.log('🔥 [DEBUG] index.js: Initializing Firebase...');
+console.log(' [DEBUG] index.js: Initializing Firebase...');
 
 // Initialize Firebase as early as possible
 if (!getApps().length) {
   try {
     initializeApp();
-    console.log('✅ [DEBUG] Firebase Initialized successfully in index.js');
+    console.log(' [DEBUG] Firebase Initialized successfully in index.js');
   } catch (err) {
-    console.log('❌ [DEBUG] Firebase Init Error:', err);
+    console.log(' [DEBUG] Firebase Init Error:', err);
   }
 } else {
   console.log('ℹ️ [DEBUG] Firebase already initialized (apps length:', getApps().length, ')');
@@ -30,7 +30,7 @@ FCMService.setBackgroundHandler();
 
 // Handle background events (interactions, etc)
 notifee.onBackgroundEvent(async ({ type, detail }) => {
-  console.log('🌙 Background Event Received:', { type, detail });
+  console.log(' Background Event Received:', { type, detail });
   if (type === EventType.PRESS) {
     console.log('User pressed the notification in background');
   }

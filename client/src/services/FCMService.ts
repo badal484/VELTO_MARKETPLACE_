@@ -15,20 +15,20 @@ import { getApps, getApp } from '@react-native-firebase/app';
 export class FCMService {
   static async registerDevice() {
     try {
-      console.log('📡 [DEBUG] FCMService: Attempting to register device...');
+      console.log('FCMService: Registering device...');
       const apps = getApps();
       if (!apps.length) {
-        console.log('⚠️ [DEBUG] FCM Service Skip: Firebase app not initialized yet.');
+        console.log('FCM Service: Firebase app not initialized yet, skipping.');
         return;
       }
-      
+
       const m = getMessaging(getApp());
-      
+
       let enabled = false;
 
       if (Platform.OS === 'android' && Platform.Version >= 33) {
         const granted = await PermissionsAndroid.request(
-          'android.permission.POST_NOTIFICATIONS'
+          'android.permission.POST_NOTIFICATIONS',
         );
         enabled = granted === PermissionsAndroid.RESULTS.GRANTED;
       } else {
@@ -39,9 +39,8 @@ export class FCMService {
       }
 
       if (enabled) {
-        console.log('🔔 Notification permission granted.');
+        console.log('Notification permission granted.');
 
-        // Create the default channel for Android
         if (Platform.OS === 'android') {
           await notifee.createChannel({
             id: 'default',
@@ -64,7 +63,11 @@ export class FCMService {
     }
   }
 
-  static async displayNotification(title: string, body: string, data: any = {}) {
+  static async displayNotification(
+    title: string,
+    body: string,
+    data: any = {},
+  ) {
     await notifee.displayNotification({
       title,
       body,
@@ -82,9 +85,11 @@ export class FCMService {
   private static async updateTokenOnServer(token: string) {
     try {
       await axiosInstance.post('/api/notifications/fcm-token', { token });
-      console.log('✅ FCM Token synced with server.');
+      console.log('FCM Token synced with server.');
     } catch {
-      console.warn('❌ Failed to sync FCM token (User might be logged out or Offline)');
+      console.warn(
+        'Failed to sync FCM token (User might be logged out or Offline)',
+      );
     }
   }
 
@@ -92,14 +97,13 @@ export class FCMService {
     try {
       if (!getApps().length) return () => {};
       return onMessage(getMessaging(getApp()), async remoteMessage => {
-        console.log('📱 Foreground Notification:', remoteMessage);
-        
-        // Show system tray notification even in foreground
+        console.log('Foreground Notification:', remoteMessage);
+
         if (remoteMessage.notification) {
           await FCMService.displayNotification(
             remoteMessage.notification.title || 'New Notification',
             remoteMessage.notification.body || '',
-            remoteMessage.data
+            remoteMessage.data,
           );
         }
 
@@ -112,24 +116,24 @@ export class FCMService {
 
   static setBackgroundHandler() {
     try {
-      setBackgroundMessageHandler(getMessaging(getApp()), async remoteMessage => {
-        console.log('🌙 Background Notification Received:', remoteMessage);
-        
-        // Android handles 'notification' messages automatically in background,
-        // but for maximum reliability (especially in 'Quit' state), we can manually 
-        // display them if they contain data but no system notification was shown.
-        // Or better yet, we always show it manually if it's a data-only message.
-        if (!remoteMessage.notification && remoteMessage.data) {
-           const { title, body } = remoteMessage.data;
-           if (title || body) {
-             await FCMService.displayNotification(
-               title || 'New Notification', 
-               body || '', 
-               remoteMessage.data
-             );
-           }
-        }
-      });
+      setBackgroundMessageHandler(
+        getMessaging(getApp()),
+        async remoteMessage => {
+          console.log('Background Notification Received:', remoteMessage);
+
+          if (!remoteMessage.notification && remoteMessage.data) {
+            const title = remoteMessage.data.title as string | undefined;
+            const body = remoteMessage.data.body as string | undefined;
+            if (title || body) {
+              await FCMService.displayNotification(
+                title || 'New Notification',
+                body || '',
+                remoteMessage.data,
+              );
+            }
+          }
+        },
+      );
     } catch {
       console.log('FCM Background Skip: Native module unavailable');
     }

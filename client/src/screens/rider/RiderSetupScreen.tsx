@@ -51,7 +51,7 @@ export default function RiderSetupScreen({navigation}: any) {
     });
 
     if (!validation.success) {
-      Alert.alert('Validation Error', validation.error.errors[0].message);
+      Alert.alert('Validation Error', validation.error.issues[0].message);
       return;
     }
 
