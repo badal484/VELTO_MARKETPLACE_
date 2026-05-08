@@ -382,7 +382,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     if (currentCoords) {
       fetchProducts(currentCoords);
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, isGlobalMode]);
+
+  // Auto-refresh when screen gains focus to keep data in sync without manual refresh
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (currentCoords) {
+        fetchProducts(currentCoords);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, currentCoords, isGlobalMode, selectedCategory]);
 
   const [isServiceable, setIsServiceable] = useState(true);
   const [serviceZoneName, setServiceZoneName] = useState<string | null>(null);
