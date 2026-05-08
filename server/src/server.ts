@@ -79,6 +79,8 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/velto';
 // Only force local fallback if we are NOT on Render/Production
 const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 const FINAL_MONGO_URI = MONGO_URI;
+const MAX_MONGO_RETRIES = Number(process.env.MONGO_MAX_RETRIES || 10);
+const MONGO_RETRY_DELAY_MS = Number(process.env.MONGO_RETRY_DELAY_MS || 5000);
 
 // Auto-seed banners if empty
 const seedBanners = async () => {
@@ -121,9 +123,28 @@ const seedBanners = async () => {
 
 import { FundReleaseJob } from './services/fundReleaseJob';
 
-mongoose.connect(FINAL_MONGO_URI)
+const connectMongoWithRetry = async () => {
+  for (let attempt = 1; attempt <= MAX_MONGO_RETRIES; attempt++) {
+    try {
+      await mongoose.connect(FINAL_MONGO_URI);
+      console.log('MongoDB connected');
+      return;
+    } catch (err: any) {
+      const willRetry = attempt < MAX_MONGO_RETRIES;
+      console.error(`MongoDB connection error (attempt ${attempt}/${MAX_MONGO_RETRIES}):`, err?.message || err);
+
+      if (!willRetry) {
+        throw err;
+      }
+
+      console.log(`Retrying MongoDB connection in ${MONGO_RETRY_DELAY_MS}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, MONGO_RETRY_DELAY_MS));
+    }
+  }
+};
+
+connectMongoWithRetry()
   .then(() => {
-    console.log('MongoDB connected');
     httpServer.listen(PORT, '0.0.0.0', async () => {
       console.log(`Server running on all interfaces at port ${PORT}`);
       try {
@@ -136,8 +157,8 @@ mongoose.connect(FINAL_MONGO_URI)
       }
     });
   })
-  .catch(err => {
-    console.error('MongoDB connection error:', err);
+  .catch((err) => {
+    console.error('MongoDB failed to connect after retries:', err);
   });
 
 // Global Error Catchers to prevent silent nodemon crashes
