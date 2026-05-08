@@ -7,11 +7,11 @@ import {
   getOrderById,
   getSellerOrders,
   updateOrderStatus,
-  verifyOrderOTP,
   getAvailableJobs,
   claimOrder,
   verifyDeliveryOTP,
-  releaseOrder
+  releaseOrder,
+  getBatchOrderQuote
 } from '../controllers/orderController';
 import { generateInvoice } from '../controllers/invoiceController';
 import { protect } from '../middleware/auth';
@@ -22,6 +22,7 @@ router.use(protect);
 
 router.post('/', createOrder);
 router.post('/batch', createBatchOrder);
+router.post('/batch/quote', getBatchOrderQuote);
 
 // Specific string routes must come before /:id to avoid interception
 router.get('/my', getMyOrders);
@@ -33,7 +34,6 @@ router.get('/rider', getRiderOrders);
 router.get('/:id', getOrderById);
 router.get('/:id/invoice', generateInvoice);
 router.patch('/:id/status', updateOrderStatus);
-router.post('/:id/verify-otp', verifyOrderOTP);
 router.patch('/:id/claim', claimOrder);
 router.post('/:id/release', releaseOrder);
 router.post('/:id/verify-delivery', verifyDeliveryOTP);

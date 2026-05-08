@@ -32,7 +32,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/types';
 
-const DELIVERY_FEE = 40;
+const DEFAULT_DELIVERY_FEE = 40;
 const MAX_COD_AMOUNT = 5000; // Protection for high-value risk
 
 interface CheckoutItem {
@@ -54,7 +54,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const {user} = useAuth();
   const {products: initialProducts} = route.params as { products: CheckoutItem[] };
   const [products, setProducts] = useState<CheckoutItem[]>(initialProducts);
-  const [fulfillmentMethod] = useState<'delivery' | 'pickup'>('delivery');
+  const fulfillmentMethod = 'delivery';
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'Razorpay'>('Cash');
   const [loading, setLoading] = useState(false);
   
@@ -78,6 +78,8 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   } | null>(null);
   const [isServiceable, setIsServiceable] = useState<boolean | null>(null);
   const [activeZoneName, setActiveZoneName] = useState<string | null>(null);
+  const [deliveryCharge, setDeliveryCharge] = useState(DEFAULT_DELIVERY_FEE);
+  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
 
 
   const calculateSubtotal = () => {
@@ -89,7 +91,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
 
   const walletBalance = user?.walletBalance || 0;
   const subtotal = calculateSubtotal();
-  const deliveryFee = fulfillmentMethod === 'delivery' ? DELIVERY_FEE : 0;
+  const deliveryFee = deliveryCharge;
   const totalAmount = subtotal + deliveryFee;
   
   const walletDeduction = useWallet ? Math.min(totalAmount, walletBalance) : 0;
@@ -151,6 +153,30 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
     );
   };
 
+  const fetchDeliveryQuote = async (lat: number, lng: number) => {
+    try {
+      setIsQuoteLoading(true);
+      const res = await axiosInstance.post('/api/orders/batch/quote', {
+        items: products.map(p => ({ productId: p.product._id })),
+        lat,
+        lng
+      });
+      if (res.data.success) {
+        setDeliveryCharge(res.data.data.totalDeliveryFee);
+      }
+    } catch (error) {
+      console.error('Quote Error:', error);
+    } finally {
+      setIsQuoteLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (coordinates) {
+      fetchDeliveryQuote(coordinates.lat, coordinates.lng);
+    }
+  }, [coordinates]);
+
   const updateQuantity = (index: number, delta: number) => {
     const newProducts = [...products];
     const newQty = Math.max(1, newProducts[index].quantity + delta);
@@ -181,7 +207,6 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
       showToast({message: 'Please enter a valid 10-digit phone number for fulfillment coordination.', type: 'info'});
       return false;
     }
-    if (fulfillmentMethod === 'pickup') return true;
     const {street, city, state, pincode} = address;
     if (!street || !city || !state || !pincode) {
       showToast({message: 'Please fill in all address fields for home delivery.', type: 'info'});
@@ -221,12 +246,12 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
           };
         }),
         paymentMethod: selectedPaymentMethod === 'Cash' 
-             ? (fulfillmentMethod === 'pickup' ? 'Cash on Pickup' : 'Cash on Delivery') 
+             ? 'Cash on Delivery'
              : 'Razorpay',
         paymentReference: selectedPaymentMethod === 'Razorpay' ? (utrValue || 'PENDING_AUTO') : undefined,
         fulfillmentMethod,
-        deliveryAddress: fulfillmentMethod === 'delivery' ? address : undefined,
-        deliveryCharge: fulfillmentMethod === 'delivery' ? DELIVERY_FEE : 0, 
+        deliveryAddress: address,
+        deliveryCharge: DELIVERY_FEE, 
         buyerPhone: phoneNumber,
         lat: coordinates?.lat,
         lng: coordinates?.lng,
@@ -481,7 +506,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                   style={[styles.methodCard, selectedPaymentMethod === 'Cash' && styles.activeMethod]}
                   onPress={() => setSelectedPaymentMethod('Cash')}>
                   <Icon name="cash-outline" size={24} color={selectedPaymentMethod === 'Cash' ? theme.colors.primary : theme.colors.muted} />
-                  <Text style={[styles.methodLabel, selectedPaymentMethod === 'Cash' && styles.activeMethodLabel]}>Cash on {fulfillmentMethod === 'delivery' ? 'Delivery' : 'Pickup'}</Text>
+                  <Text style={[styles.methodLabel, selectedPaymentMethod === 'Cash' && styles.activeMethodLabel]}>Cash on Delivery</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={[styles.methodCard, styles.disabledMethod]}>
@@ -527,9 +552,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               </View>
               <View style={styles.billRow}>
                 <Text style={styles.billLabel}>Delivery Charge</Text>
-                <Text style={[styles.billTotal, fulfillmentMethod === 'delivery' ? {color: theme.colors.success} : {color: theme.colors.muted}]}>
-                  {fulfillmentMethod === 'delivery' ? `₹${DELIVERY_FEE}` : 'FREE'}
-                </Text>
+                {isQuoteLoading ? (
+                  <Text style={[styles.billTotal, {color: theme.colors.muted}]}>Calculating...</Text>
+                ) : (
+                  <Text style={[styles.billTotal, {color: theme.colors.success}]}>
+                    ₹{deliveryCharge}
+                  </Text>
+                )}
               </View>
               
               {useWallet && walletDeduction > 0 && (

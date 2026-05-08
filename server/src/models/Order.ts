@@ -34,7 +34,7 @@ const orderSchema = new Schema<IOrderSchema>(
     },
     paymentMethod: {
       type: String,
-      enum: ['Cash on Pickup', 'Cash on Delivery', 'Razorpay'] as const,
+      enum: ['Cash on Delivery', 'Razorpay'] as const,
       required: true,
     },
     razorpayOrderId: { type: String },
@@ -47,9 +47,9 @@ const orderSchema = new Schema<IOrderSchema>(
     cancellationReason: { type: String },
     fulfillmentMethod: { 
       type: String, 
-      enum: ['delivery', 'pickup'], 
+      enum: ['delivery'], 
       required: true,
-      default: 'pickup'
+      default: 'delivery'
     },
     deliveryCharge: { type: Number, default: 0 },
     deliveryAddress: {

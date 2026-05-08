@@ -48,9 +48,9 @@ export class ProductService {
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    if (lat && lng) {
-      const useGlobal = filters.global === 'true' || filters.global === true;
-      
+    const useGlobal = filters.global === 'true' || filters.global === true;
+
+    if (lat && lng && !useGlobal) {
       // Strict Enforcement: Cap the search radius to the Operational Zone radius
       // We import ZoneService inside the method to avoid circular dependency if any
       const { ZoneService } = require('./ZoneService');
@@ -60,9 +60,7 @@ export class ProductService {
       
       // If not global, use the MINIMUM of (User Requested Radius, Operational Radius)
       // If operationalRadius is 0, then only global results should show
-      const finalMaxDistance = useGlobal 
-        ? 50000000 
-        : (radius ? Math.min(Number(radius) * 1000, operationalRadius > 0 ? operationalRadius : 0) : (operationalRadius > 0 ? operationalRadius : 0));
+      const finalMaxDistance = (radius ? Math.min(Number(radius) * 1000, operationalRadius > 0 ? operationalRadius : 0) : (operationalRadius > 0 ? operationalRadius : 0));
 
       pipeline.push({
         $geoNear: {

@@ -29,7 +29,8 @@ const productSchema = new Schema({
   },
   rating: { type: Number, default: 0 },
   numReviews: { type: Number, default: 0 },
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  size: { type: String, enum: ['small', 'medium', 'large'], default: 'small' }
 }, { timestamps: true });
 
 productSchema.index({ location: '2dsphere' });

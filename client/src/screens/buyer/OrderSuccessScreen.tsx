@@ -189,8 +189,6 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
               </View>
             )}
 
-            {route.params?.fulfillmentMethod === 'delivery' &&
-              (paymentMethod !== 'Razorpay' || paymentConfirmed) && (
                 <View style={styles.codeBox}>
                   <Text style={styles.codeTitle}>HOME DELIVERY PIN</Text>
                   {route.params?.deliveryCode ? (
@@ -213,32 +211,6 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
                     Share this with the rider when they arrive
                   </Text>
                 </View>
-              )}
-            {route.params?.fulfillmentMethod === 'pickup' &&
-              (paymentMethod !== 'Razorpay' || paymentConfirmed) && (
-                <View style={styles.codeBox}>
-                  <Text style={styles.codeTitle}>PICKUP PIN</Text>
-                  {route.params?.pickupCode ? (
-                    <Text style={styles.codeValue}>
-                      {route.params?.pickupCode}
-                    </Text>
-                  ) : (
-                    <View style={styles.pendingPinBox}>
-                      <Icon
-                        name="time-outline"
-                        size={32}
-                        color={theme.colors.primary}
-                      />
-                      <Text style={styles.pendingPinText}>
-                        Will be generated when ready for pickup
-                      </Text>
-                    </View>
-                  )}
-                  <Text style={styles.codeInfo}>
-                    Provide this to the shop owner at pickup
-                  </Text>
-                </View>
-              )}
           </View>
         </Animated.View>
       </View>

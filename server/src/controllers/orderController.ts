@@ -30,35 +30,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
   }
 };
 
-export const verifyOrderOTP = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { otp } = req.body;
-
-    const order = await Order.findById(id);
-    if (!order) throw new AppError('Order not found', 404);
-
-    if (order.seller.toString() !== req.user?._id.toString()) {
-      throw new AppError('Only the seller can verify the pickup OTP', 403);
-    }
-
-    if (order.pickupCode !== otp) {
-      throw new AppError('Invalid pickup OTP', 400);
-    }
-
-    const updated = await OrderService.updateStatus(
-      id, 
-      OrderStatus.COMPLETED, 
-      req.user?._id.toString()!, 
-      req.user?.role!
-    );
-
-    res.json({ success: true, message: 'Pickup verified. Order completed!', data: updated });
-  } catch (error) {
-    handleError(error, res);
-  }
-};
-
 export const verifyDeliveryOTP = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -234,6 +205,14 @@ export const createBatchOrder = async (req: Request, res: Response): Promise<voi
   try {
     const result = await OrderService.createBatchOrder(req.user?._id.toString()!, req.body);
     res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+export const getBatchOrderQuote = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await OrderService.getDeliveryQuote(req.user?._id.toString()!, req.body);
+    res.json({ success: true, data: result });
   } catch (error) {
     handleError(error, res);
   }

@@ -19,6 +19,12 @@ export enum Category {
   OTHER = 'Other',
 }
 
+export enum ProductSize {
+  SMALL = 'small',
+  MEDIUM = 'medium',
+  LARGE = 'large',
+}
+
 export enum OrderStatus {
   PENDING = 'Pending',
   PAYMENT_UNDER_REVIEW = 'Payment Under Review',
@@ -167,6 +173,7 @@ export interface IProduct {
   isNearby?: boolean;
   distance?: number;
   isActive?: boolean;
+  size?: ProductSize;
   createdAt?: string | Date;
 }
 
@@ -179,12 +186,12 @@ export interface IOrder {
   quantity: number;
   totalPrice: number;
   status: OrderStatus;
-  paymentMethod: 'Cash on Pickup' | 'Cash on Delivery' | 'Razorpay';
+  paymentMethod: 'Cash on Delivery' | 'Razorpay';
   rider?: MongoId | IUser;
   pickupCode: string;
   deliveryCode?: string;
   cancellationReason?: string;
-  fulfillmentMethod: 'delivery' | 'pickup';
+  fulfillmentMethod: 'delivery';
   deliveryCharge?: number;
   deliveryAddress?: {
     street?: string;

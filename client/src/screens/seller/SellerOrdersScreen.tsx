@@ -192,12 +192,6 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
             </View>
           )}
 
-          {item.fulfillmentMethod === 'pickup' && (
-            <View style={styles.methodBox}>
-              <Icon name="storefront" size={14} color={theme.colors.muted} />
-              <Text style={styles.methodText}>Self-Pickup Fulfillment</Text>
-            </View>
-          )}
 
           {item.rider && (
             <View style={[styles.addressBox, {backgroundColor: '#ECFDF5', borderColor: '#10B981'}]}>
@@ -230,7 +224,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
               />
             )}
             
-            {isConfirmed && item.fulfillmentMethod === 'delivery' && (
+            {isConfirmed && (
                <Button 
                 title="Mark Ready for Pickup" 
                 type="primary" 
@@ -240,25 +234,6 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
               />
             )}
 
-            {isConfirmed && item.fulfillmentMethod === 'pickup' && (
-              <Button 
-                title="Mark Ready for Buyer" 
-                type="primary" 
-                onPress={() => handleUpdateStatus(item._id, OrderStatus.READY_FOR_PICKUP)}
-                style={styles.fullBtn}
-                icon={<Icon name="storefront-outline" size={18} color="white" />}
-              />
-            )}
-
-            {item.status === OrderStatus.READY_FOR_PICKUP && item.fulfillmentMethod === 'pickup' && (
-              <Button 
-                title="Complete Pickup" 
-                type="success" 
-                onPress={() => handleUpdateStatus(item._id, OrderStatus.COMPLETED)}
-                icon={<Icon name="checkmark-circle-outline" size={18} color="white" />}
-                style={styles.fullBtn}
-              />
-            )}
 
             {item.status === OrderStatus.SEARCHING_RIDER && (
                <View style={styles.searchingBox}>

@@ -13,6 +13,7 @@ import { WalletService } from './WalletService';
 import { WorkflowService } from './workflowService';
 import { RazorpayService } from './RazorpayService';
 import { ZoneService } from './ZoneService';
+import { calculateDistance, calculateDeliveryFee } from '../utils/geo';
 import { round } from '../utils/math';
 
 export class OrderService {
@@ -44,7 +45,8 @@ export class OrderService {
 
     try {
       //  SERVICE ZONE VALIDATION 
-      if (data.fulfillmentMethod === 'delivery' && data.lat && data.lng) {
+      const fulfillmentMethod = 'delivery';
+      if (data.lat && data.lng) {
         const zone = await ZoneService.checkServiceability(data.lng, data.lat);
         if (!zone) {
           throw new AppError('Sorry! We do not serve this location yet. Our current pilots are active in specific Bengaluru hubs.', 400);
@@ -55,7 +57,15 @@ export class OrderService {
       if (!product) throw new AppError('Product not found', 404);
       if (product.stock < data.quantity) throw new AppError('Insufficient stock', 400);
 
-      const totalPrice = round((product.price * data.quantity) + (data.deliveryCharge || 0));
+      //  DYNAMIC DELIVERY CHARGE 
+      let deliveryCharge = 40; // Default fallback
+      if (data.lat && data.lng && product.location?.coordinates) {
+        const [shopLng, shopLat] = product.location.coordinates;
+        const distance = calculateDistance(shopLat, shopLng, data.lat, data.lng);
+        deliveryCharge = calculateDeliveryFee(distance, product.size as any);
+      }
+
+      const totalPrice = round((product.price * data.quantity) + deliveryCharge);
       const { productId, ...rest } = data;
       const order = await Order.create([{
         ...rest,
@@ -69,6 +79,7 @@ export class OrderService {
           originalPrice: product.price,
           category: product.category
         },
+        fulfillmentMethod,
         totalPrice,
         status: OrderStatus.PENDING,
         pickupLocation: product.location,
@@ -166,7 +177,7 @@ export class OrderService {
     if (!isSeller && !isAdmin && !isBuyer && !isRider) throw new AppError('Not authorized', 403);
 
     // Dynamic PIN Generation
-    if (newStatus === OrderStatus.READY_FOR_PICKUP && order.fulfillmentMethod === 'pickup' && !order.pickupCode) {
+    if (newStatus === OrderStatus.READY_FOR_PICKUP && !order.pickupCode) {
       order.pickupCode = Math.floor(1000 + Math.random() * 9000).toString();
     }
     
@@ -445,14 +456,15 @@ export class OrderService {
  
     try {
       //  SERVICE ZONE VALIDATION 
-      if (data.fulfillmentMethod === 'delivery' && data.lat && data.lng) {
+      const fulfillmentMethod = 'delivery';
+      if (data.lat && data.lng) {
         const zone = await ZoneService.checkServiceability(data.lng, data.lat);
         if (!zone) {
           throw new AppError('Sorry! We do not serve this location yet. Our current pilots are active in specific Bengaluru hubs.', 400);
         }
       }
 
-      const { items, fulfillmentMethod, deliveryAddress, deliveryCharge, buyerPhone, paymentMethod, useWallet } = data;
+      const { items, deliveryAddress, deliveryCharge, buyerPhone, paymentMethod, useWallet } = data;
       
       const user = await User.findById(buyerId).session(session);
       if (!user) throw new AppError('User not found', 404);
@@ -472,10 +484,23 @@ export class OrderService {
       for (const item of aggregatedItems) {
         const product = await Product.findById(item.productId).session(session);
         if (!product) throw new AppError(`Product not found: ${item.productId}`, 404);
+        
+        //  DYNAMIC DELIVERY CHARGE PER ITEM 
+        let itemDeliveryCharge = 40; 
+        if (data.lat && data.lng && product.location?.coordinates) {
+          const [shopLng, shopLat] = product.location.coordinates;
+          const distance = calculateDistance(shopLat, shopLng, data.lat, data.lng);
+          itemDeliveryCharge = calculateDeliveryFee(distance, product.size as any);
+        }
+
         const itemPrice = item.price || product.price;
-        const currentDeliveryCharge = fulfillmentMethod === 'pickup' ? 0 : (deliveryCharge || 0);
-        totalBatchAmount += round((itemPrice * item.quantity) + (currentDeliveryCharge / aggregatedItems.length));
-        tempItems.push({ ...item, product });
+        // For batch orders, we add the calculated fee for each product
+        // (If multiple items are from the same shop, they currently each get a fee. 
+        //  Refinement: could group by shop, but per-item is safer for multi-pickup routes)
+        const itemTotalPrice = round((itemPrice * item.quantity) + itemDeliveryCharge);
+        
+        totalBatchAmount += itemTotalPrice;
+        tempItems.push({ ...item, product, itemDeliveryCharge, itemTotalPrice });
       }
 
       let walletDeduction = 0;
@@ -507,9 +532,8 @@ export class OrderService {
           throw new AppError(`Insufficient stock for ${product.title}. Available: ${product.stock}`, 400);
         }
 
-        const itemPrice = item.price || product.price;
-        const currentDeliveryCharge = fulfillmentMethod === 'pickup' ? 0 : (deliveryCharge || 0);
-        const itemTotalPrice = round((itemPrice * item.quantity) + (currentDeliveryCharge / tempItems.length));
+        const itemTotalPrice = item.itemTotalPrice;
+        const itemDeliveryCharge = item.itemDeliveryCharge;
         
         // Distribute wallet deduction proportionally or simply
         let itemWalletPaid = 0;
@@ -546,7 +570,7 @@ export class OrderService {
           paymentReference: data.paymentReference,
           fulfillmentMethod,
           deliveryAddress,
-          deliveryCharge: round(currentDeliveryCharge / tempItems.length),
+          deliveryCharge: itemDeliveryCharge,
           buyerPhone,
           pickupLocation: product.location,
           deliveryLocation: data.lat && data.lng ? {
@@ -642,5 +666,39 @@ export class OrderService {
     } finally {
       session.endSession();
     }
+  }
+
+  static async getDeliveryQuote(buyerId: string, data: any) {
+    const { items, lat, lng } = data;
+    if (!items || !lat || !lng) throw new AppError('Items and coordinates required', 400);
+
+    let totalDeliveryFee = 0;
+    const itemQuotes = [];
+
+    for (const item of items) {
+      const product = await Product.findById(item.productId);
+      if (!product) continue;
+
+      let itemFee = 40;
+      let distance = 0;
+      if (product.location?.coordinates) {
+        const [shopLng, shopLat] = product.location.coordinates;
+        distance = calculateDistance(shopLat, shopLng, lat, lng);
+        itemFee = calculateDeliveryFee(distance, product.size as any);
+      }
+
+      totalDeliveryFee += itemFee;
+      itemQuotes.push({
+        productId: item.productId,
+        productTitle: product.title,
+        distance: round(distance),
+        fee: itemFee
+      });
+    }
+
+    return {
+      totalDeliveryFee,
+      itemQuotes
+    };
   }
 }
