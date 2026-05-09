@@ -14,6 +14,7 @@ import {
   Image,
   PermissionsAndroid,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Geolocation from 'react-native-geolocation-service';
 import {locationService} from '../../services/locationService';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -50,6 +51,7 @@ interface CheckoutProps {
 }
 
 export default function CheckoutScreen({route, navigation}: CheckoutProps) {
+  const insets = useSafeAreaInsets();
   const {showToast} = useToast();
   const {user} = useAuth();
   const {products: initialProducts} = route.params as { products: CheckoutItem[] };
@@ -339,8 +341,8 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
            <Skeleton width={180} height={24} />
         </View>
         <View style={{ padding: 20, gap: 20 }}>
@@ -349,21 +351,19 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
            <Skeleton width="100%" height={150} borderRadius={20} />
            <Skeleton width="100%" height={120} borderRadius={24} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
         
-
-
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{flex: 1}}>
         
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Icon name="chevron-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
@@ -611,7 +611,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         </View>
 
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

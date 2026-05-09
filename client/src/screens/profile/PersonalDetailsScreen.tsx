@@ -22,6 +22,7 @@ import {useToast} from '../../hooks/useToast';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {ProfileStackParamList} from '../../navigation/types';
 import {IAddress} from '@shared/types';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 type PersonalDetailsScreenNavigationProp = StackNavigationProp<ProfileStackParamList, 'PersonalDetails'>;
 
@@ -30,6 +31,7 @@ interface PersonalDetailsProps {
 }
 
 export default function PersonalDetailsScreen({navigation}: PersonalDetailsProps) {
+  const insets = useSafeAreaInsets();
   const {user, updateUser} = useAuth();
   const {showToast} = useToast();
   const [loading, setLoading] = useState(false);
@@ -112,9 +114,9 @@ export default function PersonalDetailsScreen({navigation}: PersonalDetailsProps
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Icon name="chevron-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -179,7 +181,7 @@ export default function PersonalDetailsScreen({navigation}: PersonalDetailsProps
 
         <View style={{height: 40}} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

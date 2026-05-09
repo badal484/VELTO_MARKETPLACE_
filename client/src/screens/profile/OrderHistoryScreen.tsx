@@ -32,6 +32,7 @@ import {ReviewModal} from '../../components/common/ReviewModal';
 import {useToast} from '../../hooks/useToast';
 import {useSocket} from '../../hooks/useSocket';
 import {useAuth} from '../../hooks/useAuth';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 type OrderHistoryScreenNavigationProp = CompositeNavigationProp<
   StackNavigationProp<ProfileStackParamList, 'OrderHistory'>,
@@ -45,6 +46,7 @@ interface OrderHistoryScreenProps {
 export default function OrderHistoryScreen({
   navigation,
 }: OrderHistoryScreenProps) {
+  const insets = useSafeAreaInsets();
   const {t} = useTranslation();
   const {user} = useAuth();
   const {showToast} = useToast();
@@ -393,8 +395,8 @@ export default function OrderHistoryScreen({
 
   if (loading && !refreshing && orders.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
            <View style={{ gap: 8 }}>
               <View style={{ height: 28, width: 200, backgroundColor: '#E2E8F0', borderRadius: 6 }} />
               <View style={{ height: 16, width: 250, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
@@ -418,14 +420,14 @@ export default function OrderHistoryScreen({
              </View>
            ))}
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => navigation.navigate('Profile')}
           style={styles.backButton}>
@@ -537,7 +539,7 @@ export default function OrderHistoryScreen({
           onSuccess={fetchOrders}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -200,12 +200,6 @@ const MainTabs = () => {
         component={ProfileStack}
         options={{
           title: 'Profile',
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: theme.colors.accent,
-            color: theme.colors.white,
-            fontSize: 10,
-          },
         }}
       />
     </Tab.Navigator>
@@ -221,6 +215,7 @@ export const MainNavigator = () => {
       <RootStack.Screen name="ChatRoom" component={ChatScreen as React.FC} />
       <RootStack.Screen name="Conversations" component={ConversationsScreen} />
       <RootStack.Screen name="Notifications" component={NotificationsScreen} />
+      <RootStack.Screen name="Browse" component={BrowseScreen} />
       <RootStack.Screen name="ProductDetail" component={ProductDetailScreen as React.FC} />
       <RootStack.Screen name="ShopProfile" component={ShopProfileScreen} />
       <RootStack.Screen name="Checkout" component={CheckoutScreen as React.FC} />

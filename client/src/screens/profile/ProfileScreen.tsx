@@ -169,10 +169,10 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
 
 
   return (
-    <View style={[styles.safeArea, {paddingTop: insets.top}]}>
+    <View style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <View style={[styles.header, {paddingTop: insets.top + 24}]}>
           <Image 
             source={require('../../../assets/velto_logo.png')} 
             style={styles.headerLogo} 

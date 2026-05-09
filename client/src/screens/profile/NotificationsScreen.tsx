@@ -39,8 +39,10 @@ import {Role} from '@shared/types';
 import {useAuth} from '../../hooks/useAuth';
 import {useSocket} from '../../hooks/useSocket';
 import {SocketEvent} from '@shared/constants/socketEvents';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 export default function NotificationsScreen() {
+  const insets = useSafeAreaInsets();
   const {user} = useAuth();
   const navigation = useNavigation<StackNavigationProp<HomeStackParamList>>();
   const {resetUnreadCount} = useNotifications();
@@ -151,8 +153,8 @@ export default function NotificationsScreen() {
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.navBar}>
+      <View style={styles.container}>
+        <View style={[styles.navBar, { paddingTop: insets.top + 16 }]}>
            <Skeleton width={180} height={32} />
         </View>
         <View style={{ padding: 16, gap: 16 }}>
@@ -160,14 +162,14 @@ export default function NotificationsScreen() {
              <Skeleton key={i} width="100%" height={120} borderRadius={24} />
            ))}
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.navBar}>
+      <View style={[styles.navBar, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.navTitle}>Notifications</Text>
         {notifications.some(n => !n.isRead) && (
           <TouchableOpacity onPress={markAllAsRead}>
@@ -198,7 +200,7 @@ export default function NotificationsScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
