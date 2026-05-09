@@ -57,5 +57,8 @@ const userSchema = new Schema<IUserDocument>({
 }, { timestamps: true });
 
 userSchema.index({ location: '2dsphere' });
+userSchema.index({ role: 1 });
+userSchema.index({ riderStatus: 1 });
+userSchema.index({ isOnline: 1 });
 
 export const User = mongoose.model<IUserDocument>('User', userSchema);

@@ -12,7 +12,9 @@ import {
   PermissionsAndroid,
   Platform,
   KeyboardAvoidingView,
+  Image,
 } from 'react-native';
+import {launchImageLibrary} from 'react-native-image-picker';
 import {Input} from '../../components/common/Input';
 import {Button} from '../../components/common/Button';
 import {theme} from '../../theme';
@@ -34,6 +36,58 @@ import Animated, {
 import {StackNavigationProp} from '@react-navigation/stack';
 import {DashboardStackParamList} from '../../navigation/types';
 import Geolocation from 'react-native-geolocation-service';
+
+const pickerStyles = StyleSheet.create({
+  imageSelectionRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  uploadLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  logoPicker: {
+    height: 100,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: theme.colors.primary + '30',
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+  },
+  logoPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  coverPicker: {
+    height: 100,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: theme.colors.primary + '30',
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+  },
+  coverPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholderBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  placeholderText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.primary,
+    textTransform: 'uppercase',
+  },
+});
 
 const {width} = Dimensions.get('window');
 
@@ -236,6 +290,34 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
     setPincode(loc.postcode || '');
   };
 
+  const handlePickLogo = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+      });
+      if (result.assets && result.assets.length > 0) {
+        setLogo(result.assets[0].uri!);
+      }
+    } catch (err) {
+      console.log('Logo Pick Error:', err);
+    }
+  };
+
+  const handlePickCover = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+      });
+      if (result.assets && result.assets.length > 0) {
+        setCoverImage(result.assets[0].uri!);
+      }
+    } catch (err) {
+      console.log('Cover Pick Error:', err);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!isTermsAccepted) {
       showToast({message: 'Please accept the Terms & Conditions to proceed', type: 'info'});
@@ -260,42 +342,74 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         return;
       }
 
-      const payload = {
-        name,
-        businessName,
-        description: description || '',
-        aadharCard,
-        gstin: gstin || '',
-        address: formattedAddress || `${street}, ${city}`,
-        detailedAddress: {
-          street: street || '',
-          city: city || '',
-          state: state || '',
-          pincode: pincode || '',
-        },
-        location: {
-          lat: coordinates?.lat ?? 0,
-          lng: coordinates?.lng ?? 0,
-        },
-        bankDetails: {
-          holderName: bankHolder || '',
-          bankName: bankName || '',
-          accountNumber: accountNumber || '',
-          ifscCode: ifscCode || '',
-        },
-        contactInfo: {
-          businessEmail: email || '',
-          businessPhone: phone || '',
-        },
-        category: selectedCategory || Category.OTHER,
-        logo: logo || '',
-        coverImage: coverImage || '',
-        isTermsAccepted: true,
-      };
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('businessName', businessName);
+      formData.append('description', description || '');
+      formData.append('aadharCard', aadharCard);
+      formData.append('gstin', gstin || '');
+      formData.append('address', formattedAddress || `${street}, ${city}`);
+      formData.append('category', selectedCategory || Category.OTHER);
+      formData.append('isTermsAccepted', 'true');
+
+      // Add nested objects as JSON strings (Backend service handles parsing)
+      formData.append('detailedAddress', JSON.stringify({
+        street: street || '',
+        city: city || '',
+        state: state || '',
+        pincode: pincode || '',
+      }));
+
+      formData.append('location', JSON.stringify({
+        lat: coordinates?.lat ?? 0,
+        lng: coordinates?.lng ?? 0,
+      }));
+
+      formData.append('bankDetails', JSON.stringify({
+        holderName: bankHolder || '',
+        bankName: bankName || '',
+        accountNumber: accountNumber || '',
+        ifscCode: ifscCode || '',
+      }));
+
+      formData.append('contactInfo', JSON.stringify({
+        businessEmail: email || '',
+        businessPhone: phone || '',
+      }));
+
+      // Handle Logo Upload
+      if (logo) {
+        if (logo.startsWith('file://') || logo.startsWith('content://')) {
+          formData.append('logo', {
+            uri: Platform.OS === 'android' ? logo : logo.replace('file://', ''),
+            name: 'logo.jpg',
+            type: 'image/jpeg',
+          } as any);
+        } else {
+          formData.append('logo', logo);
+        }
+      }
+
+      // Handle Cover Image Upload
+      if (coverImage) {
+        if (coverImage.startsWith('file://') || coverImage.startsWith('content://')) {
+          formData.append('coverImage', {
+            uri: Platform.OS === 'android' ? coverImage : coverImage.replace('file://', ''),
+            name: 'cover.jpg',
+            type: 'image/jpeg',
+          } as any);
+        } else {
+          formData.append('coverImage', coverImage);
+        }
+      }
 
       const res = myShopId
-        ? await axiosInstance.put(`/api/shops/${myShopId}`, payload)
-        : await axiosInstance.post('/api/shops', payload);
+        ? await axiosInstance.put(`/api/shops/${myShopId}`, formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+          })
+        : await axiosInstance.post('/api/shops', formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+          });
 
       if (res.data.success) {
         await refreshUser();
@@ -310,6 +424,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         showToast({message: res.data.message || 'Submission failed. Please try again.', type: 'error'});
       }
     } catch (error: any) {
+      console.log('Submission Error:', error);
       const serverMessage = error.response?.data?.message;
       showToast({message: serverMessage || 'Failed to submit shop setup', type: 'error'});
     } finally {
@@ -520,18 +635,40 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
               multiline
               numberOfLines={4}
             />
-            <Input
-              label="Shop Logo URL"
-              placeholder="https://example.com/logo.png"
-              value={logo}
-              onChangeText={setLogo}
-            />
-            <Input
-              label="Shop Cover Image URL"
-              placeholder="https://example.com/cover.png"
-              value={coverImage}
-              onChangeText={setCoverImage}
-            />
+            <View style={pickerStyles.imageSelectionRow}>
+              <View style={{flex: 1, marginRight: 8}}>
+                <Text style={pickerStyles.uploadLabel}>Shop Logo</Text>
+                <TouchableOpacity 
+                  style={pickerStyles.logoPicker} 
+                  onPress={handlePickLogo}
+                  activeOpacity={0.7}>
+                  {logo ? (
+                    <Image source={{uri: logo}} style={pickerStyles.logoPreview} />
+                  ) : (
+                    <View style={pickerStyles.imagePlaceholderBox}>
+                      <Icon name="camera" size={24} color={theme.colors.primary} />
+                      <Text style={pickerStyles.placeholderText}>Upload</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <View style={{flex: 2, marginLeft: 8}}>
+                <Text style={pickerStyles.uploadLabel}>Shop Cover Image</Text>
+                <TouchableOpacity 
+                  style={pickerStyles.coverPicker} 
+                  onPress={handlePickCover}
+                  activeOpacity={0.7}>
+                  {coverImage ? (
+                    <Image source={{uri: coverImage}} style={pickerStyles.coverPreview} />
+                  ) : (
+                    <View style={pickerStyles.imagePlaceholderBox}>
+                      <Icon name="images" size={24} color={theme.colors.primary} />
+                      <Text style={pickerStyles.placeholderText}>Upload Banner</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <View style={styles.categorySection}>
               <Text style={styles.categoryLabelTitle}>Business Category</Text>
@@ -542,10 +679,12 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
                 {[
                   {id: Category.ELECTRONICS, icon: 'hardware-chip'},
                   {id: Category.FOOD, icon: 'fast-food'},
+                  {id: Category.PHARMACY, icon: 'medkit'},
                   {id: Category.CLOTHING, icon: 'shirt'},
                   {id: Category.HOME, icon: 'home'},
                   {id: Category.OTHER, icon: 'build'},
                   {id: Category.CONSTRUCTION, icon: 'construct'},
+                  {id: Category.SPORTS, icon: 'basketball'},
                 ].map((cat, idx) => {
                   const isActive = selectedCategory === cat.id;
                   return (

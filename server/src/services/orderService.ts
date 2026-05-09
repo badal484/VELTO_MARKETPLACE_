@@ -49,7 +49,7 @@ export class OrderService {
       if (data.lat && data.lng) {
         const zone = await ZoneService.checkServiceability(data.lng, data.lat);
         if (!zone) {
-          throw new AppError('Sorry! We do not serve this location yet. Our current pilots are active in specific Bengaluru hubs.', 400);
+          throw new AppError('Sorry! We do not serve this location yet. Velto is currently expanding across specific regions in India.', 400);
         }
       }
 
@@ -460,7 +460,7 @@ export class OrderService {
       if (data.lat && data.lng) {
         const zone = await ZoneService.checkServiceability(data.lng, data.lat);
         if (!zone) {
-          throw new AppError('Sorry! We do not serve this location yet. Our current pilots are active in specific Bengaluru hubs.', 400);
+          throw new AppError('Sorry! We do not serve this location yet. Velto is currently expanding across specific regions in India.', 400);
         }
       }
 

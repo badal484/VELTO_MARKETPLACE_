@@ -117,7 +117,7 @@ export default function InventoryScreen({
     );
   };
 
-  const renderProduct = ({item, index}: {item: IProduct; index: number}) => (
+  const renderProduct = useCallback(({item, index}: {item: IProduct; index: number}) => (
     <Animated.View
       entering={FadeInUp.delay(index * 50)}
       layout={Layout.springify()}
@@ -167,7 +167,8 @@ export default function InventoryScreen({
       <View style={styles.actionsBar}>
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => navigation.navigate('AddEditListing', {product: item})}>
+          onPress={() => navigation.navigate('AddEditListing', {product: item})}
+          activeOpacity={0.7}>
           <Icon name="create-outline" size={18} color={theme.colors.primary} />
           <Text style={[styles.actionLabel, {color: theme.colors.primary}]}>
             Edit
@@ -176,7 +177,8 @@ export default function InventoryScreen({
 
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => toggleStatus(item)}>
+          onPress={() => toggleStatus(item)}
+          activeOpacity={0.7}>
           <Icon
             name={item.isActive ? 'eye-off-outline' : 'eye-outline'}
             size={18}
@@ -189,7 +191,8 @@ export default function InventoryScreen({
 
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => handleDelete(item._id)}>
+          onPress={() => handleDelete(item._id)}
+          activeOpacity={0.7}>
           <Icon name="trash-outline" size={18} color={theme.colors.danger} />
           <Text style={[styles.actionLabel, {color: theme.colors.danger}]}>
             Delete
@@ -197,7 +200,7 @@ export default function InventoryScreen({
         </TouchableOpacity>
       </View>
     </Animated.View>
-  );
+  ), [navigation]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -234,9 +237,25 @@ export default function InventoryScreen({
         </View>
       </View>
 
-      {loading && !refreshing ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+      {loading && !refreshing && products.length === 0 ? (
+        <View style={{ padding: 16, gap: 16 }}>
+           {[1, 2, 3, 4].map(i => (
+             <View key={i} style={[styles.productCard, { opacity: 0.6 }]}>
+                <View style={styles.productMain}>
+                   <View style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: '#E2E8F0' }} />
+                   <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
+                      <View style={{ height: 16, width: '80%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                      <View style={{ height: 12, width: '40%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                      <View style={{ height: 18, width: '30%', backgroundColor: '#E2E8F0', borderRadius: 4, marginTop: 8 }} />
+                   </View>
+                </View>
+                <View style={styles.actionsBar}>
+                   <View style={{ flex: 1, height: 42, backgroundColor: '#F8FAFC' }} />
+                   <View style={{ flex: 1, height: 42, backgroundColor: '#F8FAFC' }} />
+                   <View style={{ flex: 1, height: 42, backgroundColor: '#F8FAFC' }} />
+                </View>
+             </View>
+           ))}
         </View>
       ) : (
         <FlatList
@@ -244,6 +263,10 @@ export default function InventoryScreen({
           keyExtractor={item => item._id}
           renderItem={renderProduct}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

@@ -13,7 +13,7 @@ import {
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import Animated, {FadeInUp} from '../../mocks/reanimated';
-import {Loader} from '../../components/common/Loader';
+import {Skeleton} from '../../components/common/Skeleton';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IShop, IProduct} from '@shared/types';
@@ -114,7 +114,21 @@ export default function ShopProfileScreen({
   );
 
   if (loading || !shop) {
-    return <Loader />;
+    return (
+      <View style={styles.container}>
+        <Skeleton width="100%" height={260} borderRadius={0} />
+        <View style={[styles.mainInfoCard, { marginTop: -80 }]}>
+           <Skeleton width={100} height={100} borderRadius={32} style={{ marginTop: -70 }} />
+           <Skeleton width={200} height={24} style={{ marginTop: 20 }} />
+           <Skeleton width={120} height={14} style={{ marginTop: 10 }} />
+           <Skeleton width="100%" height={80} borderRadius={20} style={{ marginTop: 24 }} />
+        </View>
+        <View style={{ padding: 20, gap: 20 }}>
+           <Skeleton width="100%" height={150} borderRadius={24} />
+           <Skeleton width="100%" height={300} borderRadius={24} />
+        </View>
+      </View>
+    );
   }
 
   return (

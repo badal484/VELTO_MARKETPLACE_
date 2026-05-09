@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { 
   getPendingShops, getAllShops, approveShop, rejectShop,
-  getUsers, deleteUser, getProducts, deleteProduct, getStats,
+  getUsers, getPendingRiders, deleteUser, getProducts, deleteProduct, getStats,
   getAllOrders, verifyRider, rejectRider, toggleUserBlock, forceReleaseOrder,
   verifyPayment, updateOrderStatus, getAllTransactions
 } from '../controllers/adminController';
@@ -20,6 +20,7 @@ router.patch('/shops/:id/approve', approveShop);
 router.patch('/shops/:id/reject', rejectShop);
 
 router.get('/users', getUsers);
+router.get('/users/pending-riders', getPendingRiders);
 router.delete('/users/:id', deleteUser);
 router.patch('/users/:id/toggle-block', toggleUserBlock);
 router.patch('/users/:id/verify-rider', verifyRider);

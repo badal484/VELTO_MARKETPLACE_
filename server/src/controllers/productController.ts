@@ -89,7 +89,15 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
 
 export const getMyProducts = async (req: Request, res: Response): Promise<void> => {
   try {
-    const products = await Product.find({ seller: req.user?._id }).populate('shop').lean();
+    const limit = Number(req.query.limit) || 20;
+    const page = Number(req.query.page) || 1;
+
+    const products = await Product.find({ seller: req.user?._id })
+      .populate('shop', 'name logo address isVerified')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
     res.json({ success: true, data: products });
   } catch (error) {
     handleError(error, res);

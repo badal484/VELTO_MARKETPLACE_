@@ -167,6 +167,18 @@ export const rejectShop = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+export const getPendingRiders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await User.find({ riderStatus: 'pending' })
+      .select('name email role createdAt isRiderVerified riderStatus riderDocuments licenseNumber vehicleDetails phoneNumber avatar')
+      .sort({ createdAt: -1 });
+    
+    res.json({ success: true, data: users });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await User.aggregate([

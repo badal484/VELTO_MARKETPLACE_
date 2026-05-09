@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import { Skeleton } from '../../components/common/Skeleton';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {format} from 'date-fns';
 import {IWalletTransaction, IUser} from '@shared/types';
@@ -208,7 +208,14 @@ export default function AdminTransactionsScreen({route, navigation}: any) {
         }
       />
 
-      {loading && !refreshing && <Loader fullScreen />}
+      {loading && !refreshing && (
+        <View style={{ padding: 16, gap: 16 }}>
+           <Skeleton width="100%" height={100} borderRadius={20} />
+           <Skeleton width="100%" height={150} borderRadius={20} />
+           <Skeleton width="100%" height={150} borderRadius={20} />
+           <Skeleton width="100%" height={150} borderRadius={20} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }

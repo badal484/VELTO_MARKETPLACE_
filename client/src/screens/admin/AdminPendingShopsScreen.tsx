@@ -12,22 +12,29 @@ import {
   View,
   Text,
   StyleSheet,
-  SectionList,
   RefreshControl,
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
   Alert,
+  FlatList,
 } from 'react-native';
 import { theme } from '../../theme';
 import { axiosInstance } from '../../api/axiosInstance';
-import { Loader } from '../../components/common/Loader';
 import { Card } from '../../components/common/Card';
+
 import Icon from 'react-native-vector-icons/Ionicons';
 import { IShop, IUser } from '@shared/types';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { useSocket } from '../../hooks/useSocket';
-import Animated, { FadeInDown } from '../../mocks/reanimated';
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from '../../mocks/reanimated';
 import { useToast } from '../../hooks/useToast';
 
 // ── Reusable detail row ──────────────────────────────────────────────────────
@@ -105,19 +112,17 @@ export default function AdminPendingShopsScreen({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'shops' | 'riders'>('shops');
   const { socket, isConnected } = useSocket();
 
   const fetchData = useCallback(async () => {
     try {
-      const [shopsRes, usersRes] = await Promise.all([
+      const [shopsRes, ridersRes] = await Promise.all([
         axiosInstance.get('/api/admin/shops/pending'),
-        axiosInstance.get('/api/admin/users'),
+        axiosInstance.get('/api/admin/users/pending-riders'),
       ]);
       setPendingShops(shopsRes.data.data || []);
-      const riders = (usersRes.data.data || []).filter(
-        (u: IUser) => (u as any).riderStatus === 'pending',
-      );
-      setPendingRiders(riders);
+      setPendingRiders(ridersRes.data.data || []);
     } catch (error) {
       showToast({
         message: 'Failed to load pending applications',
@@ -327,9 +332,47 @@ export default function AdminPendingShopsScreen({
     },
   ];
 
-  if (loading) return <Loader />;
+  if (loading) return <PendingSkeleton />;
 
   const totalPending = pendingShops.length + pendingRiders.length;
+
+  const renderContent = () => {
+    const data = activeTab === 'shops' ? pendingShops : pendingRiders;
+    const renderItem = activeTab === 'shops' ? renderShopItem : renderRiderItem;
+    const emptyLabel = activeTab === 'shops' ? 'shop applications' : 'rider applications';
+
+    return (
+      <FlatList
+        data={data as any[]}
+        keyExtractor={(item) => String(item._id)}
+        renderItem={({item, index}) => renderItem({item, index})}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.sectionEmpty}>
+            <Icon
+              name="checkmark-done-outline"
+              size={32}
+              color={theme.colors.success}
+            />
+            <Text style={styles.sectionEmptyText}>
+              All caught up! No pending {emptyLabel}.
+            </Text>
+          </View>
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              fetchData();
+            }}
+            tintColor={theme.colors.primary}
+          />
+        }
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -338,8 +381,7 @@ export default function AdminPendingShopsScreen({
         <View>
           <Text style={styles.title}>Pending</Text>
           <Text style={styles.subtitle}>
-            {totalPending} application{totalPending !== 1 ? 's' : ''} awaiting
-            review
+            Review applications and documents
           </Text>
         </View>
         <View
@@ -359,28 +401,44 @@ export default function AdminPendingShopsScreen({
         </View>
       </View>
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(item, index) => String(item._id || index)}
-        renderItem={({ item, index, section }) =>
-          (section as any).renderItem({ item, index })
-        }
-        renderSectionHeader={renderSectionHeader}
-        renderSectionFooter={renderEmpty}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        stickySectionHeadersEnabled={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              fetchData();
-            }}
-            tintColor={theme.colors.primary}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'shops' && styles.activeTab]}
+          onPress={() => setActiveTab('shops')}>
+          <Icon 
+            name="storefront" 
+            size={18} 
+            color={activeTab === 'shops' ? theme.colors.primary : theme.colors.muted} 
           />
-        }
-      />
+          <Text style={[styles.tabText, activeTab === 'shops' && styles.activeTabText]}>
+            Shops
+          </Text>
+          {pendingShops.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{pendingShops.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'riders' && styles.activeTab]}
+          onPress={() => setActiveTab('riders')}>
+          <Icon 
+            name="bicycle" 
+            size={18} 
+            color={activeTab === 'riders' ? theme.colors.primary : theme.colors.muted} 
+          />
+          <Text style={[styles.tabText, activeTab === 'riders' && styles.activeTabText]}>
+            Riders
+          </Text>
+          {pendingRiders.length > 0 && (
+            <View style={[styles.tabBadge, { backgroundColor: '#EEF2FF' }]}>
+              <Text style={[styles.tabBadgeText, { color: '#4F46E5' }]}>{pendingRiders.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {renderContent()}
     </SafeAreaView>
   );
 }
@@ -416,7 +474,51 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: theme.colors.muted,
   },
-  list: { padding: 16, paddingBottom: 60 },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  activeTab: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D7FF',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.muted,
+  },
+  activeTabText: {
+    color: theme.colors.primary,
+  },
+  tabBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#D97706',
+  },
+  list: { padding: 16, paddingBottom: 60, flexGrow: 1 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1125,3 +1227,56 @@ const RiderCard = ({
     </Animated.View>
   );
 };
+const PendingSkeleton = () => {
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 800 }),
+        withTiming(0.4, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+         <View style={{ gap: 8 }}>
+            <Animated.View style={[animatedStyle, { width: 120, height: 24, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+            <Animated.View style={[animatedStyle, { width: 200, height: 14, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+         </View>
+         <Animated.View style={[animatedStyle, { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F1F5F9' }]} />
+      </View>
+      <View style={styles.tabBar}>
+         <View style={[styles.tab, { backgroundColor: '#F1F5F9', borderWidth: 0 }]} />
+         <View style={[styles.tab, { backgroundColor: '#F1F5F9', borderWidth: 0 }]} />
+      </View>
+      <View style={{ padding: 16, gap: 12 }}>
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={[styles.card, { shadowOpacity: 0, padding: 16 }]}>
+             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                <Animated.View style={[animatedStyle, { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F1F5F9' }]} />
+                <View style={{ flex: 1, gap: 8 }}>
+                   <Animated.View style={[animatedStyle, { width: '70%', height: 16, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+                   <Animated.View style={[animatedStyle, { width: '40%', height: 12, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+                </View>
+             </View>
+             <Animated.View style={[animatedStyle, { width: '100%', height: 40, borderRadius: 10, backgroundColor: '#F1F5F9', marginBottom: 12 }]} />
+             <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1, height: 42, borderRadius: 12, backgroundColor: '#F1F5F9' }} />
+                <View style={{ flex: 1, height: 42, borderRadius: 12, backgroundColor: '#F1F5F9' }} />
+             </View>
+          </View>
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+};
+

@@ -26,7 +26,7 @@ export const locationService = {
         {
           params: {
             text: query,
-            filter: `rect:${KARNATAKA_RECT}`,
+            filter: 'countrycode:in',
             limit: 5,
             apiKey: GEOAPIFY_API_KEY,
           },

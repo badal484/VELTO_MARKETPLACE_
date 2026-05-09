@@ -22,7 +22,7 @@ export const initSocket = (httpServer: HttpServer) => {
       socket.join(conversationId);
     });
 
-    socket.on(SocketEvent.SEND_MESSAGE, (data: { conversationId: string; text: string; receiverId: string; message: IMessage }) => {
+    socket.on(SocketEvent.SEND_MESSAGE, async (data: { conversationId: string; text: string; receiverId: string; message: IMessage }) => {
       // 1. Emit to the conversation room (for those currently in the chat)
       io.to(data.conversationId).emit(SocketEvent.RECEIVE_MESSAGE, data.message);
       
@@ -31,6 +31,26 @@ export const initSocket = (httpServer: HttpServer) => {
         conversationId: data.conversationId,
         message: data.message
       });
+
+      // 3. Push Notification via FCM
+      try {
+        const { FCMService } = require('../services/fcmService');
+        const { User } = require('../models/User');
+        const sender = await User.findById(data.message.sender).select('name');
+        
+        await FCMService.sendToUser(
+          data.receiverId,
+          sender ? `New message from ${sender.name}` : 'New Message',
+          data.text,
+          { 
+            type: 'CHAT', 
+            conversationId: data.conversationId,
+            senderId: data.message.sender.toString()
+          }
+        );
+      } catch (err) {
+        console.error('FCM Message Push Error:', err);
+      }
     });
 
     socket.on(SocketEvent.TYPING, (data: { conversationId: string; userId: string }) => {

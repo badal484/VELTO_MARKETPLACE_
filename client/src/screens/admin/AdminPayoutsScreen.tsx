@@ -325,7 +325,26 @@ export default function AdminPayoutsScreen({navigation}: any) {
         </View>
       </Modal>
 
-      {loading && !refreshing && <Loader fullScreen />}
+      {loading && !refreshing && (
+        <View style={{ padding: 16, gap: 16 }}>
+          {[1, 2, 3].map(i => (
+            <View key={i} style={[styles.card, { opacity: 0.6 }]}>
+               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <View style={{ gap: 8, flex: 1 }}>
+                     <View style={{ height: 18, width: '60%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                     <View style={{ height: 12, width: '40%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                  </View>
+                  <View style={{ height: 24, width: 60, backgroundColor: '#E2E8F0', borderRadius: 6 }} />
+               </View>
+               <View style={styles.divider} />
+               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <View style={{ height: 12, width: 80, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                  <View style={{ height: 20, width: 80, backgroundColor: '#E2E8F0', borderRadius: 8 }} />
+               </View>
+            </View>
+          ))}
+        </View>
+      )}
     </SafeAreaView>
   );
 }

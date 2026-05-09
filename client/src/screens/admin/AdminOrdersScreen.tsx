@@ -110,14 +110,13 @@ export default function AdminOrdersScreen({route, navigation}: any) {
     }
   };
 
-  const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
+  const renderOrder = useCallback(({item, index}: {item: IOrder; index: number}) => {
     const product = item.product as unknown as IProduct;
     const shop = item.shop as unknown as IShop;
     const buyer = item.buyer as unknown as IUser;
 
     const isCompleted = item.status === OrderStatus.COMPLETED;
     const isCancelled = item.status === OrderStatus.CANCELLED;
-    const isPending = item.status === OrderStatus.PENDING;
 
     return (
       <Animated.View entering={FadeInDown.delay(index * 50)}>
@@ -190,9 +189,32 @@ export default function AdminOrdersScreen({route, navigation}: any) {
         </Card>
       </Animated.View>
     );
-  };
+  }, [navigation, showToast]);
 
-  if (loading && !refreshing) return <Loader />;
+  if (loading && !refreshing && orders.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+           <View style={{ gap: 8 }}>
+              <View style={{ height: 28, width: 180, backgroundColor: '#E2E8F0', borderRadius: 6 }} />
+              <View style={{ height: 16, width: 250, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+           </View>
+        </View>
+        <View style={{ padding: 16, gap: 16 }}>
+          {[1, 2, 3].map(i => (
+            <View key={i} style={[styles.orderCard, { opacity: 0.6 }]}>
+               <View style={{ height: 20, width: '70%', backgroundColor: '#E2E8F0', borderRadius: 4, marginBottom: 12 }} />
+               <View style={{ height: 16, width: '40%', backgroundColor: '#E2E8F0', borderRadius: 4, marginBottom: 20 }} />
+               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <View style={{ height: 32, width: 100, backgroundColor: '#E2E8F0', borderRadius: 8 }} />
+                  <View style={{ height: 32, width: 80, backgroundColor: '#E2E8F0', borderRadius: 8 }} />
+               </View>
+            </View>
+          ))}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -226,6 +248,10 @@ export default function AdminOrdersScreen({route, navigation}: any) {
         keyExtractor={item => String(item._id)}
         renderItem={renderOrder}
         contentContainerStyle={styles.list}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchOrders(); }} />
         }

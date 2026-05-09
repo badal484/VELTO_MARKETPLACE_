@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import { Skeleton } from '../../components/common/Skeleton';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IProduct, IShop} from '@shared/types';
@@ -139,7 +139,19 @@ export default function AdminProductsScreen() {
   );
 
   if (loading && !refreshing) {
-    return <Loader />;
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.headerTitleContainer}>
+           <Skeleton width={200} height={32} />
+           <Skeleton width={240} height={16} style={{ marginTop: 8 }} />
+        </View>
+        <View style={{ padding: 16, gap: 12 }}>
+           {[1, 2, 3, 4, 5].map(i => (
+             <Skeleton key={i} width="100%" height={100} borderRadius={16} />
+           ))}
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (

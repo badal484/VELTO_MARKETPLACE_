@@ -17,7 +17,14 @@ import {Loader} from '../../components/common/Loader';
 import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {IProduct} from '@shared/types';
-import Animated, {FadeInUp} from '../../mocks/reanimated';
+import Animated, {
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from '../../mocks/reanimated';
 
 const {width} = Dimensions.get('window');
 const columnWidth = (width - 48) / 2;
@@ -88,7 +95,7 @@ export default function WishlistScreen({navigation}: WishlistProps) {
     </Animated.View>
   );
 
-  if (loading) return <Loader />;
+  if (loading) return <WishlistSkeleton />;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -194,3 +201,40 @@ const styles = StyleSheet.create({
   },
   startBtn: {marginTop: 32, width: '100%', borderRadius: 14},
 });
+const WishlistSkeleton = () => {
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 800 }),
+        withTiming(0.4, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+         <Animated.View style={[animatedStyle, { width: 140, height: 32, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 16, gap: 16 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <View key={i} style={{ width: columnWidth, gap: 12 }}>
+            <Animated.View style={[animatedStyle, { width: '100%', height: 180, borderRadius: 20, backgroundColor: '#F1F5F9' }]} />
+            <Animated.View style={[animatedStyle, { width: '80%', height: 14, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+            <Animated.View style={[animatedStyle, { width: '50%', height: 14, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+          </View>
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+};
+
+import {useEffect} from 'react';

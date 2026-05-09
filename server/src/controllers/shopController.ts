@@ -7,7 +7,7 @@ import { Shop } from '../models/Shop';
 export const createShop = async (req: Request, res: Response): Promise<void> => {
   try {
     const validatedData = createShopSchema.parse(req.body);
-    const shop = await ShopService.createShop(req.user?._id.toString()!, validatedData, req.file);
+    const shop = await ShopService.createShop(req.user?._id.toString()!, validatedData, req.files);
     res.status(201).json({ success: true, data: shop });
   } catch (error) {
     handleError(error, res);
@@ -33,7 +33,7 @@ export const getShop = async (req: Request, res: Response): Promise<void> => {
 export const editShop = async (req: Request, res: Response): Promise<void> => {
   try {
     // Only partial validation for edit
-    const shop = await ShopService.editShop(req.params.id, req.user?._id.toString()!, req.body, req.file);
+    const shop = await ShopService.editShop(req.params.id, req.user?._id.toString()!, req.body, req.files);
     res.json({ success: true, data: shop });
   } catch (error) {
     handleError(error, res);

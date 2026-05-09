@@ -20,6 +20,9 @@ export class WorkflowService {
         const buyerId = (order.buyer as any)?._id?.toString() || order.buyer?.toString();
         const sellerId = (order.seller as any)?._id?.toString() || order.seller?.toString();
 
+        const { NotificationService } = require('./notificationService');
+        const { FCMService } = require('./fcmService');
+
         // Populate full order details for real-time UI synchronization
         const fullOrder = await Order.findById(orderId)
           .populate('product')
@@ -29,12 +32,13 @@ export class WorkflowService {
           .populate('rider', 'name avatar phoneNumber');
 
         if (buyerId) {
-          await Notification.create({
+          await NotificationService.send({
             recipient: buyerId,
             type: NotificationType.ORDER,
             title: 'Order Update',
             message: notifMessage,
             relatedId: orderId,
+            data: { status, orderId }
           });
           io.to(buyerId).emit('order_status_updated', fullOrder);
         }

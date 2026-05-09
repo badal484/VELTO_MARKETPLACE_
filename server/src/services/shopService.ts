@@ -7,15 +7,29 @@ import { io } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
 
 export class ShopService {
-  static async createShop(owner: string, data: any, file?: any) {
+  static async createShop(owner: string, data: any, files?: any) {
     const existingShop = await Shop.findOne({ owner });
     if (existingShop) {
       throw new AppError('You already have a shop registered', 400);
     }
 
+    // Parse stringified nested objects if they exist (multipart/form-data compatibility)
+    ['location', 'bankDetails', 'contactInfo', 'detailedAddress'].forEach(field => {
+      if (typeof data[field] === 'string') {
+        try { data[field] = JSON.parse(data[field]); } catch (e) {}
+      }
+    });
+
     let logoUrl = data.logo;
-    if (file) {
-      logoUrl = await uploadImage(file.buffer, `shop_logo_${Date.now()}`);
+    let coverImageUrl = data.coverImage;
+
+    if (files) {
+      if (files.logo && files.logo[0]) {
+        logoUrl = await uploadImage(files.logo[0].buffer, `shop_logo_${Date.now()}`);
+      }
+      if (files.coverImage && files.coverImage[0]) {
+        coverImageUrl = await uploadImage(files.coverImage[0].buffer, `shop_cover_${Date.now()}`);
+      }
     }
 
     const { location: locationData, ...rest } = data;
@@ -30,6 +44,7 @@ export class ShopService {
       },
       owner,
       logo: logoUrl,
+      coverImage: coverImageUrl,
       isVerified: false,
     });
 
@@ -70,13 +85,25 @@ export class ShopService {
     };
   }
 
-  static async editShop(shopId: string, owner: string, data: any, file?: any) {
+  static async editShop(shopId: string, owner: string, data: any, files?: any) {
     const shop = await Shop.findById(shopId);
     if (!shop) throw new AppError('Shop not found', 404);
     if (shop.owner.toString() !== owner) throw new AppError('Not authorized to edit this shop', 403);
 
-    if (file) {
-      data.logo = await uploadImage(file.buffer, `shop_logo_${Date.now()}`);
+    // Parse stringified nested objects if they exist (multipart/form-data compatibility)
+    ['location', 'bankDetails', 'contactInfo', 'detailedAddress'].forEach(field => {
+      if (typeof data[field] === 'string') {
+        try { data[field] = JSON.parse(data[field]); } catch (e) {}
+      }
+    });
+
+    if (files) {
+      if (files.logo && files.logo[0]) {
+        data.logo = await uploadImage(files.logo[0].buffer, `shop_logo_${Date.now()}`);
+      }
+      if (files.coverImage && files.coverImage[0]) {
+        data.coverImage = await uploadImage(files.coverImage[0].buffer, `shop_cover_${Date.now()}`);
+      }
     }
 
     const { location: locationData, ...rest } = data;

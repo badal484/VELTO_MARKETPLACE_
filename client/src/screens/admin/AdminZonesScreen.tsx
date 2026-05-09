@@ -108,8 +108,21 @@ export default function AdminZonesScreen() {
         <Switch
           value={item.isActive}
           onValueChange={async (val) => {
-            await axiosInstance.put(`/api/zones/${item._id}`, {isActive: val});
-            fetchZones();
+            // Optimistic Update
+            setZones(current => 
+              current.map(z => z._id === item._id ? {...z, isActive: val} : z)
+            );
+            
+            try {
+              await axiosInstance.put(`/api/zones/${item._id}`, {isActive: val});
+              // Silent refresh to ensure sync
+              const res = await axiosInstance.get('/api/zones/all');
+              if (res.data.success) setZones(res.data.data);
+            } catch (error) {
+              // Revert on error
+              showToast({message: 'Failed to update zone status', type: 'error'});
+              fetchZones();
+            }
           }}
           trackColor={{false: '#D1D5DB', true: theme.colors.primary + '80'}}
           thumbColor={item.isActive ? theme.colors.primary : '#9CA3AF'}
@@ -265,7 +278,20 @@ export default function AdminZonesScreen() {
         </View>
       </Modal>
 
-      {loading && !modalVisible && <Loader fullScreen />}
+      {loading && !modalVisible && (
+        <View style={{ padding: 16, gap: 16 }}>
+          {[1, 2, 3, 4].map(i => (
+            <View key={i} style={[styles.zoneCard, { opacity: 0.6 }]}>
+               <View style={{ height: 20, width: '60%', backgroundColor: '#E2E8F0', borderRadius: 4, marginBottom: 8 }} />
+               <View style={{ height: 12, width: '40%', backgroundColor: '#E2E8F0', borderRadius: 4, marginBottom: 16 }} />
+               <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ height: 24, width: 80, backgroundColor: '#E2E8F0', borderRadius: 8 }} />
+                  <View style={{ height: 24, width: 80, backgroundColor: '#E2E8F0', borderRadius: 8 }} />
+               </View>
+            </View>
+          ))}
+        </View>
+      )}
     </SafeAreaView>
   );
 }

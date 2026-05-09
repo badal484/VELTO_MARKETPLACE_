@@ -15,6 +15,7 @@ import {
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {Loader} from '../../components/common/Loader';
+import {ShopListSkeleton} from '../../components/common/Skeleton';
 import {Card} from '../../components/common/Card';
 import {Badge} from '../../components/common/Badge';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -115,7 +116,17 @@ export default function AdminAllShopsScreen({navigation}: {navigation: any}) {
     }
   };
 
-  if (loading && !refreshing) return <Loader />;
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.title}>Shop Directory</Text>
+          <Text style={styles.subtitle}>Scanning Velto ecosystem...</Text>
+        </View>
+        <ShopListSkeleton />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

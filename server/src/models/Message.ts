@@ -13,7 +13,8 @@ const messageSchema = new Schema<IMessageDocument>({
   receiver: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   text: { type: String, required: true },
   read: { type: Boolean, default: false },
-  isSystem: { type: Boolean, default: false }
+  isSystem: { type: Boolean, default: false },
+  audioDuration: { type: Number }
 }, { timestamps: true });
 
 export const Message = mongoose.model<IMessageDocument>('Message', messageSchema);

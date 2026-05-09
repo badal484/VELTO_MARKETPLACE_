@@ -151,7 +151,7 @@ export default function AdminUsersScreen() {
     }
   };
 
-  const renderUser = ({item, index}: {item: IUser; index: number}) => {
+  const renderUser = useCallback(({item, index}: {item: IUser; index: number}) => {
     const roleConfig = getRoleConfig(item.role);
     return (
       <Animated.View entering={FadeInUp.delay(index * 40).duration(500)}>
@@ -234,12 +234,14 @@ export default function AdminUsersScreen() {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  }, [fetchUsers]);
 
   const renderFilter = (id: typeof activeFilter, label: string) => (
     <TouchableOpacity
       style={[styles.filterBtn, activeFilter === id && styles.activeFilterBtn]}
-      onPress={() => setActiveFilter(id)}>
+      onPress={() => setActiveFilter(id)}
+      activeOpacity={0.8}
+    >
       <Text style={[styles.filterText, activeFilter === id && styles.activeFilterText]}>
         {label}
       </Text>
@@ -247,7 +249,29 @@ export default function AdminUsersScreen() {
   );
 
   if (loading && !refreshing && users.length === 0) {
-    return <Loader />;
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.title}>User Management</Text>
+          <View style={styles.filterBar}>
+             {[1, 2, 3].map(i => (
+                <View key={i} style={[styles.filterBtn, { width: 80, height: 36, backgroundColor: '#E2E8F0', borderTransparent: true }]} />
+             ))}
+          </View>
+        </View>
+        <View style={{ padding: 16, gap: 12 }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <View key={i} style={[styles.card, { opacity: 0.6, flexDirection: 'row', alignItems: 'center' }]}>
+               <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: '#E2E8F0' }} />
+               <View style={{ flex: 1, marginLeft: 16, gap: 8 }}>
+                  <View style={{ height: 16, width: '60%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                  <View style={{ height: 12, width: '40%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+               </View>
+            </View>
+          ))}
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -272,6 +296,10 @@ export default function AdminUsersScreen() {
           renderItem={renderUser}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Icon name="people-outline" size={64} color={theme.colors.muted} />

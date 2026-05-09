@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo, memo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, memo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -55,24 +55,7 @@ interface HomeScreenProps {
 }
 
 // Distance calculation helper (Haversine formula)
-const calculateDistance = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) => {
-  const R = 6371; // km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
+
 
 const ProductCard = memo(
   ({
@@ -193,18 +176,7 @@ Link: https://velto.app/product/${item._id}`,
                       color={theme.colors.primary}
                     />
                     <Text style={styles.distanceText}>
-                      {(item.distance !== undefined
-                        ? item.distance
-                        : calculateDistance(
-                            currentCoords!.lat,
-                            currentCoords!.lng,
-                            item.location?.coordinates?.[1] ??
-                              (item.shop as any)?.location?.coordinates?.[1],
-                            item.location?.coordinates?.[0] ??
-                              (item.shop as any)?.location?.coordinates?.[0],
-                          )
-                      ).toFixed(1)}{' '}
-                      km
+                      {(item.distance || 0).toFixed(1)} km
                     </Text>
                   </View>
                 ) : (
@@ -374,7 +346,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   // Initial load + global mode toggle: full GPS re-fetch
   useEffect(() => {
-    getUserLocationAndFetch();
+    // Only fetch if we don't have coords OR we're changing modes
+    if (!currentCoords || isGlobalMode) {
+      getUserLocationAndFetch();
+    }
   }, [isGlobalMode]);
 
   // Category change: reuse stored coords, no GPS re-fetch needed
@@ -420,6 +395,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const getUserLocationAndFetch = async () => {
+    if (loading && currentCoords) return; // Already fetching or have coords
     setLoading(true);
     try {
       if (Platform.OS === 'android' || Platform.OS === 'ios') {
@@ -437,11 +413,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               checkZoneServiceability(coords.lat, coords.lng);
             },
             error => {
-              const fallback = { lat: 12.9716, lng: 77.5946 };
-              setCurrentCoords(fallback);
-              fetchProducts(fallback);
-              setAddressName('Bangalore');
-              checkZoneServiceability(fallback.lat, fallback.lng);
+              console.log('Location Error/Timeout:', error);
+              // Only fallback to Bangalore if we TRULY don't have coords and it's not a temporary timeout
+              if (!currentCoords) {
+                const fallback = { lat: 12.9716, lng: 77.5946 };
+                setCurrentCoords(fallback);
+                fetchProducts(fallback);
+                setAddressName('Bangalore');
+                checkZoneServiceability(fallback.lat, fallback.lng);
+              } else {
+                setLoading(false);
+              }
             },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
           );
@@ -500,6 +482,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       if (coords && coords.lat && coords.lng) {
         params.push(`lat=${coords.lat}`);
         params.push(`lng=${coords.lng}`);
+        if (!isGlobalMode) params.push('radius=5');
       }
 
       if (params.length > 0) {
@@ -525,7 +508,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     getUserLocationAndFetch();
   };
 
-  const handleToggleWishlist = async (productId: string) => {
+  const handleToggleWishlist = useCallback(async (productId: string) => {
     try {
       // Optimistic Update
       setProducts(current =>
@@ -537,11 +520,11 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       await axiosInstance.post('/api/wishlist/toggle', { productId });
     } catch (err) {
       // Revert on error
-      fetchProducts(currentCoords);
+      if (currentCoords) fetchProducts(currentCoords);
     }
-  };
+  }, [currentCoords]);
 
-  const renderProduct = ({
+  const renderProduct = useCallback(({
     item,
     index,
   }: {
@@ -552,14 +535,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       item={item}
       index={index}
       navigation={navigation}
-      handleToggleWishlist={handleToggleToggleWishlist}
+      handleToggleWishlist={handleToggleWishlist}
       currentCoords={currentCoords}
     />
-  );
-
-  const handleToggleToggleWishlist = (productId: string) => {
-    handleToggleWishlist(productId);
-  };
+  ), [navigation, handleToggleWishlist, currentCoords]);
 
   const categoriesList: {
     id: Category | 'GLOBAL' | null;
@@ -570,9 +549,11 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     { id: 'GLOBAL', icon: 'globe-outline', label: 'Global' },
     { id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics' },
     { id: Category.FOOD, icon: 'fast-food', label: 'Food' },
+    { id: Category.PHARMACY, icon: 'medkit', label: 'Pharmacy' },
     { id: Category.CLOTHING, icon: 'shirt', label: 'Clothing' },
     { id: Category.HOME, icon: 'home', label: 'Home' },
     { id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction' },
+    { id: Category.SPORTS, icon: 'basketball', label: 'Sports' },
     { id: Category.OTHER, icon: 'apps', label: 'Other' },
   ];
 
@@ -604,7 +585,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             isActive && styles.categoryBtnTextActive,
           ]}
         >
-          {item.id}
+          {item.label}
         </Text>
       </TouchableOpacity>
     );
@@ -824,23 +805,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     </View>
   );
 
-  const displayedProducts = useMemo(() => {
-    return isGlobalMode
-      ? products
-      : products.filter(p => {
-          if (!currentCoords || !p.shop?.location?.coordinates) return true;
-          const d = calculateDistance(
-            currentCoords.lat,
-            currentCoords.lng,
-            p.shop.location.coordinates[1],
-            p.shop.location.coordinates[0],
-          );
-          return d <= 5;
-        });
-  }, [isGlobalMode, products, currentCoords]);
+  const displayedProducts = products;
 
   if (loading && !refreshing && !currentCoords) {
-    return <Loader />;
+    return <HomeSkeleton />;
   }
 
   return (
@@ -855,6 +823,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={styles.columnWrapper}
+        removeClippedSubviews={Platform.OS === 'android'}
+        initialNumToRender={6}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        getItemLayout={(data, index) => (
+          {length: 280, offset: 280 * index, index}
+        )}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1286,7 +1261,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.muted,
     textTransform: 'uppercase',
-    marginBottom: 6,
     letterSpacing: 0.5,
   },
   productTitle: {
@@ -1545,3 +1519,66 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
 });
+const HomeSkeleton = () => {
+  const insets = useSafeAreaInsets();
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 800 }),
+        withTiming(0.4, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.headerContainer}>
+        <View style={styles.topRow}>
+          <View style={styles.topRowLeft}>
+             <Animated.View style={[animatedStyle, { width: 120, height: 16, backgroundColor: '#E2E8F0', borderRadius: 4 }]} />
+             <Animated.View style={[animatedStyle, { width: 180, height: 28, backgroundColor: '#E2E8F0', borderRadius: 8, marginTop: 12 }]} />
+          </View>
+          <View style={[styles.countBadge, { backgroundColor: '#F1F5F9' }]} />
+        </View>
+        <Animated.View style={[animatedStyle, { width: '100%', height: 48, backgroundColor: '#F1F5F9', borderRadius: 14, marginTop: 16 }]} />
+      </View>
+
+      <View style={{ marginTop: 20 }}>
+        <FlatList
+          horizontal
+          data={[1, 2, 3, 4]}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}
+          renderItem={() => (
+            <View style={{ alignItems: 'center' }}>
+              <Animated.View style={[animatedStyle, { width: 46, height: 46, borderRadius: 16, backgroundColor: '#F1F5F9' }]} />
+              <Animated.View style={[animatedStyle, { width: 40, height: 8, backgroundColor: '#E2E8F0', borderRadius: 4, marginTop: 8 }]} />
+            </View>
+          )}
+        />
+      </View>
+
+      <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+         <Animated.View style={[animatedStyle, { width: '100%', height: 180, borderRadius: 24, backgroundColor: '#F1F5F9' }]} />
+      </View>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 16, gap: 16, marginTop: 20 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <View key={i} style={{ width: (width - 48) / 2, gap: 12 }}>
+            <Animated.View style={[animatedStyle, { width: '100%', aspectRatio: 1, borderRadius: 20, backgroundColor: '#F1F5F9' }]} />
+            <Animated.View style={[animatedStyle, { width: '80%', height: 14, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+            <Animated.View style={[animatedStyle, { width: '50%', height: 14, borderRadius: 4, backgroundColor: '#E2E8F0' }]} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};

@@ -16,6 +16,7 @@ export enum Category {
   SPORTS = 'Sports',
   TOYS = 'Toys',
   HEALTH = 'Health',
+  PHARMACY = 'Pharmacy',
   OTHER = 'Other',
 }
 
@@ -238,6 +239,7 @@ export interface IMessage {
   text: string;
   read?: boolean;
   isSystem?: boolean;
+  audioDuration?: number; // in milliseconds
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }

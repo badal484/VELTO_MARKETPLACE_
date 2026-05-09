@@ -21,7 +21,11 @@ export const uploadAudio = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = ['audio/m4a', 'audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/mp3', 'audio/wav', 'audio/x-m4a', 'audio/x-mpeg', 'application/octet-stream'];
+    const allowed = [
+      'audio/m4a', 'audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/mp3', 
+      'audio/wav', 'audio/x-m4a', 'audio/x-mpeg', 'application/octet-stream',
+      'video/mp4', 'audio/ogg', 'audio/webm', 'audio/3gpp'
+    ];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {

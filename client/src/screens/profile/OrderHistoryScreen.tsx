@@ -17,7 +17,7 @@ import { IOrder, IProduct, IShop, OrderStatus, Role } from '@shared/types';
 import { getStatusDisplay } from '@shared/constants/orderStatus';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import { Skeleton } from '../../components/common/Skeleton';
 import {Card} from '../../components/common/Card';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeInDown, FadeInUp} from '../../mocks/reanimated';
@@ -206,7 +206,7 @@ export default function OrderHistoryScreen({
     }
   };
 
-  const renderOrder = ({item, index}: {item: IOrder; index: number}) => {
+  const renderOrder = useCallback(({item, index}: {item: IOrder; index: number}) => {
     const statusDisplay = getStatusDisplay(item.status as OrderStatus) || { label: (item.status || 'Active').replace(/_/g, ' '), color: theme.colors.primary };
     const { label, color } = statusDisplay;
     const orderDate = new Date(item.createdAt ?? Date.now()).toLocaleDateString('en-IN', {
@@ -389,10 +389,37 @@ export default function OrderHistoryScreen({
         </Card>
       </Animated.View>
     );
-  };
+  }, [navigation, showToast, riderUpdates]);
 
-  if (loading && !refreshing) {
-    return <Loader />;
+  if (loading && !refreshing && orders.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+           <View style={{ gap: 8 }}>
+              <View style={{ height: 28, width: 200, backgroundColor: '#E2E8F0', borderRadius: 6 }} />
+              <View style={{ height: 16, width: 250, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+           </View>
+        </View>
+        <View style={{ padding: 16, gap: 16 }}>
+           {[1, 2, 3].map(i => (
+             <View key={i} style={[styles.orderCard, { opacity: 0.6 }]}>
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                   <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#F1F5F9' }} />
+                   <View style={{ flex: 1, gap: 8 }}>
+                      <View style={{ height: 16, width: '60%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                      <View style={{ height: 12, width: '40%', backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                   </View>
+                </View>
+                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 }} />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                   <View style={{ height: 20, width: 100, backgroundColor: '#E2E8F0', borderRadius: 6 }} />
+                   <View style={{ height: 20, width: 80, backgroundColor: '#E2E8F0', borderRadius: 6 }} />
+                </View>
+             </View>
+           ))}
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -442,6 +469,10 @@ export default function OrderHistoryScreen({
         renderItem={renderOrder}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

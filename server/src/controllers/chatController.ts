@@ -186,7 +186,7 @@ export const getMessages = async (req: Request, res: Response): Promise<void> =>
 
 export const sendMessage = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { conversationId, receiverId, text } = req.body;
+    const { conversationId, receiverId, text, audioDuration } = req.body;
 
     if (!conversationId || !receiverId || !text) {
       throw new AppError('conversationId, receiverId, and text are required.', 400);
@@ -219,6 +219,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
       sender: senderId,
       receiver: receiverId,
       text: text.trim(),
+      audioDuration
     });
 
     await Conversation.findByIdAndUpdate(conversationId, {

@@ -5,9 +5,9 @@ import { upload } from '../middleware/upload';
 
 const router = Router();
 
-router.post('/', protect, upload.single('logo'), createShop);
+router.post('/', protect, upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'coverImage', maxCount: 1 }]), createShop);
 router.get('/my', protect, getMyShop);
 router.get('/:id', getShop);
-router.put('/:id', protect, upload.single('logo'), editShop);
+router.put('/:id', protect, upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'coverImage', maxCount: 1 }]), editShop);
 
 export default router;

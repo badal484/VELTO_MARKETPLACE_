@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import {Skeleton} from '../../components/common/Skeleton';
 import {useAuth} from '../../hooks/useAuth';
 import {useNotifications} from '../../context/NotificationContext';
 import {useSocket} from '../../hooks/useSocket';
@@ -203,7 +203,18 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
   };
 
   if (loading && !refreshing) {
-    return <Loader />;
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+           <Skeleton width={120} height={32} />
+        </View>
+        <View style={{ padding: 16, gap: 12 }}>
+           {[1, 2, 3, 4, 5].map(i => (
+             <Skeleton key={i} width="100%" height={80} borderRadius={20} />
+           ))}
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (

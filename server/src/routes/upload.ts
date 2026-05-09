@@ -62,6 +62,12 @@ router.post('/bulk', protect, upload.array('images', 5), async (req: Request, re
  * @access Private
  */
 router.post('/audio', protect, uploadAudio.single('audio'), async (req: Request, res: Response) => {
+  console.log('[DEBUG] Audio upload request received. File:', req.file ? {
+    fieldname: req.file.fieldname,
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size
+  } : 'NO FILE');
   try {
     if (!req.file) throw new AppError('No audio file provided.', 400);
     const audioUrl = await imageKitService.uploadImage(req.file, 'voice-notes');

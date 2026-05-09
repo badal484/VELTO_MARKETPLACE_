@@ -15,7 +15,7 @@ import {
 import {useAuth} from '../../hooks/useAuth';
 import {useNotifications} from '../../context/NotificationContext';
 import {Button} from '../../components/common/Button';
-import {Loader} from '../../components/common/Loader';
+import {Skeleton} from '../../components/common/Skeleton';
 import {theme} from '../../theme';
 import {Role} from '@shared/types';
 import {useToast} from '../../hooks/useToast';
@@ -198,7 +198,7 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
               )}
               {uploading && (
                 <View style={styles.uploadOverlay}>
-                  <Loader />
+                  <Skeleton width="100%" height="100%" borderRadius={42} />
                 </View>
               )}
             </View>
@@ -236,8 +236,8 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
           </View>
         </Animated.View>
 
-        {/* Activity Section - ONLY for Buyers */}
-        {user?.role === Role.BUYER && (
+        {/* Activity Section - For Everyone (except maybe pure Riders who have their own Hub) */}
+        {(user?.role === Role.BUYER || user?.role === Role.ADMIN) && (
           <>
             <Text style={styles.sectionLabel}>Activity</Text>
             <View style={styles.menuGroup}>
@@ -284,6 +284,35 @@ export default function ProfileScreen({navigation}: ProfileScreenProps) {
             250,
           )}
         </View>
+
+        {user?.role === Role.ADMIN && (
+          <>
+            <Text style={styles.sectionLabel}>Control Center</Text>
+            <View style={styles.menuGroup}>
+              {renderMenuItem(
+                'shield-checkmark-outline',
+                'Admin Dashboard',
+                () => (navigation as any).navigate('AdminTab'),
+                theme.colors.success,
+                260,
+              )}
+              {renderMenuItem(
+                'bar-chart-outline',
+                'System Analytics',
+                () => (navigation as any).navigate('AdminTab', { screen: 'AdminOverview' }),
+                theme.colors.text,
+                270,
+              )}
+              {renderMenuItem(
+                'people-outline',
+                'User Directory',
+                () => (navigation as any).navigate('AdminTab', { screen: 'AdminUsers' }),
+                theme.colors.text,
+                280,
+              )}
+            </View>
+          </>
+        )}
 
 
 

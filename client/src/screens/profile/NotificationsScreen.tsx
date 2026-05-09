@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import {Skeleton} from '../../components/common/Skeleton';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeInDown} from '../../mocks/reanimated';
 
@@ -149,7 +149,20 @@ export default function NotificationsScreen() {
     fetchNotifications();
   };
 
-  if (loading && !refreshing) return <Loader />;
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.navBar}>
+           <Skeleton width={180} height={32} />
+        </View>
+        <View style={{ padding: 16, gap: 16 }}>
+           {[1, 2, 3, 4, 5].map(i => (
+             <Skeleton key={i} width="100%" height={120} borderRadius={24} />
+           ))}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

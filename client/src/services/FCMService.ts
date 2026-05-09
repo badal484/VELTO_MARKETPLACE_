@@ -15,10 +15,10 @@ import { getApps, getApp } from '@react-native-firebase/app';
 export class FCMService {
   static async registerDevice() {
     try {
-      console.log('FCMService: Registering device...');
+      console.log(' [FCM] Registration starting...');
       const apps = getApps();
       if (!apps.length) {
-        console.log('FCM Service: Firebase app not initialized yet, skipping.');
+        console.warn(' [FCM] No Firebase apps found. Initialization might be lagging.');
         return;
       }
 
@@ -39,27 +39,35 @@ export class FCMService {
       }
 
       if (enabled) {
-        console.log('Notification permission granted.');
+        console.log(' [FCM] Permission GRANTED');
 
         if (Platform.OS === 'android') {
           await notifee.createChannel({
             id: 'default',
             name: 'Default Channel',
             importance: AndroidImportance.HIGH,
+            sound: 'default',
           });
+          console.log(' [FCM] Notification channel created (Android)');
         }
 
         if (Platform.OS === 'ios') {
           await registerDeviceForRemoteMessages(m);
+          console.log(' [FCM] Registered for remote messages (iOS)');
         }
 
         const token = await getToken(m);
         if (token) {
+          console.log(' [FCM] Token acquired:', token.substring(0, 10) + '...');
           await FCMService.updateTokenOnServer(token);
+        } else {
+          console.warn(' [FCM] Failed to get token');
         }
+      } else {
+        console.warn(' [FCM] Permission DENIED');
       }
     } catch (error) {
-      console.log('FCM Service Skip:', error);
+      console.error(' [FCM] Registration CRASHED:', error);
     }
   }
 

@@ -19,8 +19,8 @@ import {
 import { theme } from '../../theme';
 import { axiosInstance } from '../../api/axiosInstance';
 import { Button } from '../../components/common/Button';
+import { Skeleton } from '../../components/common/Skeleton';
 import Animated, { FadeInUp } from '../../mocks/reanimated';
-import { Loader } from '../../components/common/Loader';
 import { Role, OrderStatus } from '../../../../shared/types';
 import {
   ACTIVE_DELIVERY_STATUSES,
@@ -616,15 +616,23 @@ export default function RiderDashboardScreen({ navigation }: any) {
   const [isToggling, setIsToggling] = useState(false);
 
   const handleToggleOnline = async () => {
+    const newStatus = !user?.isOnline;
+    
+    // Optimistic Update
+    updateUser({ isOnline: newStatus });
+    
     try {
       setIsToggling(true);
       await axiosInstance.patch('/api/user/toggle-online');
-      await refreshUser();
+      // Silent refresh to ensure sync with server state
+      refreshUser();
       showToast({
-        message: `You are now ${!user?.isOnline ? 'Online' : 'Offline'}`,
+        message: `You are now ${newStatus ? 'Online' : 'Offline'}`,
         type: 'success',
       });
     } catch (error: any) {
+      // Revert on error
+      updateUser({ isOnline: !newStatus });
       showToast({ message: 'Failed to update status', type: 'error' });
     } finally {
       setIsToggling(false);
@@ -1254,7 +1262,11 @@ export default function RiderDashboardScreen({ navigation }: any) {
       </View>
 
       {loading && !refreshing ? (
-        <Loader fullScreen />
+        <View style={{ padding: 20, gap: 16 }}>
+           <Skeleton width="100%" height={150} borderRadius={24} />
+           <Skeleton width="100%" height={200} borderRadius={24} />
+           <Skeleton width="100%" height={180} borderRadius={24} />
+        </View>
       ) : (
         <FlatList
           data={

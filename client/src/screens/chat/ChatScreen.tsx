@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, memo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -52,6 +52,89 @@ interface ChatScreenProps {
   navigation: ChatNavigationProp;
 }
 
+const MessageItem = memo(({ item, userId, onPlayAudio, playingMsgId, playbackPos, playbackDur, onImagePress }: any) => {
+    if (item.isSystem) {
+      return (
+        <Animated.View entering={FadeIn} style={styles.systemMessageContainer}>
+          <View style={styles.systemMessageBadge}>
+            <Icon name="information-circle" size={12} color={theme.colors.muted} />
+            <Text style={styles.systemMessageText}>{item.text}</Text>
+          </View>
+        </Animated.View>
+      );
+    }
+
+    const senderId = typeof item.sender === 'object' && item.sender !== null ? (item.sender as any)._id : item.sender;
+    const isMe = String(senderId) === userId;
+    const updatedAt = new Date(item.createdAt ?? Date.now());
+    const time = updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    return (
+      <Animated.View
+        entering={FadeInDown.delay(50)}
+        layout={Layout.springify()}
+        style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.theirMessageWrapper]}
+      >
+        <View style={[styles.messageCard, isMe ? styles.myCard : styles.theirCard]}>
+          {item.text.startsWith('__img__') ? (
+            <TouchableOpacity activeOpacity={0.9} onPress={() => onImagePress(item.text.replace('__img__', ''))}>
+              <Image source={{ uri: item.text.replace('__img__', '') }} style={styles.msgImage} resizeMode="cover" />
+            </TouchableOpacity>
+          ) : item.text.startsWith('__audio__') ? (
+             <AudioPlayer 
+               item={item} 
+               isMe={isMe} 
+               onPlay={onPlayAudio} 
+               playingMsgId={playingMsgId} 
+               playbackPos={playbackPos} 
+               playbackDur={playbackDur} 
+             />
+          ) : (
+            <Text style={[styles.chatText, isMe ? styles.myChatText : styles.theirChatText]}>
+              {item.text}
+            </Text>
+          )}
+          <View style={styles.chatFooter}>
+            <Text style={[styles.timeTag, isMe ? styles.myTimeTag : styles.theirTimeTag]}>{time}</Text>
+            {isMe && <Icon name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}
+          </View>
+        </View>
+      </Animated.View>
+    );
+});
+
+const AudioPlayer = ({ item, isMe, onPlay, playingMsgId, playbackPos, playbackDur }: any) => {
+    const msgId = String(item._id ?? '');
+    const isPlaying = playingMsgId === msgId;
+    const pos = playbackPos[msgId] ?? 0;
+    // Use the saved duration from the message if not currently playing
+    const dur = isPlaying ? (playbackDur[msgId] ?? 0) : (item.audioDuration ?? 0);
+    const progress = dur > 0 ? pos / dur : 0;
+    
+    const fmtMs = (ms: number) => {
+      const s = Math.max(0, Math.floor(ms / 1000));
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    };
+
+    return (
+      <TouchableOpacity 
+        onPress={() => onPlay(msgId, item.text.replace('__audio__', ''))}
+        style={styles.audioPlayer}
+        activeOpacity={0.8}
+      >
+        <Icon name={isPlaying ? 'pause-circle' : 'play-circle'} size={32} color={isMe ? '#fff' : theme.colors.primary} />
+        <View style={styles.audioTrack}>
+          <View style={styles.audioBarBg}>
+            <View style={[styles.audioBarFill, { width: `${progress * 100}%`, backgroundColor: isMe ? 'rgba(255,255,255,0.8)' : theme.colors.primary }]} />
+          </View>
+          <Text style={[styles.audioDuration, { color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.muted }]}>
+            {isPlaying && dur > 0 ? fmtMs(pos) : fmtMs(dur)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+};
+
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const {
     conversationId,
@@ -77,12 +160,22 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [playbackDur, setPlaybackDur] = useState<Record<string, number>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const recordTimer = useRef<NodeJS.Timeout | null>(null);
-  const audioPlayer = useRef(new AudioRecorderPlayer()).current;
+  const audioPlayerRef = useRef<AudioRecorderPlayer | null>(null);
+  
+  const getAudioPlayer = () => {
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new AudioRecorderPlayer();
+    }
+    return audioPlayerRef.current;
+  };
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { socket, isConnected, setActiveConversationId } = useSocket();
   const { user } = useAuth();
   const { markConversationAsRead } = useNotifications();
   const flatlistRef = useRef<FlatList>(null);
+  const recordingRef = useRef(false);
+  const isRecordingReady = useRef(false);
+  const startTimeRef = useRef<number>(0);
 
   const fetchMessages = React.useCallback(
     async (pageNum = 1) => {
@@ -170,6 +263,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         socket.off(SocketEvent.ORDER_STATUS_UPDATED);
       }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      
+      // Cleanup audio
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.stopPlayer();
+        audioPlayerRef.current.removePlayBackListener();
+        audioPlayerRef.current.stopRecorder();
+        audioPlayerRef.current.removeRecordBackListener();
+      }
     };
   }, [
     socket,
@@ -317,6 +418,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   };
 
   const startRecording = async () => {
+    if (recordingRef.current) return;
     const allowed = await requestMicPermission();
     if (!allowed) {
       Alert.alert(
@@ -325,8 +427,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       );
       return;
     }
+
+    recordingRef.current = true;
+    isRecordingReady.current = false; // Reset readiness
+    setRecording(true);
+    
     try {
-      await audioPlayer.startRecorder(undefined, {
+      const player = getAudioPlayer();
+      await player.startRecorder(undefined, {
         OutputFormatAndroid: OutputFormatAndroidType.MPEG_4,
         AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
         AudioSourceAndroid: AudioSourceAndroidType.MIC,
@@ -334,10 +442,18 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         AVNumberOfChannelsKeyIOS: 1,
         AVFormatIDKeyIOS: AVEncodingOption.aac,
       });
-      setRecording(true);
+      
+      // Mark as ready immediately after successful start
+      isRecordingReady.current = true;
+      startTimeRef.current = Date.now();
+
       setRecordSecs(0);
       recordTimer.current = setInterval(() => setRecordSecs(s => s + 1), 1000);
     } catch (e: any) {
+      recordingRef.current = false;
+      isRecordingReady.current = false;
+      setRecording(false);
+      // ... existing error handling
       const msg = e?.message || '';
       if (msg.includes('permission') || msg.includes('Permission')) {
         Alert.alert(
@@ -353,7 +469,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           'Not Supported',
           'Audio recording is not available on this emulator. Test on a physical device.',
         );
-      } else {
+      } else if (!msg.includes('already been called')) {
         Alert.alert(
           'Recording Error',
           msg ||
@@ -364,20 +480,41 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   };
 
   const stopAndSendRecording = async () => {
-    if (!recording) return;
-    if (recordTimer.current) clearInterval(recordTimer.current);
+    if (!recordingRef.current) return;
+    recordingRef.current = false;
     setRecording(false);
+    
+    if (recordTimer.current) clearInterval(recordTimer.current);
+    
     try {
-      const uri = await audioPlayer.stopRecorder();
-      audioPlayer.removeRecordBackListener();
-      if (recordSecs < 1) return; // ignore tap
-      await sendAudioMessage(uri);
-    } catch {
-      // ignore
+      // TOUCH LOCK: Ensure we record for at least 400ms 
+      // This prevents 'flicker' stops due to touchscreen sensitivity
+      const elapsed = Date.now() - startTimeRef.current;
+      if (elapsed < 400) {
+        await new Promise(resolve => setTimeout(resolve, 400 - elapsed));
+      }
+      
+      const player = getAudioPlayer();
+      const uri = await player.stopRecorder();
+      isRecordingReady.current = false;
+      player.removeRecordBackListener();
+      
+      const duration = Date.now() - startTimeRef.current;
+      if (duration < 300) return; // Ignore accidental taps shorter than 300ms
+      
+      await sendAudioMessage(uri, duration);
+    } catch (err: any) {
+      // Silence 'stop failed' if we are already resetting
+      if (err?.message?.includes('stop failed')) {
+        console.log('Handled: stop failed silently');
+      } else {
+        console.error('Stop recording error:', err);
+      }
+      isRecordingReady.current = false;
     }
   };
 
-  const sendAudioMessage = async (uri: string) => {
+  const sendAudioMessage = async (uri: string, audioDuration?: number) => {
     try {
       // Android recorder returns an absolute path without file:// prefix
       const fileUri =
@@ -386,7 +523,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           : uri;
 
       const ext = Platform.OS === 'android' ? 'mp4' : 'm4a';
-      const mime = Platform.OS === 'android' ? 'audio/mp4' : 'audio/m4a';
+      // Use application/octet-stream as fallback for Android to bypass strict MIME checks if necessary
+      const mime = Platform.OS === 'android' ? 'application/octet-stream' : 'audio/m4a';
 
       const form = new FormData();
       form.append('audio', {
@@ -402,6 +540,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         conversationId,
         receiverId: otherUser._id,
         text: `__audio__${audioUrl}`,
+        audioDuration
       });
       const sentMessage: IMessage = res.data.data;
       setMessages(prev =>
@@ -414,6 +553,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           conversationId,
           receiverId: otherUser._id,
           text: `__audio__${audioUrl}`,
+          audioDuration,
           message: sentMessage,
         });
       }
@@ -425,168 +565,49 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   };
 
-  const toggleAudioPlayback = async (msgId: string, uri: string) => {
+  const toggleAudioPlayback = useCallback(async (msgId: string, uri: string) => {
+    const player = getAudioPlayer();
     // Tapped the currently playing message → pause/stop
     if (playingMsgId === msgId) {
-      await audioPlayer.stopPlayer();
-      audioPlayer.removePlayBackListener();
+      await player.stopPlayer();
+      player.removePlayBackListener();
       setPlayingMsgId(null);
       return;
     }
     // Stop anything already playing
     if (playingMsgId) {
-      await audioPlayer.stopPlayer();
-      audioPlayer.removePlayBackListener();
+      await player.stopPlayer();
+      player.removePlayBackListener();
     }
     setPlayingMsgId(msgId);
-    await audioPlayer.startPlayer(uri);
-    audioPlayer.addPlayBackListener(e => {
+    await player.startPlayer(uri);
+    player.addPlayBackListener(e => {
       setPlaybackPos(prev => ({ ...prev, [msgId]: e.currentPosition }));
       setPlaybackDur(prev => ({ ...prev, [msgId]: e.duration }));
       if (e.currentPosition >= e.duration && e.duration > 0) {
-        audioPlayer.stopPlayer();
-        audioPlayer.removePlayBackListener();
+        player.stopPlayer();
+        player.removePlayBackListener();
         setPlayingMsgId(null);
       }
     });
-  };
+  }, [playingMsgId]);
 
   const fmtMs = (ms: number) => {
     const s = Math.max(0, Math.floor(ms / 1000));
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
-  const renderMessage = ({ item }: { item: IMessage }) => {
-    if (item.isSystem) {
-      return (
-        <Animated.View entering={FadeIn} style={styles.systemMessageContainer}>
-          <View style={styles.systemMessageBadge}>
-            <Icon
-              name="information-circle"
-              size={12}
-              color={theme.colors.muted}
-            />
-            <Text style={styles.systemMessageText}>{item.text}</Text>
-          </View>
-        </Animated.View>
-      );
-    }
-
-    const senderId =
-      typeof item.sender === 'object' && item.sender !== null
-        ? (item.sender as any)._id
-        : item.sender;
-    const isMe = String(senderId) === user?._id;
-    const updatedAt = new Date(item.createdAt ?? Date.now());
-    const time = updatedAt.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(50)}
-        layout={Layout.springify()}
-        style={[
-          styles.messageWrapper,
-          isMe ? styles.myMessageWrapper : styles.theirMessageWrapper,
-        ]}
-      >
-        <View
-          style={[styles.messageCard, isMe ? styles.myCard : styles.theirCard]}
-        >
-          {item.text.startsWith('__img__') ? (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => setSelectedImage(item.text.replace('__img__', ''))}
-            >
-              <Image
-                source={{ uri: item.text.replace('__img__', '') }}
-                style={styles.msgImage}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-          ) : item.text.startsWith('__audio__') ? (
-            (() => {
-              const uri = item.text.replace('__audio__', '');
-              const msgId = String(item._id ?? '');
-              const isPlaying = playingMsgId === msgId;
-              const pos = playbackPos[msgId] ?? 0;
-              const dur = playbackDur[msgId] ?? 0;
-              const progress = dur > 0 ? pos / dur : 0;
-              return (
-                <TouchableOpacity
-                  style={styles.audioPlayer}
-                  onPress={() => toggleAudioPlayback(msgId, uri)}
-                  activeOpacity={0.8}
-                >
-                  <Icon
-                    name={isPlaying ? 'pause-circle' : 'play-circle'}
-                    size={32}
-                    color={isMe ? '#fff' : theme.colors.primary}
-                  />
-                  <View style={styles.audioTrack}>
-                    <View style={styles.audioBarBg}>
-                      <View
-                        style={[
-                          styles.audioBarFill,
-                          {
-                            width: `${progress * 100}%`,
-                            backgroundColor: isMe
-                              ? 'rgba(255,255,255,0.8)'
-                              : theme.colors.primary,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.audioDuration,
-                        {
-                          color: isMe
-                            ? 'rgba(255,255,255,0.7)'
-                            : theme.colors.muted,
-                        },
-                      ]}
-                    >
-                      {isPlaying && dur > 0 ? fmtMs(pos) : fmtMs(dur)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })()
-          ) : (
-            <Text
-              style={[
-                styles.chatText,
-                isMe ? styles.myChatText : styles.theirChatText,
-              ]}
-            >
-              {item.text}
-            </Text>
-          )}
-          <View style={styles.chatFooter}>
-            <Text
-              style={[
-                styles.timeTag,
-                isMe ? styles.myTimeTag : styles.theirTimeTag,
-              ]}
-            >
-              {time}
-            </Text>
-            {isMe && (
-              <Icon
-                name="checkmark-done"
-                size={14}
-                color="rgba(255,255,255,0.6)"
-                style={{ marginLeft: 4 }}
-              />
-            )}
-          </View>
-        </View>
-      </Animated.View>
-    );
-  };
+  const renderMessage = useCallback(({ item }: { item: IMessage }) => (
+    <MessageItem 
+      item={item} 
+      userId={user?._id}
+      onPlayAudio={toggleAudioPlayback}
+      onImagePress={setSelectedImage}
+      playingMsgId={playingMsgId}
+      playbackPos={playbackPos}
+      playbackDur={playbackDur}
+    />
+  ), [user?._id, playingMsgId, playbackPos, playbackDur]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -835,8 +856,20 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         )}
 
         {fetching ? (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator color={theme.colors.primary} size="large" />
+          <View style={{ padding: 20, gap: 16 }}>
+             {[1, 2, 3, 4, 5].map(i => (
+               <View key={i} style={[
+                 styles.messageWrapper, 
+                 i % 2 === 0 ? styles.myMessageWrapper : styles.theirMessageWrapper,
+                 { opacity: 0.5 }
+               ]}>
+                  <View style={[
+                    styles.messageCard, 
+                    i % 2 === 0 ? styles.myCard : styles.theirCard,
+                    { width: 200, height: 60, backgroundColor: '#E2E8F0' }
+                  ]} />
+               </View>
+             ))}
           </View>
         ) : (
           <FlatList
@@ -845,6 +878,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             keyExtractor={item => item._id || ''}
             renderItem={renderMessage}
             contentContainerStyle={styles.messageList}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            removeClippedSubviews={true}
             onContentSizeChange={() =>
               flatlistRef.current?.scrollToEnd({ animated: true })
             }
@@ -939,6 +976,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 ]}
                 onPressIn={startRecording}
                 onPressOut={stopAndSendRecording}
+                onPress={() => {}} // dummy to ensure it captures events correctly
+                delayLongPress={100}
                 activeOpacity={0.8}
               >
                 <Icon

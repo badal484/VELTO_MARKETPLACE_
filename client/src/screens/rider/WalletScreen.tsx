@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import {Skeleton} from '../../components/common/Skeleton';
 import {Button} from '../../components/common/Button';
 import {Input} from '../../components/common/Input';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -285,7 +285,13 @@ export default function WalletScreen({navigation}: any) {
         </SafeAreaView>
       </Modal>
 
-      {loading && <Loader fullScreen />}
+      {loading && (
+        <View style={{ padding: 20, gap: 16 }}>
+           <Skeleton width="100%" height={150} borderRadius={24} />
+           <Skeleton width="100%" height={120} borderRadius={24} />
+           <Skeleton width="100%" height={300} borderRadius={24} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }

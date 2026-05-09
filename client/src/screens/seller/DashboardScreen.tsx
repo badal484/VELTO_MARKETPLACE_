@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import { Skeleton } from '../../components/common/Skeleton';
 import {Card} from '../../components/common/Card';
 import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -282,7 +282,30 @@ const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => vo
     return 'Good evening';
   };
 
-  if (loading && !refreshing) return <Loader />;
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.topHeader}>
+           <Skeleton width={200} height={20} />
+           <Skeleton width={44} height={44} borderRadius={12} />
+        </View>
+        <View style={styles.statsRow}>
+           <Skeleton width="48%" height={100} borderRadius={16} />
+           <Skeleton width="48%" height={100} borderRadius={16} />
+        </View>
+        <View style={{ padding: 20 }}>
+           <Skeleton width="100%" height={200} borderRadius={24} />
+        </View>
+        <View style={{ padding: 20, gap: 12 }}>
+           <Skeleton width={150} height={24} />
+           <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Skeleton width={180} height={200} borderRadius={20} />
+              <Skeleton width={180} height={200} borderRadius={20} />
+           </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

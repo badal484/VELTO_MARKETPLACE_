@@ -16,12 +16,34 @@ export class FCMService {
       let serviceAccount;
 
       const safeParse = (str: string) => {
+        if (!str) return null;
+        let cleaned = str.trim();
+        // Remove wrapping quotes if present (common in .env files)
+        if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+          cleaned = cleaned.substring(1, cleaned.length - 1);
+        }
+        if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+          cleaned = cleaned.substring(1, cleaned.length - 1);
+        }
+
         try {
-          return JSON.parse(str);
+          return JSON.parse(cleaned);
         } catch (e) {
-          // Attempt to fix common escaping issues in private_key
-          const fixed = str.replace(/\\n/g, '\n').replace(/\\"/g, '"');
-          return JSON.parse(fixed);
+          // Fix literal newlines (illegal in JSON) by escaping them
+          try {
+            const escaped = cleaned.replace(/\n/g, '\\n');
+            return JSON.parse(escaped);
+          } catch (e2) {
+            // Last resort: escape only the private_key content if it's the culprit
+            try {
+              const pkFixed = cleaned.replace(/"private_key":\s*"([\s\S]*?)"/, (match, p1) => {
+                return `"private_key": "${p1.replace(/\n/g, '\\n')}"`;
+              });
+              return JSON.parse(pkFixed);
+            } catch (e3) {
+              return null;
+            }
+          }
         }
       };
 
@@ -35,6 +57,11 @@ export class FCMService {
       else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
         serviceAccount = safeParse(process.env.FIREBASE_SERVICE_ACCOUNT);
         console.log(' FCM Service: Initializing using FIREBASE_SERVICE_ACCOUNT from environment');
+      }
+
+      if (admin.apps.length > 0) {
+        this.isInitialized = true;
+        return;
       }
 
       if (serviceAccount) {

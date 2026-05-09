@@ -20,7 +20,7 @@ interface LocationSearchProps {
 
 export const LocationSearch: React.FC<LocationSearchProps> = ({
   onSelect,
-  placeholder = 'Search for address in Karnataka...',
+  placeholder = 'Search for address in India...',
   initialValue = '',
 }) => {
   const [query, setQuery] = useState(initialValue);

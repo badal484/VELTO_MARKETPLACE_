@@ -21,7 +21,7 @@ import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useToast} from '../../hooks/useToast';
 import {useAuth} from '../../hooks/useAuth';
-import {Loader} from '../../components/common/Loader';
+import { Skeleton } from '../../components/common/Skeleton';
 import {Button} from '../../components/common/Button';
 import {Input} from '../../components/common/Input';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -251,7 +251,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         paymentReference: selectedPaymentMethod === 'Razorpay' ? (utrValue || 'PENDING_AUTO') : undefined,
         fulfillmentMethod,
         deliveryAddress: address,
-        deliveryCharge: DELIVERY_FEE, 
+        deliveryCharge: deliveryFee, 
         buyerPhone: phoneNumber,
         lat: coordinates?.lat,
         lng: coordinates?.lng,
@@ -337,7 +337,21 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
 
 
 
-  if (loading) return <Loader />;
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+           <Skeleton width={180} height={24} />
+        </View>
+        <View style={{ padding: 20, gap: 20 }}>
+           <Skeleton width="100%" height={100} borderRadius={20} />
+           <Skeleton width="100%" height={200} borderRadius={24} />
+           <Skeleton width="100%" height={150} borderRadius={20} />
+           <Skeleton width="100%" height={120} borderRadius={24} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

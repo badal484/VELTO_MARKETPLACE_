@@ -19,7 +19,7 @@ const NavigationWrapper = () => {
   const [isSplashVisible, setIsSplashVisible] = React.useState(true);
 
   useEffect(() => {
-    // Force splash screen to stay for exactly 5 seconds
+    // Minimum splash duration for branding (5.0s)
     const timer = setTimeout(() => {
       setIsSplashVisible(false);
     }, 5000);
@@ -27,14 +27,25 @@ const NavigationWrapper = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  if (isLoading || isSplashVisible) {
-    return <SplashScreenV2 />;
-  }
-
   return (
-    <NavigationContainer>
-      {user ? <MainNavigator /> : <AuthNavigator />}
-    </NavigationContainer>
+    <View style={{flex: 1}}>
+      {/* 
+        Background Loading: We render the NavigationContainer as soon as isLoading is false.
+        While isSplashVisible is true, the user sees the splash screen, but the 
+        navigator (and its screens) are already mounting and fetching data.
+      */}
+      {!isLoading && (
+        <NavigationContainer>
+          {user ? <MainNavigator /> : <AuthNavigator />}
+        </NavigationContainer>
+      )}
+
+      {(isLoading || isSplashVisible) && (
+        <View style={StyleSheet.absoluteFill}>
+          <SplashScreenV2 />
+        </View>
+      )}
+    </View>
   );
 };
 

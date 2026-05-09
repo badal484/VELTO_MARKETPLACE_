@@ -32,6 +32,11 @@ import Animated, {
   FadeInDown,
   FadeInUp,
   withSpring,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from '../../mocks/reanimated';
 import {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {CompositeNavigationProp} from '@react-navigation/native';
@@ -56,19 +61,7 @@ interface ProductDetailProps {
   navigation: ProductDetailNavigationProp;
 }
 
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371; // km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
+
 
 const ZoomableImage = ({uri}: {uri: string}) => {
   const scale = { value: 1 };
@@ -180,25 +173,7 @@ export default function ProductDetailScreen({
         url += `&lat=${shopLocation.coordinates[1]}&lng=${shopLocation.coordinates[0]}&radius=5`;
       }
       const res = await axiosInstance.get(url);
-      const items = res.data.data.filter((p: IProduct) => p._id !== id);
-      
-      // Strict frontend filter for 5km
-      if (shopLocation?.coordinates) {
-        const filtered = items.filter((p: IProduct) => {
-          const pCoords = p.shop?.location?.coordinates || p.location?.coordinates;
-          if (!pCoords) return true;
-          const d = calculateDistance(
-            shopLocation.coordinates[1],
-            shopLocation.coordinates[0],
-            pCoords[1],
-            pCoords[0]
-          );
-          return d <= 5;
-        });
-        setRelatedProducts(filtered);
-      } else {
-        setRelatedProducts(items);
-      }
+      setRelatedProducts(res.data.data.filter((p: IProduct) => p._id !== id));
     } catch (err) {
       console.log('Related Products Error:', err);
     }
@@ -235,15 +210,22 @@ export default function ProductDetailScreen({
       );
       return;
     }
+
+    // Optimistic Update
+    setIsInCart(true);
+    setCartCount(prev => prev + 1);
+    
     try {
       const res = await axiosInstance.post('/api/cart/add', { productId: product._id, quantity: 1 });
-      setIsInCart(true);
       if (res.data.success) {
         const items = res.data.data.items || [];
         setCartCount(items.reduce((acc: number, item: any) => acc + item.quantity, 0));
+        showToast({message: 'Added to your cart!', type: 'success'});
       }
-      showToast({message: 'Added to your cart!', type: 'success'});
     } catch (err: unknown) {
+      // Revert on error
+      setIsInCart(false);
+      setCartCount(prev => Math.max(0, prev - 1));
       showToast({message: 'Could not add to cart', type: 'error'});
     }
   };
@@ -285,7 +267,7 @@ Link: https://velto.app/product/${product._id}`,
   };
 
   if (loading || !product) {
-    return <Loader />;
+    return <DetailSkeleton />;
   }
 
   const seller = product.seller as unknown as IUser;
@@ -484,15 +466,7 @@ Link: https://velto.app/product/${product._id}`,
                         <View style={styles.tinyDistance}>
                           <Icon name="location" size={8} color={theme.colors.primary} />
                           <Text style={styles.tinyDistanceText}>
-                            {(p.distance !== undefined 
-                              ? p.distance 
-                              : calculateDistance(
-                                  product?.shop?.location?.coordinates[1] || 0,
-                                  product?.shop?.location?.coordinates[0] || 0,
-                                  (p.shop?.location?.coordinates || p.location?.coordinates)?.[1] || 0,
-                                  (p.shop?.location?.coordinates || p.location?.coordinates)?.[0] || 0
-                                )
-                            ).toFixed(1)} km
+                            {(p.distance || 0).toFixed(1)} km
                           </Text>
                         </View>
                       </View>
@@ -1123,3 +1097,47 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
   },
 });
+const DetailSkeleton = () => {
+  const insets = useSafeAreaInsets();
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 800 }),
+        withTiming(0.4, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View style={styles.container}>
+      <View style={{ width: width, height: width * 1.2, backgroundColor: '#F1F5F9' }}>
+         <Animated.View style={[animatedStyle, { width: '100%', height: '100%', backgroundColor: '#F1F5F9' }]} />
+      </View>
+      <View style={[styles.details, { marginTop: -30 }]}>
+         <Animated.View style={[animatedStyle, { width: 80, height: 20, borderRadius: 8, backgroundColor: '#F1F5F9', marginBottom: 16 }]} />
+         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <Animated.View style={[animatedStyle, { width: '60%', height: 32, borderRadius: 8, backgroundColor: '#F1F5F9' }]} />
+            <Animated.View style={[animatedStyle, { width: 60, height: 32, borderRadius: 12, backgroundColor: '#F1F5F9' }]} />
+         </View>
+         <Animated.View style={[animatedStyle, { width: 120, height: 24, borderRadius: 6, backgroundColor: '#F1F5F9', marginBottom: 24 }]} />
+         <Animated.View style={[animatedStyle, { width: '100%', height: 100, borderRadius: 16, backgroundColor: '#F1F5F9', marginBottom: 24 }]} />
+         <Animated.View style={[animatedStyle, { width: 150, height: 20, borderRadius: 4, backgroundColor: '#F1F5F9', marginBottom: 16 }]} />
+         <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Animated.View style={[animatedStyle, { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F1F5F9' }]} />
+            <View style={{ flex: 1, gap: 8 }}>
+               <Animated.View style={[animatedStyle, { width: '50%', height: 16, borderRadius: 4, backgroundColor: '#F1F5F9' }]} />
+               <Animated.View style={[animatedStyle, { width: '30%', height: 12, borderRadius: 4, backgroundColor: '#F1F5F9' }]} />
+            </View>
+         </View>
+      </View>
+    </View>
+  );
+};

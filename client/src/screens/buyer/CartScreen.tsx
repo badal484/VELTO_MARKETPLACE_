@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState, useCallback, useRef, memo} from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -11,7 +11,9 @@ import {
   StatusBar,
   Alert,
   Platform,
+  RefreshControl,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useToast} from '../../hooks/useToast';
@@ -19,7 +21,15 @@ import {Loader} from '../../components/common/Loader';
 import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {ICart, ICartItem, IProduct} from '@shared/types';
-import Animated, {FadeInRight, FadeOutLeft} from '../../mocks/reanimated';
+import Animated, {
+  FadeInRight,
+  FadeOutLeft,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from '../../mocks/reanimated';
 import {useTranslation} from 'react-i18next';
 import {useNotifications} from '../../context/NotificationContext';
 
@@ -73,15 +83,13 @@ const PriceLockTimer = ({ lockedAt, priceSnapshotted, currentPrice }: { lockedAt
   );
 };
 
-const CartItem = ({item, index, updateQuantity, removeItem, updatingId}: {
+const CartItem = memo(({item, index, updateQuantity, removeItem}: {
   item: ICartItem; 
   index: number; 
   updateQuantity: (id: string, q: number) => void;
   removeItem: (id: string) => void;
-  updatingId: string | null;
 }) => {
   const product = item.product as IProduct;
-  // Use the snapshotted price if provided, otherwise fallback to current
   const displayPrice = item.priceSnapshotted || product.price;
 
   return (
@@ -119,15 +127,13 @@ const CartItem = ({item, index, updateQuantity, removeItem, updatingId}: {
           <View style={styles.quantityContainer}>
             <TouchableOpacity
               onPress={() => updateQuantity(product._id, item.quantity - 1)}
-              style={styles.quantityBtn}
-              disabled={updatingId === product._id}>
+              style={styles.quantityBtn}>
               <Icon name="remove" size={16} color={theme.colors.text} />
             </TouchableOpacity>
             <Text style={styles.quantityText}>{item.quantity}</Text>
             <TouchableOpacity
               onPress={() => updateQuantity(product._id, item.quantity + 1)}
-              style={styles.quantityBtn}
-              disabled={updatingId === product._id}>
+              style={styles.quantityBtn}>
               <Icon name="add" size={16} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
@@ -140,16 +146,18 @@ const CartItem = ({item, index, updateQuantity, removeItem, updatingId}: {
       </TouchableOpacity>
     </Animated.View>
   );
-};
+});
 
 
 export default function CartScreen({navigation}: CartProps) {
+  const insets = useSafeAreaInsets();
   const {t} = useTranslation();
   const {showToast} = useToast();
   const [cart, setCart] = useState<ICart | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const {setCartCount} = useNotifications();
+  const syncTimers = useRef<{[key: string]: NodeJS.Timeout}>({});
 
   useEffect(() => {
     fetchCart();
@@ -164,7 +172,8 @@ export default function CartScreen({navigation}: CartProps) {
     }, [])
   );
 
-  const fetchCart = async () => {
+  const fetchCart = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
     try {
       const res = await axiosInstance.get('/api/cart');
       setCart(res.data.data);
@@ -174,41 +183,78 @@ export default function CartScreen({navigation}: CartProps) {
       console.error('Error fetching cart:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const updateQuantity = async (productId: string, newQuantity: number) => {
-    setUpdatingId(productId);
-    const cartItem = cart?.items.find(i => (i.product as IProduct)._id === productId);
+  const updateQuantity = (productId: string, newQuantity: number) => {
+    if (!cart) return;
+
+    const cartItem = cart.items.find(i => (i.product as IProduct)._id === productId);
     const product = cartItem?.product as IProduct;
     
     if (cartItem && newQuantity > cartItem.quantity && product && newQuantity > product.stock) {
       showToast({message: `Only ${product.stock} units available`, type: 'info'});
-      setUpdatingId(null);
       return;
     }
 
-    try {
-      const res = await axiosInstance.put('/api/cart/update', {
-        productId,
-        quantity: newQuantity,
-      });
-      setCart(res.data.data);
-      const items = res.data.data?.items || [];
-      setCartCount(items.reduce((acc: number, item: any) => acc + item.quantity, 0));
-    } catch (err) {
-      showToast({message: 'Could not update quantity', type: 'error'});
-    } finally {
-      setUpdatingId(null);
+    if (newQuantity <= 0) {
+      removeItem(productId);
+      return;
     }
+
+    // 1. Instant UI Update
+    const updatedItems = cart.items.map(item => {
+      if ((item.product as IProduct)._id === productId) {
+        return { ...item, quantity: newQuantity };
+      }
+      return item;
+    });
+    const updatedCart = { ...cart, items: updatedItems };
+    setCart(updatedCart);
+    setCartCount(updatedItems.reduce((acc, item) => acc + item.quantity, 0));
+
+    // 2. Debounced Server Sync
+    if (syncTimers.current[productId]) {
+      clearTimeout(syncTimers.current[productId]);
+    }
+
+    syncTimers.current[productId] = setTimeout(async () => {
+      try {
+        const res = await axiosInstance.put('/api/cart/update', {
+          productId,
+          quantity: newQuantity,
+        });
+        // Sync back with real server data occasionally to ensure consistency
+        setCart(res.data.data);
+      } catch (err) {
+        console.error('Cart sync failed:', err);
+        fetchCart(); // Force refresh silently on error to revert to truth
+      } finally {
+        delete syncTimers.current[productId];
+      }
+    }, 500); // 500ms debounce
   };
 
   const removeItem = async (productId: string) => {
+    const previousCart = cart;
+    if (!cart) return;
+
+    // Optimistic UI Update
+    const updatedItems = cart.items.filter(item => (item.product as IProduct)._id !== productId);
+    const updatedCart = { ...cart, items: updatedItems };
+    setCart(updatedCart);
+    setCartCount(updatedItems.reduce((acc, item) => acc + item.quantity, 0));
+
     try {
       await axiosInstance.delete(`/api/cart/${productId}`);
-      fetchCart();
       showToast({message: 'Item removed from bag', type: 'info'});
     } catch (err) {
+      // Revert
+      setCart(previousCart);
+      if (previousCart) {
+        setCartCount(previousCart.items.reduce((acc, item) => acc + item.quantity, 0));
+      }
       showToast({message: 'Could not remove item', type: 'error'});
     }
   };
@@ -228,7 +274,6 @@ export default function CartScreen({navigation}: CartProps) {
       index={index} 
       updateQuantity={updateQuantity} 
       removeItem={removeItem} 
-      updatingId={updatingId} 
     />
   );
 
@@ -260,22 +305,24 @@ export default function CartScreen({navigation}: CartProps) {
     });
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <CartSkeleton />;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: Math.max(insets.top, 16)}]}>
         <View style={styles.headerTitleRow}>
-            <Image 
+          <Image 
             source={require('../../../assets/velto_logo.png')} 
             style={styles.headerLogo} 
           />
-          <Text style={styles.headerTitle}>{t('cart.title')}</Text>
+          <View>
+            <Text style={styles.headerTitle}>{t('cart.title')}</Text>
+            {cart && cart.items.length > 0 && (
+              <Text style={styles.itemCount}>{cart.items.length} {t('cart.items')}</Text>
+            )}
+          </View>
         </View>
-        {cart && cart.items.length > 0 && (
-          <Text style={styles.itemCount}>{cart.items.length} {t('cart.items')}</Text>
-        )}
       </View>
 
 
@@ -284,20 +331,30 @@ export default function CartScreen({navigation}: CartProps) {
         keyExtractor={item => (item.product as IProduct)._id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchCart(true)}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <View style={styles.decorativeCircle} />
             <View style={styles.emptyCircle}>
-              <Icon name="bag-handle-outline" size={60} color={theme.colors.muted} />
+              <Icon name="bag-handle-outline" size={64} color={theme.colors.primary} />
             </View>
             <Text style={styles.emptyTitle}>{t('cart.empty_title')}</Text>
             <Text style={styles.emptyText}>
               {t('cart.empty_text')}
             </Text>
-            <Button
-              title={t('cart.start_shopping')}
+            <TouchableOpacity
+              activeOpacity={0.9}
               onPress={() => (navigation as any).navigate('HomeTab')}
-              style={styles.startBtn}
-            />
+              style={styles.startBtn}>
+              <Text style={styles.startBtnText}>{t('cart.start_shopping')}</Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -325,27 +382,49 @@ export default function CartScreen({navigation}: CartProps) {
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: theme.colors.background},
   header: {
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: theme.colors.white,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    ...theme.shadow.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
 
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   headerLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  headerTitle: {fontSize: 28, fontWeight: '900', color: theme.colors.text},
-  itemCount: {fontSize: 14, color: theme.colors.muted, fontWeight: '600', alignSelf: 'flex-end', marginBottom: 4},
-  list: {padding: 16, paddingBottom: 100},
+  headerTitle: {
+    fontSize: 22, 
+    fontWeight: '900', 
+    color: theme.colors.text,
+    letterSpacing: -0.5,
+  },
+  headerActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemCount: {
+    fontSize: 12, 
+    color: theme.colors.muted, 
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  list: {padding: 16, paddingBottom: 100, flexGrow: 1},
   cartItem: {
     flexDirection: 'row',
     backgroundColor: theme.colors.white,
@@ -463,37 +542,102 @@ const styles = StyleSheet.create({
   checkoutBtn: {width: '100%', borderRadius: 18, height: 56},
 
   emptyContainer: {
+    flex: 1,
     padding: 40,
     alignItems: 'center',
-    marginTop: 60,
+    justifyContent: 'center',
+    marginTop: 40,
+  },
+  decorativeCircle: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#F1F5F9',
+    opacity: 0.5,
+    top: '10%',
   },
   emptyCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    ...theme.shadow.sm,
-    marginBottom: 24,
+    ...theme.shadow.md,
+    marginBottom: 32,
   },
-  emptyIconBox: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.shadow.sm,
-    marginBottom: 24,
+  emptyTitle: {
+    fontSize: 26, 
+    fontWeight: '900', 
+    color: theme.colors.text,
+    letterSpacing: -0.5,
   },
-  emptyTitle: {fontSize: 22, fontWeight: '900', color: theme.colors.text},
   emptyText: {
-    fontSize: 14,
+    fontSize: 15,
     color: theme.colors.muted,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 22,
+    marginTop: 12,
+    lineHeight: 24,
+    paddingHorizontal: 20,
   },
-  startBtn: {marginTop: 32, width: '100%', borderRadius: 14},
+  startBtn: {
+    marginTop: 48, 
+    width: '100%', 
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...theme.shadow.md,
+  },
+  startBtnText: {
+    color: theme.colors.white,
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
 });
+const CartSkeleton = () => {
+  const insets = useSafeAreaInsets();
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 800 }),
+        withTiming(0.4, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={[styles.header, {paddingTop: Math.max(insets.top, 16)}]}>
+         <Animated.View style={[animatedStyle, { width: 48, height: 48, borderRadius: 12, backgroundColor: '#F1F5F9' }]} />
+         <View style={{ flex: 1, marginLeft: 16 }}>
+            <Animated.View style={[animatedStyle, { width: 120, height: 20, borderRadius: 4, backgroundColor: '#F1F5F9' }]} />
+         </View>
+      </View>
+      <View style={{ padding: 16, gap: 16 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <View key={i} style={[styles.cartItem, { shadowOpacity: 0 }]}>
+             <Animated.View style={[animatedStyle, { width: 80, height: 80, borderRadius: 12, backgroundColor: '#F8FAFC' }]} />
+             <View style={{ flex: 1, marginLeft: 16, gap: 10 }}>
+                <Animated.View style={[animatedStyle, { width: '80%', height: 16, borderRadius: 4, backgroundColor: '#F1F5F9' }]} />
+                <Animated.View style={[animatedStyle, { width: 60, height: 16, borderRadius: 4, backgroundColor: '#F1F5F9' }]} />
+                <Animated.View style={[animatedStyle, { width: 100, height: 24, borderRadius: 8, backgroundColor: '#F1F5F9' }]} />
+             </View>
+          </View>
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+};
+

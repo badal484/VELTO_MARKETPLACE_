@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import { Skeleton } from '../../components/common/Skeleton';
 import {Card} from '../../components/common/Card';
 import {Button} from '../../components/common/Button';
 import {AdminAnalyticsCard} from '../../components/admin/AdminAnalyticsCard';
@@ -139,7 +139,24 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
   );
 
   if (loading && !stats) {
-    return <Loader />;
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+           <Skeleton width={180} height={32} />
+           <Skeleton width={240} height={16} style={{ marginTop: 8 }} />
+        </View>
+        <View style={styles.statsGrid}>
+           {[1, 2, 3, 4, 5, 6].map(i => (
+             <View key={i} style={styles.statCardWrapper}>
+                <Skeleton width="100%" height={120} borderRadius={20} />
+             </View>
+           ))}
+        </View>
+        <View style={{ padding: 16 }}>
+           <Skeleton width="100%" height={200} borderRadius={24} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (

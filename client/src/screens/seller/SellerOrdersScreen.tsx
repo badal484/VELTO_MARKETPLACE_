@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
-import {Loader} from '../../components/common/Loader';
+import {Skeleton} from '../../components/common/Skeleton';
 import {Card} from '../../components/common/Card';
 import {Button} from '../../components/common/Button';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -261,7 +261,20 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     );
   };
 
-  if (loading && !refreshing) return <Loader />;
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+           <Skeleton width={150} height={28} />
+        </View>
+        <View style={{ padding: 16, gap: 16 }}>
+           {[1, 2, 3].map(i => (
+             <Skeleton key={i} width="100%" height={180} borderRadius={20} />
+           ))}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

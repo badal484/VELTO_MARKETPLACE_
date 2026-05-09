@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StatusBar,
   Dimensions,
   Modal,
+  Platform,
 } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -27,8 +28,11 @@ import Animated, {
   FadeInUp,
   FadeInLeft,
   useSharedValue,
-  withSpring,
   useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from '../../mocks/reanimated';
 import { RangeSlider } from '../../components/common/RangeSlider';
 import { IProduct, Category, IShop } from '@shared/types';
@@ -86,10 +90,11 @@ const categoriesList = [
   { id: null, icon: 'sparkles', label: 'For You' },
   { id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics' },
   { id: Category.FOOD, icon: 'fast-food', label: 'Food' },
+  { id: Category.PHARMACY, icon: 'medkit', label: 'Pharmacy' },
   { id: Category.CLOTHING, icon: 'shirt', label: 'Clothing' },
   { id: Category.HOME, icon: 'home', label: 'Home' },
   { id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction' },
-  { id: Category.SPORTS, icon: 'football', label: 'Sports' },
+  { id: Category.SPORTS, icon: 'basketball', label: 'Sports' },
 ];
 // Distance calculation helper (Haversine formula)
 
@@ -119,8 +124,10 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
         setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
       error => {
-        console.warn('Location Error:', error);
-        setLocation({ lat: 12.9716, lng: 77.5946 }); // Bengaluru fallback
+        console.warn('Browse Location Error:', error);
+        if (!location) {
+          setLocation({ lat: 12.9716, lng: 77.5946 }); // Bengaluru fallback
+        }
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
@@ -171,7 +178,7 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
     }
   };
 
-  const handleToggleWishlist = async (productId: string) => {
+  const handleToggleWishlist = useCallback(async (productId: string) => {
     try {
       setProducts(current =>
         current.map(p =>
@@ -182,7 +189,13 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
     } catch (err) {
       fetchProducts();
     }
-  };
+  }, [location, selectedCategory]);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
 
   const handleAreaSelect = (locationResult: LocationResult) => {
     setLocation({ lat: locationResult.lat, lng: locationResult.lon });
@@ -203,7 +216,7 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
     );
   };
 
-  const renderItem = ({ item }: { item: IProduct; index: number }) => {
+  const renderItem = useCallback(({ item }: { item: IProduct; index: number }) => {
     const shop = item.shop as unknown as IShop | null;
     return (
       <Animated.View entering={FadeInUp.duration(250)}>
@@ -252,6 +265,12 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
             <View style={styles.listContent}>
               <View style={styles.listHeader}>
                 <Text style={styles.categoryLabel}>{item.category}</Text>
+                {item.distance !== undefined && (
+                  <View style={styles.distanceBadgeSmall}>
+                    <Icon name="location-sharp" size={10} color={theme.colors.primary} />
+                    <Text style={styles.distanceText}>{item.distance.toFixed(1)} km</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.productTitle} numberOfLines={1}>
                 {item.title}
@@ -282,7 +301,7 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  }, [navigation, handleToggleWishlist]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -351,7 +370,7 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
 
       <View style={{ flex: 1 }}>
         {loading && products.length === 0 ? (
-          <Loader />
+          <BrowseSkeleton />
         ) : (
           <FlatList
             data={products}
@@ -359,9 +378,13 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
             renderItem={renderItem}
             contentContainerStyle={styles.listScroll}
             showsVerticalScrollIndicator={false}
-            initialNumToRender={50}
-            maxToRenderPerBatch={50}
-            windowSize={10}
+            initialNumToRender={8}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
+            getItemLayout={(data, index) => (
+              {length: 140, offset: 140 * index, index}
+            )}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <View style={styles.emptyIconCircle}>
@@ -786,6 +809,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#D97706',
   },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  distanceBadgeSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+  distanceText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: theme.colors.primary,
+  },
   shopInRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   shopInName: {
     fontSize: 12,
@@ -870,3 +915,38 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
 });
+const BrowseSkeleton = () => {
+  const insets = useSafeAreaInsets();
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 800 }),
+        withTiming(0.4, { duration: 800 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <View key={i} style={[styles.listCard, { borderWidth: 0, shadowOpacity: 0, flexDirection: 'row', marginBottom: 16, backgroundColor: 'transparent' }]}>
+           <Animated.View style={[animatedStyle, { width: 130, height: 130, backgroundColor: '#F1F5F9', borderRadius: 20 }]} />
+           <View style={{ flex: 1, padding: 12, gap: 10 }}>
+              <Animated.View style={[animatedStyle, { width: 60, height: 10, backgroundColor: '#F1F5F9', borderRadius: 4 }]} />
+              <Animated.View style={[animatedStyle, { width: '90%', height: 16, backgroundColor: '#F1F5F9', borderRadius: 6 }]} />
+              <Animated.View style={[animatedStyle, { width: 80, height: 20, backgroundColor: '#F1F5F9', borderRadius: 6, marginTop: 10 }]} />
+              <Animated.View style={[animatedStyle, { width: 100, height: 12, backgroundColor: '#F1F5F9', borderRadius: 4, marginTop: 8 }]} />
+           </View>
+        </View>
+      ))}
+    </View>
+  );
+};

@@ -116,6 +116,12 @@ export class ProductService {
       { $sort: { isNearby: -1, createdAt: -1 } }
     );
 
+    // Apply Pagination
+    const limit = Number(filters.limit) || 20;
+    const page = Number(filters.page) || 1;
+    pipeline.push({ $skip: (page - 1) * limit });
+    pipeline.push({ $limit: limit });
+
     let wishlistedIds: string[] = [];
     if (userId) {
       const wishlist = await Wishlist.findOne({ user: userId });
@@ -123,10 +129,13 @@ export class ProductService {
     }
 
     const products = await Product.aggregate(pipeline);
+    if (products.length > 0) {
+      console.log(`[GEO DEBUG] First product: ${products[0].title}, Raw Distance (meters): ${products[0].distance}`);
+    }
     return products.map(p => ({
       ...p,
       isWishlisted: wishlistedIds.includes(p._id.toString()),
-      distance: (p.distance !== undefined && p.distance !== null) ? parseFloat((p.distance / 1000).toFixed(1)) : undefined
+      distance: (p.distance !== undefined && p.distance !== null) ? Number((p.distance / 1000).toFixed(1)) : undefined
     }));
   }
 }

@@ -104,11 +104,16 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
 
 export const getMyOrders = async (req: Request, res: Response): Promise<void> => {
   try {
+    const limit = Number(req.query.limit) || 20;
+    const page = Number(req.query.page) || 1;
+
     const orders = await Order.find({ buyer: req.user?._id })
-      .populate('product')
-      .populate('shop')
+      .populate('product', 'title images price')
+      .populate('shop', 'name logo address')
       .populate('seller', 'name email')
       .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
 
     res.json({ success: true, data: orders });
@@ -119,14 +124,19 @@ export const getMyOrders = async (req: Request, res: Response): Promise<void> =>
 
 export const getSellerOrders = async (req: Request, res: Response): Promise<void> => {
   try {
+    const limit = Number(req.query.limit) || 20;
+    const page = Number(req.query.page) || 1;
+
     const orders = await Order.find({ 
       seller: req.user?._id,
       status: { $ne: OrderStatus.PAYMENT_UNDER_REVIEW } 
     })
-      .populate('product')
-      .populate('shop')
-      .populate('buyer', 'name email')
+      .populate('product', 'title images price')
+      .populate('shop', 'name logo')
+      .populate('buyer', 'name email phoneNumber')
       .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
 
     res.json({ success: true, data: orders });
@@ -165,11 +175,16 @@ export const claimOrder = async (req: Request, res: Response): Promise<void> => 
 
 export const getRiderOrders = async (req: Request, res: Response): Promise<void> => {
   try {
+    const limit = Number(req.query.limit) || 50;
+    const page = Number(req.query.page) || 1;
+
     const orders = await Order.find({ rider: req.user?._id })
-      .populate('product')
-      .populate('shop')
-      .populate('buyer', 'name email avatar phoneNumber')
+      .populate('product', 'title images price')
+      .populate('shop', 'name logo location address')
+      .populate('buyer', 'name email avatar phoneNumber deliveryLocation')
       .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
 
     const finishedStatuses = [

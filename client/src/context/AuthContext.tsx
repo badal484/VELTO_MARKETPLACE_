@@ -54,11 +54,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) 
       } catch {
         await performLogout();
       } finally {
-        const elapsedTime = Date.now() - startTime;
-        const minimumSplashTime = 2000;
-        if (elapsedTime < minimumSplashTime) {
-          await new Promise(resolve => setTimeout(resolve, minimumSplashTime - elapsedTime));
-        }
         setIsLoading(false);
       }
     };
