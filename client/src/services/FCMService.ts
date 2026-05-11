@@ -95,9 +95,7 @@ export class FCMService {
       await axiosInstance.post('/api/notifications/fcm-token', { token });
       console.log('FCM Token synced with server.');
     } catch {
-      console.warn(
-        'Failed to sync FCM token (User might be logged out or Offline)',
-      );
+      console.log(' [FCM] Token sync skipped or failed (likely logged out)');
     }
   }
 
