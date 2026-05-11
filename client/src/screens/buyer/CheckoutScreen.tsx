@@ -626,7 +626,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                   <Text style={[styles.billTotal, {color: theme.colors.muted}]}>Calculating...</Text>
                 ) : (
                   <Text style={[styles.billTotal, {color: theme.colors.success}]}>
-                    ₹{deliveryCharge}
+                    {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
                   </Text>
                 )}
               </View>
