@@ -242,7 +242,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
     const activeOrder = await Order.findOne({
       $or: [{ buyer: id }, { seller: id }],
-      status: { $nin: ['completed', 'cancelled'] }
+      status: { $nin: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] }
     });
 
     if (activeOrder) {
@@ -378,7 +378,7 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
 
     const activeOrder = await Order.findOne({
       product: id,
-      status: { $nin: ['completed', 'cancelled'] }
+      status: { $nin: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] }
     });
 
     if (activeOrder) {
@@ -404,7 +404,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     const totalConversations = await Conversation.countDocuments({});
 
     const revenueData = await Order.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: OrderStatus.CANCELLED } } },
       { $group: { _id: null, total: { $sum: '$totalPrice' } } }
     ]);
 
@@ -414,7 +414,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const dailySales = await Order.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo }, status: { $ne: 'cancelled' } } },
+      { $match: { createdAt: { $gte: sevenDaysAgo }, status: { $ne: OrderStatus.CANCELLED } } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -429,7 +429,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     const monthlySales = await Order.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo }, status: { $ne: 'cancelled' } } },
+      { $match: { createdAt: { $gte: sixMonthsAgo }, status: { $ne: OrderStatus.CANCELLED } } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
@@ -441,12 +441,12 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     ]);
 
     const commissionStats = await Order.aggregate([
-      { $match: { status: 'completed' } },
+      { $match: { status: 'Completed' } },
       {
         $group: {
           _id: null,
-          sellerComm: { $sum: { $multiply: [{ $multiply: ["$productSnapshot.originalPrice", "$quantity"] }, 0.05] } }, // 5% of item price
-          riderComm: { $sum: { $multiply: ["$deliveryCharge", 0.10] } } // 10% of delivery fee
+          sellerComm: { $sum: { $multiply: [{ $multiply: [{ $ifNull: ["$productSnapshot.originalPrice", 0] }, { $ifNull: ["$quantity", 0] }] }, 0.05] } },
+          riderComm: { $sum: { $multiply: [{ $ifNull: ["$deliveryCharge", 0] }, 0.10] } }
         }
       }
     ]);
@@ -456,7 +456,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       : 0;
 
     const topShops = await Order.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: OrderStatus.CANCELLED } } },
       {
         $group: {
           _id: "$shop",

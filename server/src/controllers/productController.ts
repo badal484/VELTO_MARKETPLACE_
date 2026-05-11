@@ -28,6 +28,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
 export const getProducts = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('[DEBUG] getProducts Query:', req.query);
     const products = await ProductService.getDiscoveryProducts(req.user?._id.toString(), req.query);
     res.json({ success: true, data: products });
   } catch (error) {

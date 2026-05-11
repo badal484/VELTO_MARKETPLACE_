@@ -32,6 +32,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const requestLoginOTP = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await AuthService.requestLoginOTP(req.body.email);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
+export const verifyLoginOTP = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, otp } = req.body;
+    const result = await AuthService.verifyLoginOTP(email, otp);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await AuthService.forgotPassword(req.body.email);
@@ -44,6 +63,16 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await AuthService.resetPassword(req.body);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    handleError(error, res);
+  }
+};
+
+export const googleLogin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { idToken } = req.body;
+    const result = await AuthService.googleLogin(idToken);
     res.json({ success: true, ...result });
   } catch (error) {
     handleError(error, res);

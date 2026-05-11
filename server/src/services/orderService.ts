@@ -23,8 +23,9 @@ export class OrderService {
    * Defines which status can move to which other status
    */
   private static readonly transitions: Record<OrderStatus, OrderStatus[]> = {
-    [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.PAYMENT_UNDER_REVIEW, OrderStatus.CANCELLED],
-    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.PENDING]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.PAYMENT_UNDER_REVIEW, OrderStatus.CANCELLED],
+    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CANCELLED],
+    [OrderStatus.AWAITING_SELLER_CONFIRMATION]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.CONFIRMED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.SEARCHING_RIDER, OrderStatus.CANCELLED],
     [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
     [OrderStatus.SEARCHING_RIDER]: [OrderStatus.RIDER_ASSIGNED, OrderStatus.CANCELLED],
@@ -170,6 +171,10 @@ export class OrderService {
       throw new AppError('Only seller can mark order as ready', 403);
     }
 
+    if (newStatus === OrderStatus.CONFIRMED && currentStatus === OrderStatus.AWAITING_SELLER_CONFIRMATION && !isSeller && !isAdmin) {
+      throw new AppError('Only the seller can confirm this order', 403);
+    }
+
     if (newStatus === OrderStatus.PICKED_UP && !isRider && !isAdmin && !isSeller) {
       throw new AppError('Only the assigned rider or seller can mark as picked up', 403);
     }
@@ -195,6 +200,14 @@ export class OrderService {
 
     order.status = newStatus;
     await order.save();
+
+    //  AUTO-TRIGGER RIDER SEARCH 
+    if (newStatus === OrderStatus.CONFIRMED && order.fulfillmentMethod === 'delivery') {
+      // Trigger rider search once seller confirms
+      setTimeout(() => {
+        this.autoAssignRider(order._id.toString()).catch(console.error);
+      }, 1000);
+    }
 
     //  FINANCIAL FULFILLMENT 
     if (newStatus === OrderStatus.COMPLETED || newStatus === OrderStatus.COMPLETED_PENDING_RELEASE) {
@@ -553,8 +566,8 @@ export class OrderService {
         // If wallet covers full amount, status should be CONFIRMED immediately (except for review logic if any)
         const isFullyPaidByWallet = itemWalletPaid >= itemTotalPrice;
         const initialStatus = isRazorpay 
-          ? (isFullyPaidByWallet ? OrderStatus.CONFIRMED : OrderStatus.PAYMENT_UNDER_REVIEW) 
-          : (isDirectUPI ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.PENDING);
+          ? (isFullyPaidByWallet ? OrderStatus.AWAITING_SELLER_CONFIRMATION : OrderStatus.PAYMENT_UNDER_REVIEW) 
+          : (isDirectUPI ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.AWAITING_SELLER_CONFIRMATION);
 
         const [order] = await Order.create([{
           buyer: buyerId,
