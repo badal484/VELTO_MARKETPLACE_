@@ -20,25 +20,23 @@ export class AuthService {
     const existing = await User.findOne({ email: data.email });
     if (existing) throw new AppError('Email already in use', 409);
 
-    const otp = generateOTP();
-    await OTP.deleteMany({ email: data.email, type: 'email_verify' });
+    // Bypassing OTP for Launch: Create user immediately
+    const hashed = await bcrypt.hash(data.password, 10);
+    const user = await User.create({ ...data, password: hashed });
 
-    await OTP.create({
-      email: data.email,
-      otp: hashOTP(otp),
-      type: 'email_verify',
-      metadata: data, // Store registration data to create user after verification
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins
-    });
+    const token = jwt.sign(
+      { id: String(user._id), role: user.role },
+      JWT_SECRET,
+      { expiresIn: '30d' } as any
+    );
 
-    // Send email in background
-    sendEmail(data.email, 'email_verify', { name: data.name, otp }).catch(err => {
-      console.error(`[EMAIL ERROR] Failed to send registration OTP to ${data.email}:`, err);
-    });
+    const userObj = user.toObject() as any;
+    delete userObj.password;
 
     return { 
-      message: 'Verification OTP sent to email',
-      email: data.email
+      message: 'Registration successful!',
+      token,
+      user: userObj
     };
   }
 
