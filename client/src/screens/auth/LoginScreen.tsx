@@ -3,23 +3,23 @@ import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { theme } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
-import { axiosInstance, BASE_URL } from '../../api/axiosInstance';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeIn } from '../../mocks/reanimated';
+import { axiosInstance } from '../../api/axiosInstance';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { loginSchema } from '@shared/validation';
+import { useToast } from '../../hooks/useToast';
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -31,17 +31,17 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
-  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const { showToast } = useToast();
 
   const handleLogin = async () => {
     if (loading) return;
 
-    // Zod Validation
+    // Validation
     const validation = loginSchema.safeParse({ email, password });
     if (!validation.success) {
       setError(validation.error.issues[0].message);
@@ -55,25 +55,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         email,
         password,
       });
+
       if (res.data.success) {
-        // Correcting data mapping: backend returns 'user', not 'data'
         await login(res.data.token, res.data.user);
       }
     } catch (err: any) {
-      console.log('[LOGIN_ERROR]', err);
-      if (err?.response) {
-        // The request was made and the server responded with a status code
-        setError(
-          err.response.data?.message ||
-            'Login failed. Please check your credentials.',
-        );
-      } else if (err?.request || err?.message === 'Network request failed') {
-        // The request was made but no response was received (or fetch network error)
-        setError(
-          `Could not reach the server at ${BASE_URL}. Please ensure the backend is running and your device is on the same Wi-Fi.`,
-        );
+      if (err.response) {
+        setError(err.response.data.message || 'Invalid email or password');
       } else {
-        // Something happened in setting up the request that triggered an Error
         setError(
           err?.message ||
             'An error occurred while signing in. Please try again.',
@@ -92,10 +81,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         style={styles.flex}
       >
         <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: Math.max(insets.top, 24) },
-          ]}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           <TouchableOpacity
@@ -194,10 +180,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     color: theme.colors.textSecondary,
-    lineHeight: 22,
-    fontWeight: '500',
+    lineHeight: 24,
   },
   form: {
     flex: 1,
@@ -206,44 +191,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
-    padding: theme.spacing.md,
-    borderRadius: 12,
-    marginBottom: theme.spacing.lg,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#FEE2E2',
   },
   errorText: {
     color: theme.colors.danger,
     fontSize: 14,
-    marginLeft: theme.spacing.sm,
+    marginLeft: 8,
     flex: 1,
-    fontWeight: '600',
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginBottom: theme.spacing.xl,
+    marginBottom: 24,
   },
   forgotText: {
     color: theme.colors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: 14,
   },
   loginButton: {
-    marginTop: theme.spacing.md,
+    marginBottom: 24,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: theme.spacing.xxl,
+    marginTop: 'auto',
+    paddingVertical: 20,
   },
   footerText: {
     color: theme.colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
   },
   linkText: {
-    color: theme.colors.accent,
-    fontWeight: '800',
-    fontSize: 15,
+    color: theme.colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

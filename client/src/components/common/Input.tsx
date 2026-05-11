@@ -8,8 +8,10 @@ import {
   ViewStyle,
   NativeSyntheticEvent,
   TextInputFocusEventData,
+  TouchableOpacity,
 } from 'react-native';
 import {theme} from '../../theme';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -28,9 +30,11 @@ export const Input: React.FC<InputProps> = ({
   onFocus,
   onBlur,
   style: propStyle,
+  secureTextEntry,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleFocus = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
     if (disabled) {
@@ -70,9 +74,21 @@ export const Input: React.FC<InputProps> = ({
           onFocus={handleFocus}
           onBlur={handleBlur}
           editable={!disabled}
+          secureTextEntry={secureTextEntry && !showPassword}
           {...props}
           style={[styles.input, disabled && {color: theme.colors.muted}, propStyle]}
         />
+        {secureTextEntry && (
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.rightIconContainer}>
+            <Icon
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color={theme.colors.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -95,7 +111,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.md,
     height: 54,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     ...theme.shadow.sm,
   },

@@ -66,7 +66,6 @@ export default function RegisterScreen({ navigation }: RegisterScreenProps) {
           type: 'success',
         });
         await login(res.data.token, res.data.user);
-        // Navigation will happen automatically via AuthContext
       } else if (res.data.success) {
         showToast({
           message: 'Verification code sent to your email.',
@@ -74,16 +73,8 @@ export default function RegisterScreen({ navigation }: RegisterScreenProps) {
         });
         navigation.navigate('VerifyOTP', { email, type: 'register' });
       }
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosErr = err as { response: { data: { message: string } } };
-        setError(
-          axiosErr.response?.data?.message ||
-            'Registration failed. Try a different email.',
-        );
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Registration failed. Try a different email.');
     } finally {
       setLoading(false);
     }

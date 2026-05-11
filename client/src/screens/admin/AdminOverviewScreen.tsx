@@ -277,7 +277,7 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Verification Queue</Text>
           <View style={styles.badgeCount}>
-            <Text style={styles.badgeText}>{pendingShops.length} apps</Text>
+            <Text style={styles.badgeText}>{pendingShops.length} {pendingShops.length === 1 ? 'App' : 'Apps'}</Text>
           </View>
         </View>
 

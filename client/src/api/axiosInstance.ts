@@ -3,7 +3,7 @@ import {tokenStore} from './tokenStore';
 const DEV_URL = 'http://10.0.2.2:8082'; // Optimized for Android Emulator to reach Localhost
 const PROD_URL = 'https://velto-marketplace.onrender.com';
 
-export const BASE_URL = PROD_URL; // Switched to production for standalone build
+export const BASE_URL = PROD_URL; // Switched to Cloud for Final Launch
 
 type LogoutHandler = () => void;
 let _logoutHandler: LogoutHandler | null = null;
