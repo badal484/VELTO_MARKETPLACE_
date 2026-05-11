@@ -138,7 +138,7 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
             {renderSection('Product Details', 'basket-outline', (
               <View>
                 <Text style={styles.productTitle}>{product?.title || 'System Item'}</Text>
-                <Text style={styles.productMeta}>₹{product?.price || 0} x {order.quantity} units</Text>
+                <Text style={styles.productMeta}>₹{(order.productSnapshot?.originalPrice || (product as any)?.price || 0).toLocaleString()} x {order.quantity} units</Text>
                 {renderInfoRow('Sold by', shop?.name || 'Unknown Shop', 'storefront-outline')}
               </View>
             ))}
@@ -442,9 +442,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 12, // Reduced to prevent overlap
+    fontWeight: '900',
     color: theme.colors.white,
+    letterSpacing: 0.2,
   },
   closeBtn: {
     width: 100,
