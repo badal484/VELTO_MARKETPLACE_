@@ -80,7 +80,7 @@ android {
 
     namespace "com.client"
     defaultConfig {
-        applicationId "velto_12.ve"
+        applicationId "com.fresh.velto.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2

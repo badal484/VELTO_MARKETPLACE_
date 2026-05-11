@@ -57,7 +57,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const {products: initialProducts} = route.params as { products: CheckoutItem[] };
   const [products, setProducts] = useState<CheckoutItem[]>(initialProducts);
   const fulfillmentMethod = 'delivery';
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'Razorpay'>('Cash');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'Razorpay' | 'UPI'>('Cash');
   const [loading, setLoading] = useState(false);
   
   // Address state
@@ -249,8 +249,10 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         }),
         paymentMethod: selectedPaymentMethod === 'Cash' 
              ? 'Cash on Delivery'
-             : 'Razorpay',
-        paymentReference: selectedPaymentMethod === 'Razorpay' ? (utrValue || 'PENDING_AUTO') : undefined,
+             : selectedPaymentMethod === 'UPI' 
+               ? 'Direct UPI Transfer' 
+               : 'Razorpay',
+        paymentReference: selectedPaymentMethod === 'Cash' ? undefined : (utrValue || 'PENDING_AUTO'),
         fulfillmentMethod,
         deliveryAddress: address,
         deliveryCharge: deliveryFee, 
@@ -306,6 +308,26 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         } catch (innerErr: any) {
           showToast({message: innerErr.message, type: 'error'});
         }
+        return;
+      }
+
+      if (selectedPaymentMethod === 'UPI') {
+        if (!utrValue || utrValue.length < 10) {
+          showToast({message: 'Please enter your 12-digit Transaction ID (UTR) for verification.', type: 'info'});
+          setLoading(false);
+          return;
+        }
+        
+        const response = await axiosInstance.post('/api/orders/batch', payload);
+        const orders = response.data.data.orders;
+        
+        navigation.replace('OrderSuccess', { 
+          orderId: orders[0]._id,
+          paymentMethod: 'Direct UPI Transfer',
+          fulfillmentMethod,
+          deliveryCode: orders[0].deliveryCode,
+          pickupCode: orders[0].pickupCode
+        });
         return;
       }
 
@@ -530,6 +552,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               )}
               
               <TouchableOpacity 
+                style={[styles.methodCard, selectedPaymentMethod === 'UPI' && styles.activeMethod]}
+                onPress={() => setSelectedPaymentMethod('UPI')}>
+                <Icon name="phone-portrait-outline" size={24} color={selectedPaymentMethod === 'UPI' ? theme.colors.primary : theme.colors.muted} />
+                <Text style={[styles.methodLabel, selectedPaymentMethod === 'UPI' && styles.activeMethodLabel]}>Direct UPI</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
                 style={[styles.methodCard, selectedPaymentMethod === 'Razorpay' && styles.activeMethod]}
                 onPress={() => {
                   setSelectedPaymentMethod('Razorpay');
@@ -538,6 +567,57 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                 <Text style={[styles.methodLabel, selectedPaymentMethod === 'Razorpay' && styles.activeMethodLabel]}>Razorpay Secure</Text>
               </TouchableOpacity>
             </View>
+
+            {selectedPaymentMethod === 'UPI' && (
+              <Animated.View entering={FadeInUp} style={styles.upiActionBox}>
+                <Text style={styles.upiTitle}>Instant UPI Payment</Text>
+                <Text style={styles.upiSub}>Select an app to pay ₹{finalPayable.toLocaleString()}</Text>
+                
+                <View style={styles.upiAppsRow}>
+                   <TouchableOpacity 
+                     style={styles.upiAppBtn} 
+                     onPress={() => {
+                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
+                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
+                     }}>
+                     <Image source={{uri: 'https://cdn.iconscout.com/icon/free/png-256/google-pay-2038779-1721670.png'}} style={styles.upiIcon} />
+                     <Text style={styles.upiAppName}>GPay</Text>
+                   </TouchableOpacity>
+
+                   <TouchableOpacity 
+                     style={styles.upiAppBtn}
+                     onPress={() => {
+                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
+                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
+                     }}>
+                     <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/phonepe-logo-icon.png'}} style={styles.upiIcon} />
+                     <Text style={styles.upiAppName}>PhonePe</Text>
+                   </TouchableOpacity>
+
+                   <TouchableOpacity 
+                     style={styles.upiAppBtn}
+                     onPress={() => {
+                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
+                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
+                     }}>
+                     <Image source={{uri: 'https://cdn.iconscout.com/icon/free/png-256/paytm-226448.png'}} style={styles.upiIcon} />
+                     <Text style={styles.upiAppName}>Paytm</Text>
+                   </TouchableOpacity>
+                </View>
+
+                <View style={styles.utrContainer}>
+                   <Text style={styles.utrLabel}>Enter 12-digit Transaction ID (UTR)</Text>
+                   <Input
+                     placeholder="e.g. 412345678901"
+                     value={utrValue}
+                     onChangeText={setUtrValue}
+                     keyboardType="numeric"
+                     maxLength={12}
+                   />
+                   <Text style={styles.utrHint}>Required for payment verification</Text>
+                </View>
+              </Animated.View>
+            )}
 
             {totalAmount > MAX_COD_AMOUNT && (
               <Animated.View entering={FadeInUp} style={styles.codWarningBox}>
@@ -918,97 +998,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 8,
     lineHeight: 20,
-  },
-  qrCard: {
-    alignItems: 'center',
-    marginVertical: 24,
-    padding: 24,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  qrPlaceholder: {
-    padding: 20,
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    marginBottom: 16,
-    position: 'relative',
-    ...theme.shadow.sm,
-  },
-  qrInner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.4)',
-    borderRadius: 16,
-  },
-  upiId: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: theme.colors.primary,
-  },
-  upiName: {
-    fontSize: 12,
-    color: theme.colors.muted,
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  payableAmount: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.text,
-    marginTop: 16,
-  },
-  uniqueTotal: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: theme.colors.text,
-    marginTop: 4,
-  },
-  deepLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 14,
-    marginTop: 20,
-    gap: 8,
-  },
-  deepLinkText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  utrSection: {
-    marginBottom: 24,
-  },
-  utrLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.colors.text,
-    marginBottom: 12,
-  },
-  utrInput: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.colors.text,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  utrHint: {
-    fontSize: 11,
-    color: theme.colors.muted,
-    marginTop: 8,
-    lineHeight: 16,
   },
   payBtn: {
     marginBottom: 40,

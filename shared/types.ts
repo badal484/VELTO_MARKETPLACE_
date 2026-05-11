@@ -187,7 +187,7 @@ export interface IOrder {
   quantity: number;
   totalPrice: number;
   status: OrderStatus;
-  paymentMethod: 'Cash on Delivery' | 'Razorpay';
+  paymentMethod: 'Cash on Delivery' | 'Razorpay' | 'Direct UPI Transfer';
   rider?: MongoId | IUser;
   pickupCode: string;
   deliveryCode?: string;

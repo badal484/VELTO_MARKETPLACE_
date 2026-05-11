@@ -183,10 +183,12 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
 
             <View style={styles.actionRow}>
               {order.status === OrderStatus.PAYMENT_UNDER_REVIEW && (
-                <View style={[styles.actionBtn, {backgroundColor: theme.colors.muted + '20'}]}>
-                  <Icon name="time-outline" size={20} color={theme.colors.muted} />
-                  <Text style={[styles.actionBtnText, {color: theme.colors.muted}]}>WAITING FOR RAZORPAY</Text>
-                </View>
+                <TouchableOpacity 
+                  style={[styles.actionBtn, {backgroundColor: theme.colors.success}]}
+                  onPress={handleVerifyPayment}>
+                  <Icon name="checkmark-done-circle-outline" size={20} color={theme.colors.white} />
+                  <Text style={styles.actionBtnText}>VERIFY & CONFIRM PAYMENT</Text>
+                </TouchableOpacity>
               )}
               
               <TouchableOpacity style={styles.closeBtn} onPress={onClose}>

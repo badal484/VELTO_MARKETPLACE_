@@ -545,11 +545,12 @@ export class OrderService {
         }
 
         const isRazorpay = paymentMethod === 'Razorpay';
+        const isDirectUPI = paymentMethod === 'Direct UPI Transfer';
         // If wallet covers full amount, status should be CONFIRMED immediately (except for review logic if any)
         const isFullyPaidByWallet = itemWalletPaid >= itemTotalPrice;
         const initialStatus = isRazorpay 
           ? (isFullyPaidByWallet ? OrderStatus.CONFIRMED : OrderStatus.PAYMENT_UNDER_REVIEW) 
-          : OrderStatus.PENDING;
+          : (isDirectUPI ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.PENDING);
 
         const [order] = await Order.create([{
           buyer: buyerId,
