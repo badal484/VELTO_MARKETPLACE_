@@ -826,14 +826,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Icon name="search" size={48} color={theme.colors.muted} />
             </View>
             <Text style={styles.emptyTitle}>
-              {isGlobalMode
-                ? t('home.no_products_global')
-                : t('common.nothing_nearby')}
+              {t('common.nothing_nearby')}
             </Text>
             <Text style={styles.emptyText}>
-              {isGlobalMode
-                ? t('home.empty_global_text')
-                : t('home.empty_nearby_text')}
+              {t('home.empty_nearby_text')}
             </Text>
             <View style={styles.emptyActions}>
               <Button
