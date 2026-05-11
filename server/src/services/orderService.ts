@@ -130,13 +130,17 @@ export class OrderService {
     }
   }
 
-  static async updateStatus(orderId: string, newStatus: OrderStatus, actorId: string, actorRole: string, options: { refundDestination?: string } = {}) {
+  static async updateStatus(orderId: string, newStatus: OrderStatus, actorId: string, actorRole: string, options: { refundDestination?: string, reason?: string } = {}) {
     const order = await Order.findById(orderId).populate('buyer seller');
     if (!order) throw new AppError('Order not found', 404);
 
     if (options.refundDestination) {
       (order as any).refundDestination = options.refundDestination;
       (order as any).refundStatus = options.refundDestination === 'wallet' ? 'completed' : 'pending';
+    }
+
+    if (options.reason) {
+      order.cancellationReason = options.reason;
     }
 
     const currentStatus = order.status as OrderStatus;

@@ -548,7 +548,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       status as OrderStatus, 
       req.user!._id.toString(), 
       req.user!.role,
-      { refundDestination }
+      { refundDestination, reason }
     );
 
     if (status === OrderStatus.CANCELLED) {
