@@ -33,7 +33,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/types';
 
-const DEFAULT_DELIVERY_FEE = 40;
+const DEFAULT_DELIVERY_FEE = 0; // Launch Promotion: Free Delivery
 const MAX_COD_AMOUNT = 5000; // Protection for high-value risk
 
 interface CheckoutItem {
