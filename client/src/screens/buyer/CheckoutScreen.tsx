@@ -13,11 +13,11 @@ import {
   Linking,
   Image,
   PermissionsAndroid,
+  Clipboard,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Geolocation from 'react-native-geolocation-service';
 import {locationService} from '../../services/locationService';
-import RazorpayCheckout from 'react-native-razorpay';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useToast} from '../../hooks/useToast';
@@ -57,7 +57,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const {products: initialProducts} = route.params as { products: CheckoutItem[] };
   const [products, setProducts] = useState<CheckoutItem[]>(initialProducts);
   const fulfillmentMethod = 'delivery';
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'Razorpay' | 'UPI'>('Cash');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'UPI'>('Cash');
   const [loading, setLoading] = useState(false);
   
   // Address state
@@ -82,6 +82,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const [activeZoneName, setActiveZoneName] = useState<string | null>(null);
   const [deliveryCharge, setDeliveryCharge] = useState(DEFAULT_DELIVERY_FEE);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+  
+  // Intelligent default: UPI for high-value, Cash otherwise
+  React.useEffect(() => {
+    if (totalAmount > MAX_COD_AMOUNT && selectedPaymentMethod === 'Cash') {
+      setSelectedPaymentMethod('UPI');
+    }
+  }, [totalAmount]);
 
 
   const calculateSubtotal = () => {
@@ -249,9 +256,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         }),
         paymentMethod: selectedPaymentMethod === 'Cash' 
              ? 'Cash on Delivery'
-             : selectedPaymentMethod === 'UPI' 
-               ? 'Direct UPI Transfer' 
-               : 'Razorpay',
+             : 'Direct UPI Transfer',
         paymentReference: selectedPaymentMethod === 'Cash' ? undefined : (utrValue || 'PENDING_AUTO'),
         fulfillmentMethod,
         deliveryAddress: address,
@@ -262,54 +267,6 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         useWallet: useWallet,
       };
 
-      if (selectedPaymentMethod === 'Razorpay') {
-        const res = await axiosInstance.post('/api/orders/batch', payload);
-        const { razorpayOrder, orders } = res.data.data;
-
-        const options = {
-          description: 'Payment for Velto Order',
-          image: 'https://ik.imagekit.io/oellcbqek/velto_logo.png',
-          currency: 'INR',
-          key: 'rzp_test_SdCBOGIizlvuxK',
-          amount: razorpayOrder.amount,
-          name: 'Velto Marketplace',
-          order_id: razorpayOrder.id,
-          prefill: {
-            email: user?.email || 'customer@example.com',
-            contact: phoneNumber,
-            name: user?.name || 'Velto Customer'
-          },
-          theme: {color: theme.colors.primary}
-        };
-
-        if (!RazorpayCheckout || typeof RazorpayCheckout.open !== 'function') {
-           throw new Error('Payment module not linked. Please restart the app.');
-        }
-
-        try {
-          RazorpayCheckout.open(options).then(async (data: any) => {
-            await axiosInstance.post('/api/payments/verify', {
-              razorpay_order_id: data.razorpay_order_id,
-              razorpay_payment_id: data.razorpay_payment_id,
-              razorpay_signature: data.razorpay_signature
-            });
-            
-            navigation.replace('OrderSuccess', { 
-              orderId: orders[0]._id,
-              paymentMethod: 'Razorpay',
-              fulfillmentMethod,
-              deliveryCode: orders[0].deliveryCode,
-              pickupCode: orders[0].pickupCode
-            });
-          }).catch((err: any) => {
-            showToast({message: `Payment Failed: ${err.description || 'Cancelled'}`, type: 'error'});
-          });
-
-        } catch (innerErr: any) {
-          showToast({message: innerErr.message, type: 'error'});
-        }
-        return;
-      }
 
       if (selectedPaymentMethod === 'UPI') {
         if (!utrValue || utrValue.length < 10) {
@@ -558,14 +515,6 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                 <Text style={[styles.methodLabel, selectedPaymentMethod === 'UPI' && styles.activeMethodLabel]}>Direct UPI</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={[styles.methodCard, selectedPaymentMethod === 'Razorpay' && styles.activeMethod]}
-                onPress={() => {
-                  setSelectedPaymentMethod('Razorpay');
-                }}>
-                <Icon name="card-outline" size={24} color={selectedPaymentMethod === 'Razorpay' ? theme.colors.primary : theme.colors.muted} />
-                <Text style={[styles.methodLabel, selectedPaymentMethod === 'Razorpay' && styles.activeMethodLabel]}>Razorpay Secure</Text>
-              </TouchableOpacity>
             </View>
 
             {selectedPaymentMethod === 'UPI' && (
@@ -573,14 +522,33 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                 <Text style={styles.upiTitle}>Instant UPI Payment</Text>
                 <Text style={styles.upiSub}>Select an app to pay ₹{finalPayable.toLocaleString()}</Text>
                 
-                <View style={styles.upiAppsRow}>
+                    <View style={styles.manualUpiBox}>
+                      <View>
+                        <Text style={styles.manualUpiLabel}>Platform UPI ID</Text>
+                        <Text style={styles.manualUpiId}>badal90603@okicici</Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.copyBtn}
+                        onPress={() => {
+                          Clipboard.setString('badal90603@okicici');
+                          showToast({message: 'UPI ID copied to clipboard', type: 'success'});
+                        }}>
+                        <Icon name="copy-outline" size={18} color={theme.colors.primary} />
+                        <Text style={styles.copyBtnText}>Copy</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.upiAppsTitle}>Instant Pay via Apps</Text>
+                    <View style={styles.upiAppsRow}>
                    <TouchableOpacity 
                      style={styles.upiAppBtn} 
                      onPress={() => {
                        const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
                        Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
                      }}>
-                     <Image source={{uri: 'https://cdn.iconscout.com/icon/free/png-256/google-pay-2038779-1721670.png'}} style={styles.upiIcon} />
+                     <View style={styles.upiIconContainer}>
+                       <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-pay-icon.png'}} style={styles.upiIcon} />
+                     </View>
                      <Text style={styles.upiAppName}>GPay</Text>
                    </TouchableOpacity>
 
@@ -590,7 +558,9 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                        const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
                        Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
                      }}>
-                     <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/phonepe-logo-icon.png'}} style={styles.upiIcon} />
+                     <View style={styles.upiIconContainer}>
+                       <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/phonepe-logo-icon.png'}} style={styles.upiIcon} />
+                     </View>
                      <Text style={styles.upiAppName}>PhonePe</Text>
                    </TouchableOpacity>
 
@@ -600,21 +570,27 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                        const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
                        Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
                      }}>
-                     <Image source={{uri: 'https://cdn.iconscout.com/icon/free/png-256/paytm-226448.png'}} style={styles.upiIcon} />
+                     <View style={styles.upiIconContainer}>
+                       <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/paytm-icon.png'}} style={styles.upiIcon} />
+                     </View>
                      <Text style={styles.upiAppName}>Paytm</Text>
                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.utrContainer}>
-                   <Text style={styles.utrLabel}>Enter 12-digit Transaction ID (UTR)</Text>
                    <Input
+                     label="Enter 12-digit Transaction ID (UTR)"
                      placeholder="e.g. 412345678901"
                      value={utrValue}
                      onChangeText={setUtrValue}
                      keyboardType="numeric"
                      maxLength={12}
                    />
-                   <Text style={styles.utrHint}>Required for payment verification</Text>
+                   <Text style={styles.utrHint}>Required for manual payment verification</Text>
+                   <View style={styles.manualTip}>
+                      <Icon name="information-circle-outline" size={14} color={theme.colors.muted} />
+                      <Text style={styles.manualTipText}>If the apps show a security warning, please copy the UPI ID above and pay manually.</Text>
+                   </View>
                 </View>
               </Animated.View>
             )}
@@ -623,13 +599,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               <Animated.View entering={FadeInUp} style={styles.codWarningBox}>
                 <Icon name="information-circle" size={18} color={theme.colors.text} />
                 <Text style={styles.codWarningText}>
-                  Cash on Delivery is unavailable for orders above ₹{MAX_COD_AMOUNT.toLocaleString()}. Please use Razorpay for secure high-value checkout.
+                  Cash on Delivery is unavailable for orders above ₹{MAX_COD_AMOUNT.toLocaleString()}. Please use Direct UPI for secure high-value checkout.
                 </Text>
               </Animated.View>
             )}
             
             <View style={styles.openBoxDisclaimer}>
-              <Icon name="cube-outline" size={18} color={theme.colors.info} />
+              <Icon name="cube-outline" size={20} color={theme.colors.info} />
               <Text style={styles.openBoxDisclaimerText}>
                 <Text style={{fontWeight: '900', color: theme.colors.text}}>Open Box Delivery:</Text> Please inspect your products before sharing the Handshake Code. No returns are accepted after acceptance.
               </Text>
@@ -1020,5 +996,136 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.primary,
     letterSpacing: 0.5,
+  },
+  // UPI Styles
+  upiActionBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 24,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...theme.shadow.sm,
+  },
+  upiTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  upiSub: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginBottom: 24,
+    fontWeight: '500',
+  },
+  upiAppsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+    paddingHorizontal: 10,
+  },
+  upiAppBtn: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  upiIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...theme.shadow.sm,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  upiIcon: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  },
+  upiAppName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  manualUpiBox: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  manualUpiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.muted,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  manualUpiId: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  copyBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  upiAppsTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: 16,
+    marginLeft: 4,
+  },
+  manualTip: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: theme.colors.white,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  manualTipText: {
+    flex: 1,
+    fontSize: 10,
+    color: theme.colors.muted,
+    lineHeight: 14,
+    fontWeight: '500',
+  },
+  utrContainer: {
+    marginTop: 8,
+  },
+  utrLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  utrHint: {
+    fontSize: 11,
+    color: theme.colors.muted,
+    marginTop: 4,
+    fontWeight: '500',
   },
 });
