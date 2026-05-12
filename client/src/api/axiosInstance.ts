@@ -59,7 +59,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
+    const timeoutId = setTimeout(() => controller.abort(), 150000); // Increased to 150s for Render cold-starts
 
     console.log(`[FETCH] GET ${BASE_URL}${url}`);
     try {
@@ -113,7 +113,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
+    const timeoutId = setTimeout(() => controller.abort(), 150000); // Increased to 150s for Render cold-starts
 
     console.log(`[FETCH] POST ${BASE_URL}${url}`);
     try {
@@ -167,7 +167,7 @@ export const axiosInstance = {
     }
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
+    const timeoutId = setTimeout(() => controller.abort(), 150000); // Increased to 150s for Render cold-starts
 
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
@@ -212,7 +212,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
+    const timeoutId = setTimeout(() => controller.abort(), 150000); // Increased to 150s for Render cold-starts
 
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
@@ -261,7 +261,7 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60s for Render cold-starts
+    const timeoutId = setTimeout(() => controller.abort(), 150000); // Increased to 150s for Render cold-starts
 
     try {
       const response = await fetch(`${BASE_URL}${url}`, {
