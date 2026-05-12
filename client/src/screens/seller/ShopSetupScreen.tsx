@@ -269,6 +269,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         if (result) {
           setStreet(result.street || '');
           setCity(result.city || '');
+          setState(result.state || '');
           setPincode(result.postcode || '');
           setFormattedAddress(result.formatted);
         }
@@ -287,6 +288,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
     setCoordinates({lat: loc.lat, lng: loc.lon});
     setStreet(loc.street || '');
     setCity(loc.city || '');
+    setState(loc.state || '');
     setPincode(loc.postcode || '');
   };
 
@@ -336,8 +338,8 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         setLoading(false);
         return;
       }
-      if (!phone || phone.length < 10) {
-        showToast({message: 'Please provide a valid 10-digit business phone', type: 'info'});
+      if (!phone || phone.length !== 10) {
+        showToast({message: 'Please provide exactly a 10-digit business phone number', type: 'info'});
         setLoading(false);
         return;
       }
@@ -622,10 +624,11 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
             />
             <Input
               label="Business Phone"
-              placeholder="+91 XXXXX XXXXX"
+              placeholder="e.g. 9876543210"
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              maxLength={10}
             />
             <Input
               label="Shop Description"

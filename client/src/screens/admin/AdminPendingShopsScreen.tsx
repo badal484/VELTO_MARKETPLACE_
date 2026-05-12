@@ -68,16 +68,15 @@ const DetailRow = ({
         highlight && detailRowStyles.valueHighlight,
       ]}
       numberOfLines={2}
-      selectable={!sensitive}
+      selectable={true}
     >
-      {sensitive ? maskSensitive(value) : value}
+      {value}
     </Text>
   </View>
 );
 
 const maskSensitive = (val: string) => {
-  if (!val || val.length < 6) return val;
-  return val.slice(0, 4) + '•••••' + val.slice(-3);
+  return val;
 };
 
 const detailRowStyles = StyleSheet.create({
