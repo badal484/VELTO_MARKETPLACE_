@@ -621,7 +621,9 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
       req.user!._id.toString(), 
       req.user!.role
     );
-     res.json({ success: true, message: 'Payment verified and order confirmed.', data: updated });
+    
+    io.emit('order_status_updated', updated);
+    res.json({ success: true, message: 'Payment verified and order confirmed.', data: updated });
   } catch (error) {
     handleError(error, res);
   }

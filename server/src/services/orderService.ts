@@ -24,7 +24,7 @@ export class OrderService {
    */
   private static readonly transitions: Record<OrderStatus, OrderStatus[]> = {
     [OrderStatus.PENDING]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.PAYMENT_UNDER_REVIEW, OrderStatus.CANCELLED],
-    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CANCELLED],
+    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.AWAITING_SELLER_CONFIRMATION]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.CONFIRMED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.SEARCHING_RIDER, OrderStatus.CANCELLED],
     [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
