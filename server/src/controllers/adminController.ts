@@ -70,6 +70,8 @@ export const getAllShops = async (req: Request, res: Response): Promise<void> =>
           detailedAddress: 1,
           bankDetails: 1,
           contactInfo: 1,
+          aadharCard: 1,
+          gstin: 1,
           logo: 1,
           isTermsAccepted: 1,
           createdAt: 1,

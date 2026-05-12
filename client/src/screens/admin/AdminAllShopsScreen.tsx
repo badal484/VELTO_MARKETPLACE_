@@ -30,8 +30,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // ── Reusable helpers ──────────────────────────────────────────────────────────
 const maskSensitive = (val: string) => {
-  if (!val || val.length < 6) return val;
-  return val.slice(0, 4) + '•••••' + val.slice(-3);
+  return val;
 };
 
 const DetailRow = ({
@@ -54,9 +53,9 @@ const DetailRow = ({
     <Text style={drStyles.label}>{label}</Text>
     <Text
       style={[drStyles.value, muted && drStyles.valueMuted, highlight && drStyles.valueHighlight]}
-      numberOfLines={2}
-      selectable={!sensitive}>
-      {sensitive ? maskSensitive(value) : value}
+      numberOfLines={3}
+      selectable={true}>
+      {value}
     </Text>
   </View>
 );
@@ -280,7 +279,7 @@ const AllShopCard = ({item, index, onContact}: AllShopCardProps) => {
             {/* Address */}
             <View style={styles.detailSection}>
               <Text style={styles.detailSectionLabel}>ADDRESS</Text>
-              <DetailRow icon="map-outline" label="Full Address" value={item.address} />
+              <DetailRow icon="map-outline" label="Full Address" value={`${item.address || ''} ${shop.detailedAddress?.street || ''}`.trim().replace(/,\s*$/, '')} />
               {shop.detailedAddress?.street && (
                 <DetailRow icon="location-outline" label="Street" value={shop.detailedAddress.street} />
               )}
@@ -288,7 +287,7 @@ const AllShopCard = ({item, index, onContact}: AllShopCardProps) => {
                 <DetailRow
                   icon="business-outline"
                   label="City"
-                  value={`${shop.detailedAddress.city}, ${shop.detailedAddress.state || ''} - ${shop.detailedAddress.pincode || ''}`}
+                  value={`${shop.detailedAddress.city}, ${shop.detailedAddress.state || ''} - ${shop.detailedAddress.pincode || ''}`.replace(/,\s*-\s*$/, '')}
                 />
               )}
             </View>
