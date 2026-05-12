@@ -313,7 +313,7 @@ Link: https://velto.app/product/${product._id}`,
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onScroll={e => {
+            onScroll={(e: any) => {
               const x = e.nativeEvent.contentOffset.x;
               setActiveImageIndex(Math.round(x / width));
             }}

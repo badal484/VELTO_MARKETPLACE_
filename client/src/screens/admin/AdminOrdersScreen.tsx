@@ -11,6 +11,7 @@ import {
   Image,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -267,6 +268,7 @@ export default function AdminOrdersScreen({route, navigation}: any) {
       <AdminOrderDetailModal 
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
+        onRefresh={fetchOrders}
         order={selectedOrder}
       />
 

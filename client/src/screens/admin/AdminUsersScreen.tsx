@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   StatusBar,
   ScrollView,
+  Platform,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -255,7 +256,7 @@ export default function AdminUsersScreen() {
           <Text style={styles.title}>User Management</Text>
           <View style={styles.filterBar}>
              {[1, 2, 3].map(i => (
-                <View key={i} style={[styles.filterBtn, { width: 80, height: 36, backgroundColor: '#E2E8F0', borderTransparent: true }]} />
+                <View key={i} style={[styles.filterBtn, { width: 80, height: 36, backgroundColor: '#E2E8F0', borderColor: 'transparent' }]} />
              ))}
           </View>
         </View>

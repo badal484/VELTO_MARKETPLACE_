@@ -19,6 +19,7 @@ import { axiosInstance } from '../../api/axiosInstance';
 interface AdminOrderDetailModalProps {
   visible: boolean;
   onClose: () => void;
+  onRefresh?: () => void;
   order: IOrder | null;
 }
 
@@ -27,6 +28,7 @@ const {height} = Dimensions.get('window');
 export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
   visible,
   onClose,
+  onRefresh,
   order,
 }) => {
   const navigation = useNavigation<any>();
@@ -39,9 +41,9 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
       const res = await axiosInstance.patch(`/api/admin/verify-payment/${order._id}`);
       if (res.data.success) {
         onClose();
-        // Assuming there's a way to refresh the parent list, 
-        // usually through a context or a prop callback, 
-        // but for now, we'll rely on the user refreshing or socket events.
+        if (onRefresh) {
+          onRefresh();
+        }
       }
     } catch (err) {
       console.error('Verify Payment Error:', err);
@@ -138,7 +140,7 @@ export const AdminOrderDetailModal: React.FC<AdminOrderDetailModalProps> = ({
             {renderSection('Product Details', 'basket-outline', (
               <View>
                 <Text style={styles.productTitle}>{product?.title || 'System Item'}</Text>
-                <Text style={styles.productMeta}>₹{(order.productSnapshot?.originalPrice || (product as any)?.price || 0).toLocaleString()} x {order.quantity} units</Text>
+                <Text style={styles.productMeta}>₹{((order as any).productSnapshot?.originalPrice || (product as any)?.price || 0).toLocaleString()} x {order.quantity} units</Text>
                 {renderInfoRow('Sold by', shop?.name || 'Unknown Shop', 'storefront-outline')}
               </View>
             ))}

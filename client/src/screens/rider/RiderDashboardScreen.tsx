@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
 });
 
 export default function RiderDashboardScreen({ navigation }: any) {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, updateUser } = useAuth();
   const { showToast } = useToast();
   const { socket, isConnected } = useSocket();
   const { unreadCount } = useNotifications();

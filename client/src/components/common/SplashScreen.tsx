@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react';
 import {View, Text, StyleSheet, Dimensions, StatusBar} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Animated as RNAnimated } from 'react-native';
+import { Animated } from 'react-native';
 
 const {width, height} = Dimensions.get('window');
 

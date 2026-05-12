@@ -240,7 +240,7 @@ const OrderCard = memo(({ item, onAccept, onVerify }: { item: IOrder, onAccept: 
             <Text style={styles.actionBtnText}>Confirm Order</Text>
           </TouchableOpacity>
         )}
-        {isConfirmed && item.fulfillmentMethod === 'pickup' && (
+        {isConfirmed && (item.fulfillmentMethod as any) === 'pickup' && (
           <TouchableOpacity 
             style={styles.actionBtnVerify} 
             onPress={() => onVerify(item._id)}>

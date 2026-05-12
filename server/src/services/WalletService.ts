@@ -13,7 +13,7 @@ import { NotificationType } from '../models/Notification';
 
 export class WalletService {
   private static readonly COMMISSION_RATE = parseFloat(process.env.VELTO_COMMISSION_RATE || '0.10');
-  private static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.05');
+  private static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.07');
   private static readonly RIDER_CANCEL_COMPENSATION = 15; // ₹15 for effort
   private static readonly MIN_PAYOUT_AMOUNT = 500;
 
@@ -40,8 +40,9 @@ export class WalletService {
       }
 
       const deliveryCharge = order.deliveryCharge || 0;
-      const commission = round(deliveryCharge * this.COMMISSION_RATE);
-      const earnings = round(deliveryCharge - commission);
+      // Guaranteed flat net payout of ₹27 to the rider per order delivery
+      const earnings = 27;
+      const commission = Math.max(0, deliveryCharge - earnings);
 
       const rider = await User.findById(order.rider).session(session);
       if (!rider) throw new AppError('Rider not found', 404);
@@ -132,7 +133,8 @@ export class WalletService {
         return;
       }
 
-      const itemTotal = order.totalPrice - (order.deliveryCharge || 0);
+      // Under Free Delivery, order.totalPrice reflects pure product cost exactly
+      const itemTotal = order.totalPrice;
       const commission = round(itemTotal * this.SELLER_COMMISSION_RATE);
       const earnings = round(itemTotal - commission);
 

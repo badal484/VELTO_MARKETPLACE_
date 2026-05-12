@@ -8,8 +8,9 @@ import {
   RefreshControl,
   SafeAreaView,
   StatusBar,
-  Linking,
   Alert,
+  Platform,
+  Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -376,7 +377,7 @@ export default function OrderHistoryScreen({
           </View>
 
           {/* OTP Section for current state */}
-          {item.status === OrderStatus.READY_FOR_PICKUP && item.fulfillmentMethod === 'pickup' && (
+          {item.status === OrderStatus.READY_FOR_PICKUP && (item.fulfillmentMethod as any) === 'pickup' && (
              <View style={styles.otpCard}>
                 <Text style={styles.otpLabel}>PICKUP PIN</Text>
                <Text style={styles.otpValue}>{item.pickupCode}</Text>

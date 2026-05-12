@@ -66,7 +66,8 @@ export class OrderService {
         deliveryCharge = calculateDeliveryFee(distance, product.size as any);
       }
 
-      const totalPrice = round((product.price * data.quantity) + deliveryCharge);
+      // Launch Promotion: Free Delivery charges customer pure product price
+      const totalPrice = round(product.price * data.quantity);
       const { productId, ...rest } = data;
       const order = await Order.create([{
         ...rest,
@@ -511,10 +512,8 @@ export class OrderService {
         }
 
         const itemPrice = item.price || product.price;
-        // For batch orders, we add the calculated fee for each product
-        // (If multiple items are from the same shop, they currently each get a fee. 
-        //  Refinement: could group by shop, but per-item is safer for multi-pickup routes)
-        const itemTotalPrice = round((itemPrice * item.quantity) + itemDeliveryCharge);
+        // Launch Promotion: Free Delivery charges customer pure product price
+        const itemTotalPrice = round(itemPrice * item.quantity);
         
         totalBatchAmount += itemTotalPrice;
         tempItems.push({ ...item, product, itemDeliveryCharge, itemTotalPrice });
@@ -715,7 +714,7 @@ export class OrderService {
     }
 
     return {
-      totalDeliveryFee,
+      totalDeliveryFee: 0, // Launch Promotion: Free Delivery
       itemQuotes
     };
   }

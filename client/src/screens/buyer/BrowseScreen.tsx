@@ -770,11 +770,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f1f5f9',
   },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
   listContent: {
     padding: 12,
     flex: 1,

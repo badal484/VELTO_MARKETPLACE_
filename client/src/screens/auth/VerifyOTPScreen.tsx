@@ -57,7 +57,7 @@ export default function VerifyOTPScreen({
       const endpoint =
         type === 'register'
           ? '/api/auth/verify-otp'
-          : type === 'login'
+          : (type as any) === 'login'
           ? '/api/auth/login-otp-verify'
           : '/api/auth/reset-password';
       const res = await axiosInstance.post(endpoint, {
@@ -66,7 +66,7 @@ export default function VerifyOTPScreen({
       });
 
       if (res.data.success) {
-        if (type === 'register' || type === 'login') {
+        if (type === 'register' || (type as any) === 'login') {
           await login(res.data.token, res.data.user);
         } else {
           navigation.navigate('ResetPassword', { email });

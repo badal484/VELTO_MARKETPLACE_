@@ -1522,7 +1522,7 @@ const HomeSkeleton = () => {
              <Animated.View style={[animatedStyle, { width: 120, height: 16, backgroundColor: '#E2E8F0', borderRadius: 4 }]} />
              <Animated.View style={[animatedStyle, { width: 180, height: 28, backgroundColor: '#E2E8F0', borderRadius: 8, marginTop: 12 }]} />
           </View>
-          <View style={[styles.countBadge, { backgroundColor: '#F1F5F9' }]} />
+          <View style={[styles.notificationBtn, { backgroundColor: '#F1F5F9' }]} />
         </View>
         <Animated.View style={[animatedStyle, { width: '100%', height: 48, backgroundColor: '#F1F5F9', borderRadius: 14, marginTop: 16 }]} />
       </View>

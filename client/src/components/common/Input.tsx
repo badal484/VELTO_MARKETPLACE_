@@ -124,6 +124,9 @@ const styles = StyleSheet.create({
   leftIconContainer: {
     marginRight: 8,
   },
+  rightIconContainer: {
+    marginLeft: 8,
+  },
   input: {
     flex: 1,
     fontSize: theme.fontSize.md,

@@ -30,5 +30,5 @@ export const calculateDeliveryFee = (
   distanceKm: number,
   size: ProductSize = ProductSize.SMALL
 ): number => {
-  return 0; // Launch Promotion: Free Delivery for everyone
+  return 40; // Base logistics fee restored to ₹40
 };

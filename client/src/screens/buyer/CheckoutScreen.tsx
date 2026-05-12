@@ -83,14 +83,6 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const [deliveryCharge, setDeliveryCharge] = useState(DEFAULT_DELIVERY_FEE);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   
-  // Intelligent default: UPI for high-value, Cash otherwise
-  React.useEffect(() => {
-    if (totalAmount > MAX_COD_AMOUNT && selectedPaymentMethod === 'Cash') {
-      setSelectedPaymentMethod('UPI');
-    }
-  }, [totalAmount]);
-
-
   const calculateSubtotal = () => {
     return products.reduce((total: number, item: CheckoutItem) => {
       const price = item.lockedPrice || item.product.price;
@@ -105,6 +97,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   
   const walletDeduction = useWallet ? Math.min(totalAmount, walletBalance) : 0;
   const finalPayable = totalAmount - walletDeduction;
+
+  // Intelligent default: UPI for high-value, Cash otherwise
+  React.useEffect(() => {
+    if (totalAmount > MAX_COD_AMOUNT && selectedPaymentMethod === 'Cash') {
+      setSelectedPaymentMethod('UPI');
+    }
+  }, [totalAmount]);
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') {
@@ -520,7 +519,6 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
             {selectedPaymentMethod === 'UPI' && (
               <Animated.View entering={FadeInUp} style={styles.upiActionBox}>
                 <Text style={styles.upiTitle}>Instant UPI Payment</Text>
-                <Text style={styles.upiSub}>Select an app to pay ₹{finalPayable.toLocaleString()}</Text>
                 
                     <View style={styles.manualUpiBox}>
                       <View>
@@ -537,46 +535,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                         <Text style={styles.copyBtnText}>Copy</Text>
                       </TouchableOpacity>
                     </View>
-
-                    <Text style={styles.upiAppsTitle}>Instant Pay via Apps</Text>
-                    <View style={styles.upiAppsRow}>
-                   <TouchableOpacity 
-                     style={styles.upiAppBtn} 
-                     onPress={() => {
-                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
-                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
-                     }}>
-                     <View style={styles.upiIconContainer}>
-                       <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/google-pay-icon.png'}} style={styles.upiIcon} />
-                     </View>
-                     <Text style={styles.upiAppName}>GPay</Text>
-                   </TouchableOpacity>
-
-                   <TouchableOpacity 
-                     style={styles.upiAppBtn}
-                     onPress={() => {
-                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
-                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
-                     }}>
-                     <View style={styles.upiIconContainer}>
-                       <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/phonepe-logo-icon.png'}} style={styles.upiIcon} />
-                     </View>
-                     <Text style={styles.upiAppName}>PhonePe</Text>
-                   </TouchableOpacity>
-
-                   <TouchableOpacity 
-                     style={styles.upiAppBtn}
-                     onPress={() => {
-                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
-                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
-                     }}>
-                     <View style={styles.upiIconContainer}>
-                       <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/paytm-icon.png'}} style={styles.upiIcon} />
-                     </View>
-                     <Text style={styles.upiAppName}>Paytm</Text>
-                   </TouchableOpacity>
-                </View>
-
+ 
                 <View style={styles.utrContainer}>
                    <Input
                      label="Enter 12-digit Transaction ID (UTR)"
@@ -589,7 +548,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                    <Text style={styles.utrHint}>Required for manual payment verification</Text>
                    <View style={styles.manualTip}>
                       <Icon name="information-circle-outline" size={14} color={theme.colors.muted} />
-                      <Text style={styles.manualTipText}>If the apps show a security warning, please copy the UPI ID above and pay manually.</Text>
+                      <Text style={styles.manualTipText}>Please copy the UPI ID above and pay via your preferred UPI app. Then enter the UTR here.</Text>
                    </View>
                 </View>
               </Animated.View>
@@ -1013,43 +972,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginBottom: 4,
   },
-  upiSub: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    marginBottom: 24,
-    fontWeight: '500',
-  },
-  upiAppsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
-    paddingHorizontal: 10,
-  },
-  upiAppBtn: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  upiIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.shadow.sm,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  upiIcon: {
-    width: 40,
-    height: 40,
-    resizeMode: 'contain',
-  },
-  upiAppName: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
   manualUpiBox: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
@@ -1088,13 +1010,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: theme.colors.text,
-  },
-  upiAppsTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: theme.colors.text,
-    marginBottom: 16,
-    marginLeft: 4,
   },
   manualTip: {
     flexDirection: 'row',
