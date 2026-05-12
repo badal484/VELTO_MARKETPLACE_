@@ -1,9 +1,8 @@
 import {tokenStore} from './tokenStore';
 
-const DEV_URL = 'http://10.0.2.2:8082'; // Optimized for Android Emulator to reach Localhost
 const PROD_URL = 'https://velto-marketplace.onrender.com';
 
-export const BASE_URL = PROD_URL; // Connecting to live production backend instance for universal distribution
+export const BASE_URL = PROD_URL;
 
 type LogoutHandler = () => void;
 let _logoutHandler: LogoutHandler | null = null;
@@ -91,7 +90,13 @@ export const axiosInstance = {
       return { data };
     } catch (err: any) {
       clearTimeout(timeoutId);
-      const msg = err.name === 'AbortError' ? 'Request timed out' : (err.response?.data?.message || err.message || 'Unknown error');
+      if (err.name === 'AbortError') {
+        const timeoutErr: any = new Error('Connection timed out. The server may be waking up — please try again.');
+        timeoutErr.isTimeout = true;
+        console.log(`[FETCH] TIMEOUT: GET ${url}`);
+        throw timeoutErr;
+      }
+      const msg = err.response?.data?.message || err.message || 'Unknown error';
       console.log(`[FETCH] ERROR: ${url} ->`, msg);
       throw err;
     }
@@ -113,7 +118,8 @@ export const axiosInstance = {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 150000); // Increased to 150s for Render cold-starts
+    const timeoutMs = config?.timeout ?? 150000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     console.log(`[FETCH] POST ${BASE_URL}${url}`);
     try {
@@ -145,7 +151,13 @@ export const axiosInstance = {
       return { data };
     } catch (err: any) {
       clearTimeout(timeoutId);
-      const msg = err.name === 'AbortError' ? 'Request timed out' : (err.response?.data?.message || err.message || 'Unknown error');
+      if (err.name === 'AbortError') {
+        const timeoutErr: any = new Error('Connection timed out. The server may be waking up — please try again.');
+        timeoutErr.isTimeout = true;
+        console.log(`[FETCH] TIMEOUT: POST ${url}`);
+        throw timeoutErr;
+      }
+      const msg = err.response?.data?.message || err.message || 'Unknown error';
       console.log(`[FETCH] ERROR: ${url} ->`, msg);
       throw err;
     }
@@ -197,6 +209,11 @@ export const axiosInstance = {
       return { data };
     } catch (err: any) {
       clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        const timeoutErr: any = new Error('Connection timed out. The server may be waking up — please try again.');
+        timeoutErr.isTimeout = true;
+        throw timeoutErr;
+      }
       throw err;
     }
   },
@@ -241,6 +258,11 @@ export const axiosInstance = {
       return { data };
     } catch (err: any) {
       clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        const timeoutErr: any = new Error('Connection timed out. The server may be waking up — please try again.');
+        timeoutErr.isTimeout = true;
+        throw timeoutErr;
+      }
       throw err;
     }
   },
@@ -291,6 +313,11 @@ export const axiosInstance = {
       return { data };
     } catch (err: any) {
       clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        const timeoutErr: any = new Error('Connection timed out. The server may be waking up — please try again.');
+        timeoutErr.isTimeout = true;
+        throw timeoutErr;
+      }
       throw err;
     }
   }

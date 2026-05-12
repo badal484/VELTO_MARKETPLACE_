@@ -51,10 +51,19 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     try {
       setLoading(true);
       setError('');
-      const res = await axiosInstance.post('/api/auth/login', {
-        email,
-        password,
-      });
+      let res;
+      try {
+        // Short first-attempt timeout: wakes Render, fails fast enough for a quick retry
+        res = await axiosInstance.post('/api/auth/login', { email, password }, { timeout: 45000 });
+      } catch (firstErr: any) {
+        if (firstErr.isTimeout) {
+          // Server was cold — it's had 45s to start up, retry once with full timeout
+          showToast({ message: 'Server is waking up, retrying…', type: 'info' });
+          res = await axiosInstance.post('/api/auth/login', { email, password });
+        } else {
+          throw firstErr;
+        }
+      }
 
       if (res.data.success) {
         await login(res.data.token, res.data.user);
@@ -63,10 +72,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       if (err.response) {
         setError(err.response.data.message || 'Invalid email or password');
       } else {
-        setError(
-          err?.message ||
-            'An error occurred while signing in. Please try again.',
-        );
+        setError(err?.message || 'An error occurred while signing in. Please try again.');
       }
     } finally {
       setLoading(false);
