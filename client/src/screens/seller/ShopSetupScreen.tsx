@@ -1,4 +1,5 @@
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, useCallback} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import {
   ScrollView,
   Text,
@@ -143,13 +144,16 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category>(Category.OTHER);
   const [isTermsAccepted, setIsTermsAccepted] = useState(false);
 
-  React.useEffect(() => {
-    fetchExistingShop();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchExistingShop();
+    }, [])
+  );
 
   const fetchExistingShop = async () => {
     setInitialLoading(true);
     try {
+      await refreshUser();
       const res = await axiosInstance.get('/api/shops/my');
       if (res.data.success) {
         const shop = res.data.data;
