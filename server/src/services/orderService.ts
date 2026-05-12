@@ -256,9 +256,9 @@ export class OrderService {
           spherical: true,
           key: 'pickupLocation',
           query: { 
-            status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
+            status: { $in: [OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
             fulfillmentMethod: 'delivery',
-            rider: { $exists: false },
+            $or: [{ rider: { $exists: false } }, { rider: null }],
             seller: { $ne: new mongoose.Types.ObjectId(riderId) }
           }
         }
@@ -345,8 +345,8 @@ export class OrderService {
     const order = await Order.findOneAndUpdate(
       { 
         _id: orderId, 
-        rider: { $exists: false }, 
-        status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] } 
+        $or: [{ rider: { $exists: false } }, { rider: null }], 
+        status: { $in: [OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] } 
       },
       { 
         $set: { 
@@ -362,12 +362,13 @@ export class OrderService {
     }
 
     await WorkflowService.syncOrderState(order._id.toString(), OrderStatus.RIDER_ASSIGNED, 'System: Delivery partner assigned. Heading to pickup.');
+    io.emit('order_status_updated', order);
     return order;
   }
 
   static async autoAssignRider(orderId: string) {
     const order = await Order.findById(orderId).select('status rider pickupLocation seller').lean();
-    if (!order || order.status !== OrderStatus.SEARCHING_RIDER || order.rider) return;
+    if (!order || ![OrderStatus.SEARCHING_RIDER, OrderStatus.CONFIRMED].includes(order.status as OrderStatus) || order.rider) return;
 
     const pickupLocation = order.pickupLocation!.coordinates;
     
@@ -420,7 +421,7 @@ export class OrderService {
 
     if (assignedRider) {
       const updatedOrder = await Order.findOneAndUpdate(
-        { _id: orderId, status: OrderStatus.SEARCHING_RIDER, rider: { $exists: false } },
+        { _id: orderId, status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.CONFIRMED] }, $or: [{ rider: { $exists: false } }, { rider: null }] },
         { $set: { rider: assignedRider._id, status: OrderStatus.RIDER_ASSIGNED } },
         { new: true }
       );
@@ -437,6 +438,16 @@ export class OrderService {
           message: 'New order auto-assigned to you!',
           order: updatedOrder
         });
+        io.emit('order_status_updated', updatedOrder);
+      }
+    } else if (order.status === OrderStatus.CONFIRMED) {
+      const updatedOrder = await Order.findOneAndUpdate(
+        { _id: orderId, status: OrderStatus.CONFIRMED },
+        { $set: { status: OrderStatus.SEARCHING_RIDER } },
+        { new: true }
+      );
+      if (updatedOrder) {
+        io.emit('order_status_updated', updatedOrder);
       }
     }
   }

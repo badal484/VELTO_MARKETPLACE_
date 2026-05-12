@@ -738,6 +738,10 @@ export default function RiderDashboardScreen({ navigation }: any) {
     }, [activeTab])
   );
 
+  useSocket('order_status_updated', () => {
+    fetchJobs(true);
+  });
+
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') return true;
     try {
