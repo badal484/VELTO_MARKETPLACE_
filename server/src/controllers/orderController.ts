@@ -153,6 +153,20 @@ export const getAvailableJobs = async (req: Request, res: Response): Promise<voi
       throw new AppError('Rider location (lat, lng) is required for discovering jobs', 400);
     }
 
+    // Self-heal any active unassigned delivery orders with missing pickup locations
+    const brokenOrders = await Order.find({
+      status: { $in: [OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
+      fulfillmentMethod: 'delivery',
+      $or: [{ pickupLocation: { $exists: false } }, { 'pickupLocation.coordinates': { $size: 0 } }, { pickupLocation: null }]
+    }).populate('shop');
+
+    for (const broken of brokenOrders) {
+      if ((broken.shop as any)?.location?.coordinates?.length) {
+        broken.pickupLocation = (broken.shop as any).location;
+        await broken.save();
+      }
+    }
+
     const jobs = await OrderService.getAvailableJobs(
       req.user?._id.toString()!,
       [Number(lng), Number(lat)],

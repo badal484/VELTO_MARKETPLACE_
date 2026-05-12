@@ -612,8 +612,14 @@ export const forceReleaseOrder = async (req: Request, res: Response): Promise<vo
 export const verifyPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const order = await Order.findById(id).populate('buyer seller');
+    const order = await Order.findById(id).populate('buyer seller shop');
     if (!order) throw new Error('Order not found');
+
+    // Self-heal pickup location if missing
+    if (!order.pickupLocation?.coordinates?.length && (order.shop as any)?.location?.coordinates?.length) {
+      order.pickupLocation = (order.shop as any).location;
+      await order.save();
+    }
 
     const updated = await OrderService.updateStatus(
       id, 
