@@ -79,7 +79,11 @@ export default function AdminProductsScreen() {
         <View style={styles.contentRow}>
           <View style={styles.imageContainer}>
             {item.images && item.images.length > 0 ? (
-              <Image source={{uri: item.images[0]}} style={styles.thumb} />
+              <Image 
+                source={{uri: item.images[0]}} 
+                style={styles.thumb} 
+                onError={(e) => console.log(`Image load error for ${item.title}:`, e.nativeEvent.error)}
+              />
             ) : (
               <View style={[styles.thumb, styles.imagePlaceholder]}>
                 <Icon name="image-outline" size={24} color={theme.colors.muted} />

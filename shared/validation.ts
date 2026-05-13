@@ -33,7 +33,7 @@ export const loginSchema = z.object({
 export const createOrderSchema = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   quantity: z.number().int().positive().default(1),
-  paymentMethod: z.enum(['Cash on Pickup', 'Cash on Delivery', 'Razorpay']),
+  paymentMethod: z.enum(['Cash on Pickup', 'Cash on Delivery', 'Razorpay', 'Direct UPI Transfer']),
   fulfillmentMethod: z.enum(['delivery', 'pickup']).default('pickup'),
   deliveryCharge: z.number().nonnegative().optional(),
   deliveryAddress: z.object({

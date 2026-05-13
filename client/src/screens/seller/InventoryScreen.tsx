@@ -9,9 +9,10 @@ import {
   SafeAreaView,
   StatusBar,
   TextInput,
+  ActivityIndicator,
+  Platform,
   Alert,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';

@@ -8,6 +8,8 @@ export const getStatusDisplay = (status: OrderStatus) => {
       return { label: 'Reviewing Payment', color: '#3B82F6' }; // info
     case OrderStatus.CONFIRMED:
       return { label: 'Confirmed', color: '#10B981' }; // success
+    case OrderStatus.AWAITING_SELLER_CONFIRMATION:
+      return { label: 'Awaiting Seller Confirmation', color: '#F59E0B' }; // accent
     case OrderStatus.READY_FOR_PICKUP:
       return { label: 'Ready for Pickup', color: '#F59E0B' }; // accent
     case OrderStatus.SEARCHING_RIDER:

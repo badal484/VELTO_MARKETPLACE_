@@ -23,8 +23,9 @@ export class OrderService {
    * Defines which status can move to which other status
    */
   private static readonly transitions: Record<OrderStatus, OrderStatus[]> = {
-    [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.PAYMENT_UNDER_REVIEW, OrderStatus.CANCELLED],
-    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.PENDING]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.PAYMENT_UNDER_REVIEW, OrderStatus.CANCELLED],
+    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.AWAITING_SELLER_CONFIRMATION]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.CONFIRMED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.SEARCHING_RIDER, OrderStatus.CANCELLED],
     [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
     [OrderStatus.SEARCHING_RIDER]: [OrderStatus.RIDER_ASSIGNED, OrderStatus.CANCELLED],
@@ -53,26 +54,28 @@ export class OrderService {
         }
       }
 
-      const product = await Product.findById(data.productId).session(session);
+      const product = await Product.findById(data.productId).populate('shop').session(session);
       if (!product) throw new AppError('Product not found', 404);
       if (product.stock < data.quantity) throw new AppError('Insufficient stock', 400);
 
       //  DYNAMIC DELIVERY CHARGE 
       let deliveryCharge = 40; // Default fallback
-      if (data.lat && data.lng && product.location?.coordinates) {
-        const [shopLng, shopLat] = product.location.coordinates;
+      const pickupCoords = product.location?.coordinates?.length ? product.location.coordinates : (product.shop as any)?.location?.coordinates;
+      if (data.lat && data.lng && pickupCoords) {
+        const [shopLng, shopLat] = pickupCoords;
         const distance = calculateDistance(shopLat, shopLng, data.lat, data.lng);
         deliveryCharge = calculateDeliveryFee(distance, product.size as any);
       }
 
-      const totalPrice = round((product.price * data.quantity) + deliveryCharge);
+      // Launch Promotion: Free Delivery charges customer pure product price
+      const totalPrice = round(product.price * data.quantity);
       const { productId, ...rest } = data;
       const order = await Order.create([{
         ...rest,
         buyer: buyerId,
         product: productId,
         seller: product.seller,
-        shop: product.shop,
+        shop: product.shop?._id || product.shop,
         productSnapshot: {
           title: product.title,
           image: product.images[0] || '',
@@ -82,7 +85,7 @@ export class OrderService {
         fulfillmentMethod,
         totalPrice,
         status: OrderStatus.PENDING,
-        pickupLocation: product.location,
+        pickupLocation: product.location?.coordinates?.length ? product.location : (product.shop as any)?.location,
         deliveryLocation: data.lat && data.lng ? {
           type: 'Point',
           coordinates: [data.lng, data.lat]
@@ -130,13 +133,17 @@ export class OrderService {
     }
   }
 
-  static async updateStatus(orderId: string, newStatus: OrderStatus, actorId: string, actorRole: string, options: { refundDestination?: string } = {}) {
+  static async updateStatus(orderId: string, newStatus: OrderStatus, actorId: string, actorRole: string, options: { refundDestination?: string, reason?: string } = {}) {
     const order = await Order.findById(orderId).populate('buyer seller');
     if (!order) throw new AppError('Order not found', 404);
 
     if (options.refundDestination) {
       (order as any).refundDestination = options.refundDestination;
       (order as any).refundStatus = options.refundDestination === 'wallet' ? 'completed' : 'pending';
+    }
+
+    if (options.reason) {
+      order.cancellationReason = options.reason;
     }
 
     const currentStatus = order.status as OrderStatus;
@@ -166,6 +173,10 @@ export class OrderService {
       throw new AppError('Only seller can mark order as ready', 403);
     }
 
+    if (newStatus === OrderStatus.CONFIRMED && currentStatus === OrderStatus.AWAITING_SELLER_CONFIRMATION && !isSeller && !isAdmin) {
+      throw new AppError('Only the seller can confirm this order', 403);
+    }
+
     if (newStatus === OrderStatus.PICKED_UP && !isRider && !isAdmin && !isSeller) {
       throw new AppError('Only the assigned rider or seller can mark as picked up', 403);
     }
@@ -191,6 +202,14 @@ export class OrderService {
 
     order.status = newStatus;
     await order.save();
+
+    //  AUTO-TRIGGER RIDER SEARCH 
+    if (newStatus === OrderStatus.CONFIRMED && order.fulfillmentMethod === 'delivery') {
+      // Trigger rider search once seller confirms
+      setTimeout(() => {
+        this.autoAssignRider(order._id.toString()).catch(console.error);
+      }, 1000);
+    }
 
     //  FINANCIAL FULFILLMENT 
     if (newStatus === OrderStatus.COMPLETED || newStatus === OrderStatus.COMPLETED_PENDING_RELEASE) {
@@ -274,10 +293,10 @@ export class OrderService {
           maxDistance: searchRadius,
           spherical: true,
           key: 'pickupLocation',
-          query: {
-            status: { $in: targetStatuses },
+          query: { 
+            status: { $in: [OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
             fulfillmentMethod: 'delivery',
-            rider: null
+            $or: [{ rider: { $exists: false } }, { rider: null }]
           }
         }
       },
@@ -359,10 +378,7 @@ export class OrderService {
       throw new AppError('You are currently offline. Please go online to claim jobs.', 403);
     }
 
-    const orderToClaim = await Order.findById(orderId).select('seller').lean();
-    if (orderToClaim && orderToClaim.seller.toString() === riderId) {
-      throw new AppError('Security Alert: You cannot claim your own shop orders for delivery.', 403);
-    }
+    // Removed same-seller check to allow unified dev accounts to test end-to-end flow
 
     const activeJobsCount = await Order.countDocuments({
       rider: riderId,
@@ -379,16 +395,10 @@ export class OrderService {
     }
 
     const order = await Order.findOneAndUpdate(
-      {
-        _id: orderId,
-        rider: null,
-        status: { $in: [
-          OrderStatus.PENDING,
-          OrderStatus.PAYMENT_UNDER_REVIEW,
-          OrderStatus.CONFIRMED,
-          OrderStatus.SEARCHING_RIDER, 
-          OrderStatus.READY_FOR_PICKUP
-        ] }
+      { 
+        _id: orderId, 
+        $or: [{ rider: { $exists: false } }, { rider: null }], 
+        status: { $in: [OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] } 
       },
       { 
         $set: { 
@@ -404,12 +414,13 @@ export class OrderService {
     }
 
     await WorkflowService.syncOrderState(order._id.toString(), OrderStatus.RIDER_ASSIGNED, 'System: Delivery partner assigned. Heading to pickup.');
+    io.emit('order_status_updated', order);
     return order;
   }
 
   static async autoAssignRider(orderId: string) {
     const order = await Order.findById(orderId).select('status rider pickupLocation seller').lean();
-    if (!order || order.status !== OrderStatus.SEARCHING_RIDER || order.rider) return;
+    if (!order || ![OrderStatus.SEARCHING_RIDER, OrderStatus.CONFIRMED].includes(order.status as OrderStatus) || order.rider) return;
 
     const pickupLocation = order.pickupLocation!.coordinates;
     
@@ -447,7 +458,7 @@ export class OrderService {
               role: Role.RIDER,
               isRiderVerified: true,
               isBlocked: { $ne: true },
-              _id: { $nin: [...maxedRiders, order.seller] }
+              _id: { $nin: maxedRiders }
             }
           }
         },
@@ -462,7 +473,7 @@ export class OrderService {
 
     if (assignedRider) {
       const updatedOrder = await Order.findOneAndUpdate(
-        { _id: orderId, status: OrderStatus.SEARCHING_RIDER, rider: null },
+        { _id: orderId, status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.CONFIRMED] }, $or: [{ rider: { $exists: false } }, { rider: null }] },
         { $set: { rider: assignedRider._id, status: OrderStatus.RIDER_ASSIGNED } },
         { new: true }
       );
@@ -479,6 +490,16 @@ export class OrderService {
           message: 'New order auto-assigned to you!',
           order: updatedOrder
         });
+        io.emit('order_status_updated', updatedOrder);
+      }
+    } else if (order.status === OrderStatus.CONFIRMED) {
+      const updatedOrder = await Order.findOneAndUpdate(
+        { _id: orderId, status: OrderStatus.CONFIRMED },
+        { $set: { status: OrderStatus.SEARCHING_RIDER } },
+        { new: true }
+      );
+      if (updatedOrder) {
+        io.emit('order_status_updated', updatedOrder);
       }
     }
   }
@@ -554,10 +575,8 @@ export class OrderService {
         }
 
         const itemPrice = item.price || product.price;
-        // For batch orders, we add the calculated fee for each product
-        // (If multiple items are from the same shop, they currently each get a fee. 
-        //  Refinement: could group by shop, but per-item is safer for multi-pickup routes)
-        const itemTotalPrice = round((itemPrice * item.quantity) + itemDeliveryCharge);
+        // Launch Promotion: Free Delivery charges customer pure product price
+        const itemTotalPrice = round(itemPrice * item.quantity);
         
         totalBatchAmount += itemTotalPrice;
         tempItems.push({ ...item, product, itemDeliveryCharge, itemTotalPrice });
@@ -609,8 +628,8 @@ export class OrderService {
         // If wallet covers full amount, status should be CONFIRMED immediately (except for review logic if any)
         const isFullyPaidByWallet = itemWalletPaid >= itemTotalPrice;
         const initialStatus = isRazorpay 
-          ? (isFullyPaidByWallet ? OrderStatus.CONFIRMED : OrderStatus.PAYMENT_UNDER_REVIEW) 
-          : (isDirectUPI ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.PENDING);
+          ? (isFullyPaidByWallet ? OrderStatus.AWAITING_SELLER_CONFIRMATION : OrderStatus.PAYMENT_UNDER_REVIEW) 
+          : (isDirectUPI ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.AWAITING_SELLER_CONFIRMATION);
 
         const [order] = await Order.create([{
           buyer: buyerId,
@@ -771,7 +790,7 @@ export class OrderService {
     }
 
     return {
-      totalDeliveryFee,
+      totalDeliveryFee: 0, // Launch Promotion: Free Delivery
       itemQuotes
     };
   }

@@ -34,7 +34,7 @@ const orderSchema = new Schema<IOrderSchema>(
     },
     paymentMethod: {
       type: String,
-      enum: ['Cash on Delivery', 'Razorpay'] as const,
+      enum: ['Cash on Pickup', 'Cash on Delivery', 'Razorpay', 'Direct UPI Transfer'] as const,
       required: true,
     },
     razorpayOrderId: { type: String },

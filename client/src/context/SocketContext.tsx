@@ -2,6 +2,7 @@ import React, {createContext, useEffect, useState} from 'react';
 import {io, Socket} from 'socket.io-client';
 import {Platform} from 'react-native';
 import {useAuth} from '../hooks/useAuth';
+import {BASE_URL} from '../api/axiosInstance';
 
 interface SocketContextData {
   socket: Socket | null;
@@ -26,8 +27,6 @@ export const SocketProvider: React.FC<{children: React.ReactNode}> = ({
   const {user, refreshUser, logout} = useAuth();
 
   useEffect(() => {
-    const BASE_URL = 'https://velto-marketplace.onrender.com'; // Production socket server
-    // Using hardcoded URL to rule out react-native-config issues
     const newSocket = io(BASE_URL);
 
     newSocket.on('connect', () => {

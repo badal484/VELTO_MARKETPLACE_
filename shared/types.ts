@@ -30,6 +30,7 @@ export enum OrderStatus {
   PENDING = 'Pending',
   PAYMENT_UNDER_REVIEW = 'Payment Under Review',
   CONFIRMED = 'Confirmed',
+  AWAITING_SELLER_CONFIRMATION = 'Awaiting Seller Confirmation',
   READY_FOR_PICKUP = 'Ready for Pickup',
   SEARCHING_RIDER = 'Searching Rider',
   RIDER_ASSIGNED = 'Rider Assigned',

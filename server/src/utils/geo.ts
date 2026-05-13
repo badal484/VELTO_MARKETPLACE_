@@ -30,16 +30,5 @@ export const calculateDeliveryFee = (
   distanceKm: number,
   size: ProductSize = ProductSize.SMALL
 ): number => {
-  let fee = 30; // Base fee
-
-  // Distance premium
-  if (distanceKm > 3) {
-    fee += (distanceKm - 3) * 10;
-  }
-
-  // Size surcharge
-  if (size === ProductSize.MEDIUM) fee += 20;
-  if (size === ProductSize.LARGE) fee += 50;
-
-  return Math.round(fee);
+  return 40; // Base logistics fee restored to ₹40
 };

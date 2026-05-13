@@ -35,8 +35,7 @@ interface AdminUserDetailModalProps {
 const { height } = Dimensions.get('window');
 
 const maskSensitive = (val: string) => {
-  if (!val || val.length < 6) return val;
-  return val.slice(0, 4) + '•••••' + val.slice(-3);
+  return val;
 };
 
 const DetailRow = ({
@@ -68,10 +67,10 @@ const DetailRow = ({
         muted && styles.detailValueMuted,
         highlight && styles.detailValueHighlight,
       ]}
-      numberOfLines={2}
-      selectable={!sensitive}
+      numberOfLines={3}
+      selectable={true}
     >
-      {sensitive ? maskSensitive(value) : value}
+      {value}
     </Text>
   </View>
 );
@@ -252,15 +251,13 @@ export const AdminUserDetailModal: React.FC<AdminUserDetailModalProps> = ({
                     <DetailRow
                       icon="map-outline"
                       label="Address"
-                      value={(user.shop as any).address}
+                      value={`${(user.shop as any).address || ''} ${(user.shop as any).detailedAddress?.street || ''}`.trim().replace(/,\s*$/, '')}
                     />
                     {(user.shop as any).detailedAddress?.city && (
                       <DetailRow
                         icon="location-outline"
                         label="City/State"
-                        value={`${(user.shop as any).detailedAddress.city}, ${
-                          (user.shop as any).detailedAddress.state || ''
-                        }`}
+                        value={`${(user.shop as any).detailedAddress.city}, ${(user.shop as any).detailedAddress.state || ''} - ${(user.shop as any).detailedAddress.pincode || ''}`.replace(/,\s*-\s*$/, '')}
                       />
                     )}
                   </View>

@@ -1,4 +1,5 @@
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, useCallback} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import {
   ScrollView,
   Text,
@@ -143,13 +144,16 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category>(Category.OTHER);
   const [isTermsAccepted, setIsTermsAccepted] = useState(false);
 
-  React.useEffect(() => {
-    fetchExistingShop();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchExistingShop();
+    }, [])
+  );
 
   const fetchExistingShop = async () => {
     setInitialLoading(true);
     try {
+      await refreshUser();
       const res = await axiosInstance.get('/api/shops/my');
       if (res.data.success) {
         const shop = res.data.data;
@@ -338,8 +342,8 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         setLoading(false);
         return;
       }
-      if (!phone || phone.length < 10) {
-        showToast({message: 'Please provide a valid 10-digit business phone', type: 'info'});
+      if (!phone || phone.length !== 10) {
+        showToast({message: 'Please provide exactly a 10-digit business phone number', type: 'info'});
         setLoading(false);
         return;
       }
@@ -624,10 +628,11 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
             />
             <Input
               label="Business Phone"
-              placeholder="+91 XXXXX XXXXX"
+              placeholder="e.g. 9876543210"
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              maxLength={10}
             />
             <Input
               label="Shop Description"

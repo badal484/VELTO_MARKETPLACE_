@@ -5,6 +5,7 @@ import { OTP } from '../models/OTP';
 import { AppError } from '../utils/errors';
 import { sendEmail } from './emailService';
 import { generateOTP, hashOTP } from '../utils/otp';
+import { OAuth2Client } from 'google-auth-library';
 
 const JWT_SECRET = (() => {
   const s = process.env.JWT_SECRET;
@@ -12,35 +13,30 @@ const JWT_SECRET = (() => {
   return s;
 })();
 
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 export class AuthService {
   static async requestRegister(data: any) {
     const existing = await User.findOne({ email: data.email });
     if (existing) throw new AppError('Email already in use', 409);
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    // Create user directly
-    const user = await User.create({
-      ...data,
-      password: hashedPassword,
-      isVerified: true, // Auto-verify for now
-    });
+    // Bypassing OTP for Launch: Create user immediately
+    const hashed = await bcrypt.hash(data.password, 10);
+    const user = await User.create({ ...data, password: hashed });
 
     const token = jwt.sign(
       { id: String(user._id), role: user.role },
       JWT_SECRET,
       { expiresIn: '30d' } as any
     );
-    
+
+    const userObj = user.toObject() as any;
+    delete userObj.password;
+
     return { 
-      message: 'Registration successful (Verification Bypassed)',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      },
-      token 
+      message: 'Registration successful!',
+      token,
+      user: userObj
     };
   }
 
@@ -77,7 +73,7 @@ export class AuthService {
 
   static async forgotPassword(email: string) {
     const user = await User.findOne({ email });
-    if (!user) return { message: 'If email exists, OTP has been sent' };
+    if (!user) throw new AppError('No account found with this email address', 404);
 
     const otp = generateOTP();
     await OTP.deleteMany({ email, type: 'forgot_password' });
@@ -137,5 +133,97 @@ export class AuthService {
     const userObj = user.toObject() as any;
     delete userObj.password;
     return { token, user: userObj };
+  }
+
+  static async requestLoginOTP(email: string) {
+    const user = await User.findOne({ email });
+    if (!user) throw new AppError('No account found with this email', 404);
+    if (user.isBlocked) throw new AppError('Your account has been blocked', 403);
+
+    const otp = generateOTP();
+    await OTP.deleteMany({ email, type: 'login' });
+
+    await OTP.create({
+      email,
+      otp: hashOTP(otp),
+      type: 'login',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
+    });
+
+    sendEmail(email, 'login_otp', { name: user.name, otp }).catch(err => {
+      console.error(`[EMAIL ERROR] Failed to send login OTP to ${email}:`, err);
+    });
+
+    return { message: 'Login OTP sent to email' };
+  }
+
+  static async verifyLoginOTP(email: string, otp: string) {
+    const otpRecord = await OTP.findOne({
+      email,
+      type: 'login',
+      isUsed: false,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!otpRecord || otpRecord.otp !== hashOTP(otp)) {
+      throw new AppError('Invalid or expired OTP', 400);
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) throw new AppError('User not found', 404);
+
+    await OTP.updateOne({ _id: otpRecord._id }, { isUsed: true });
+
+    const token = jwt.sign(
+      { id: String(user._id), role: user.role },
+      JWT_SECRET,
+      { expiresIn: '30d' } as any
+    );
+
+    const userObj = user.toObject() as any;
+    delete userObj.password;
+    return { token, user: userObj };
+  }
+
+  static async googleLogin(idToken: string) {
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) throw new AppError('Invalid Google Token', 400);
+
+      const { email, name, picture, sub: googleId } = payload;
+
+      let user = await User.findOne({ email });
+
+      if (!user) {
+        // Create new user if they don't exist
+        user = await User.create({
+          email,
+          name: name || email.split('@')[0],
+          isVerified: true,
+          googleId,
+          role: 'buyer', // Default role
+        });
+      } else if (user.isBlocked) {
+        throw new AppError('Your account has been blocked', 403);
+      }
+
+      const token = jwt.sign(
+        { id: String(user._id), role: user.role },
+        JWT_SECRET,
+        { expiresIn: '30d' } as any
+      );
+
+      const userObj = user.toObject() as any;
+      delete userObj.password;
+      return { token, user: userObj };
+    } catch (error: any) {
+      console.error('[GOOGLE_AUTH_ERROR]', error);
+      throw new AppError(error.message || 'Google Authentication failed', 401);
+    }
   }
 }

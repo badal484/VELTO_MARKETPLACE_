@@ -70,6 +70,8 @@ export const getAllShops = async (req: Request, res: Response): Promise<void> =>
           detailedAddress: 1,
           bankDetails: 1,
           contactInfo: 1,
+          aadharCard: 1,
+          gstin: 1,
           logo: 1,
           isTermsAccepted: 1,
           createdAt: 1,
@@ -252,7 +254,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
     const activeOrder = await Order.findOne({
       $or: [{ buyer: id }, { seller: id }],
-      status: { $nin: ['completed', 'cancelled'] }
+      status: { $nin: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] }
     });
 
     if (activeOrder) {
@@ -388,7 +390,7 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
 
     const activeOrder = await Order.findOne({
       product: id,
-      status: { $nin: ['completed', 'cancelled'] }
+      status: { $nin: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] }
     });
 
     if (activeOrder) {
@@ -414,7 +416,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     const totalConversations = await Conversation.countDocuments({});
 
     const revenueData = await Order.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: OrderStatus.CANCELLED } } },
       { $group: { _id: null, total: { $sum: '$totalPrice' } } }
     ]);
 
@@ -424,7 +426,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const dailySales = await Order.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo }, status: { $ne: 'cancelled' } } },
+      { $match: { createdAt: { $gte: sevenDaysAgo }, status: { $ne: OrderStatus.CANCELLED } } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -439,7 +441,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     const monthlySales = await Order.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo }, status: { $ne: 'cancelled' } } },
+      { $match: { createdAt: { $gte: sixMonthsAgo }, status: { $ne: OrderStatus.CANCELLED } } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
@@ -450,22 +452,22 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       { $sort: { "_id": 1 } }
     ]);
 
-    const { PlatformRevenue } = require('../models/PlatformRevenue');
-    const [revenueDoc] = await PlatformRevenue.aggregate([
+    const commissionStats = await Order.aggregate([
+      { $match: { status: 'Completed' } },
       {
         $group: {
           _id: null,
-          totalCommission: { $sum: '$totalCommission' },
-          totalExpenses: { $sum: '$expenseAmount' },
-        },
-      },
+          sellerComm: { $sum: { $multiply: [{ $multiply: [{ $ifNull: ["$productSnapshot.originalPrice", 0] }, { $ifNull: ["$quantity", 0] }] }, 0.05] } },
+          riderComm: { $sum: { $multiply: [{ $ifNull: ["$deliveryCharge", 0] }, 0.10] } }
+        }
+      }
     ]);
     const platformRevenue = revenueDoc
       ? Math.max(0, revenueDoc.totalCommission - revenueDoc.totalExpenses)
       : 0;
 
     const topShops = await Order.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: OrderStatus.CANCELLED } } },
       {
         $group: {
           _id: "$shop",
@@ -557,7 +559,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       status as OrderStatus, 
       req.user!._id.toString(), 
       req.user!.role,
-      { refundDestination }
+      { refundDestination, reason }
     );
 
     if (status === OrderStatus.CANCELLED) {
@@ -619,8 +621,14 @@ export const forceReleaseOrder = async (req: Request, res: Response): Promise<vo
 export const verifyPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const order = await Order.findById(id).populate('buyer seller');
+    const order = await Order.findById(id).populate('buyer seller shop');
     if (!order) throw new Error('Order not found');
+
+    // Self-heal pickup location if missing
+    if (!order.pickupLocation?.coordinates?.length && (order.shop as any)?.location?.coordinates?.length) {
+      order.pickupLocation = (order.shop as any).location;
+      await order.save();
+    }
 
     const updated = await OrderService.updateStatus(
       id, 
@@ -628,7 +636,9 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
       req.user!._id.toString(), 
       req.user!.role
     );
-     res.json({ success: true, message: 'Payment verified and order confirmed.', data: updated });
+    
+    io.emit('order_status_updated', updated);
+    res.json({ success: true, message: 'Payment verified and order confirmed.', data: updated });
   } catch (error) {
     handleError(error, res);
   }

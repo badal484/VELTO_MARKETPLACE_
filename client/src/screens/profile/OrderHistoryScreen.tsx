@@ -8,8 +8,9 @@ import {
   RefreshControl,
   SafeAreaView,
   StatusBar,
-  Linking,
   Alert,
+  Platform,
+  Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -286,6 +287,16 @@ export default function OrderHistoryScreen({
             </View>
           )}
 
+          {item.status === OrderStatus.CANCELLED && item.cancellationReason && (
+            <View style={styles.cancelReasonCard}>
+              <View style={styles.cancelReasonHeader}>
+                <Icon name="alert-circle-outline" size={14} color={theme.colors.danger} />
+                <Text style={styles.cancelReasonTitle}>Cancellation Reason</Text>
+              </View>
+              <Text style={styles.cancelReasonText}>{item.cancellationReason}</Text>
+            </View>
+          )}
+
 
 
 
@@ -345,7 +356,7 @@ export default function OrderHistoryScreen({
           </View>
 
           {/* OTP Section for current state */}
-          {item.status === OrderStatus.READY_FOR_PICKUP && item.fulfillmentMethod === 'pickup' && (
+          {item.status === OrderStatus.READY_FOR_PICKUP && (item.fulfillmentMethod as any) === 'pickup' && (
              <View style={styles.otpCard}>
                 <Text style={styles.otpLabel}>PICKUP PIN</Text>
                <Text style={styles.otpValue}>{item.pickupCode}</Text>
@@ -887,5 +898,32 @@ const styles = StyleSheet.create({
   },
   activeTabBtnText: {
     color: theme.colors.white,
+  },
+  cancelReasonCard: {
+    padding: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  cancelReasonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  cancelReasonTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#991B1B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cancelReasonText: {
+    fontSize: 13,
+    color: '#B91C1C',
+    lineHeight: 18,
+    fontWeight: '600',
   },
 });

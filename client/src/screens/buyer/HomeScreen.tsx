@@ -275,7 +275,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     lng: number;
   } | null>(null);
   const { unreadCount } = useNotifications();
-  const [isGlobalMode, setIsGlobalMode] = useState(false);
 
   // Auto-scrolling carousel logic
   const carouselRef = useRef<FlatList>(null);
@@ -344,20 +343,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     scale.value = withSpring(1);
   };
 
-  // Initial load + global mode toggle: full GPS re-fetch
+  // Initial load: full GPS re-fetch
   useEffect(() => {
-    // Only fetch if we don't have coords OR we're changing modes
-    if (!currentCoords || isGlobalMode) {
-      getUserLocationAndFetch();
-    }
-  }, [isGlobalMode]);
+    getUserLocationAndFetch();
+  }, []);
 
   // Category change: reuse stored coords, no GPS re-fetch needed
   useEffect(() => {
     if (currentCoords) {
       fetchProducts(currentCoords);
     }
-  }, [selectedCategory, isGlobalMode]);
+  }, [selectedCategory]);
 
   // Auto-refresh when screen gains focus and every 60s to keep data in sync
   useEffect(() => {
@@ -377,7 +373,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [navigation, currentCoords, isGlobalMode, selectedCategory]);
+  }, [navigation, currentCoords, selectedCategory]);
 
   const [isServiceable, setIsServiceable] = useState(true);
   const [serviceZoneName, setServiceZoneName] = useState<string | null>(null);
@@ -482,15 +478,11 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       if (coords && coords.lat && coords.lng) {
         params.push(`lat=${coords.lat}`);
         params.push(`lng=${coords.lng}`);
-        if (!isGlobalMode) params.push('radius=5');
+        params.push('radius=5');
       }
 
       if (params.length > 0) {
         url += '?' + params.join('&');
-      }
-
-      if (isGlobalMode) {
-        url += (url.includes('?') ? '&' : '?') + 'global=true';
       }
 
       const res = await axiosInstance.get(url);
@@ -546,7 +538,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     label: string;
   }[] = [
     { id: null, icon: 'sparkles', label: 'For You' },
-    { id: 'GLOBAL', icon: 'globe-outline', label: 'Global' },
     { id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics' },
     { id: Category.FOOD, icon: 'fast-food', label: 'Food' },
     { id: Category.PHARMACY, icon: 'medkit', label: 'Pharmacy' },
@@ -672,7 +663,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <Text style={styles.sectionTitle}>Explore Categories</Text>
             <Text style={styles.categoryDivider}> | </Text>
             <Text style={styles.categoryActiveName}>
-              {isGlobalMode ? 'Global' : (selectedCategory ?? 'For You')}
+              {(selectedCategory ?? 'For You')}
             </Text>
           </View>
         </View>
@@ -683,23 +674,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           keyExtractor={item => item.label}
           contentContainerStyle={styles.quickNavContent}
           renderItem={({ item }) => {
-            const isActive =
-              item.id === 'GLOBAL'
-                ? isGlobalMode
-                : selectedCategory === item.id && !isGlobalMode;
+            const isActive = selectedCategory === item.id;
             return (
               <TouchableOpacity
                 style={styles.quickNavBtn}
                 activeOpacity={0.8}
-                onPress={() => {
-                  if (item.id === 'GLOBAL') {
-                    setIsGlobalMode(true);
-                    setSelectedCategory(null);
-                  } else {
-                    setIsGlobalMode(false);
-                    setSelectedCategory(item.id as Category | null);
-                  }
-                }}
+                onPress={() => setSelectedCategory(item.id as Category | null)}
               >
                 <View
                   style={[
@@ -846,14 +826,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Icon name="search" size={48} color={theme.colors.muted} />
             </View>
             <Text style={styles.emptyTitle}>
-              {isGlobalMode
-                ? t('home.no_products_global')
-                : t('common.nothing_nearby')}
+              {t('common.nothing_nearby')}
             </Text>
             <Text style={styles.emptyText}>
-              {isGlobalMode
-                ? t('home.empty_global_text')
-                : t('home.empty_nearby_text')}
+              {t('home.empty_nearby_text')}
             </Text>
             <View style={styles.emptyActions}>
               <Button
@@ -1546,7 +1522,7 @@ const HomeSkeleton = () => {
              <Animated.View style={[animatedStyle, { width: 120, height: 16, backgroundColor: '#E2E8F0', borderRadius: 4 }]} />
              <Animated.View style={[animatedStyle, { width: 180, height: 28, backgroundColor: '#E2E8F0', borderRadius: 8, marginTop: 12 }]} />
           </View>
-          <View style={[styles.countBadge, { backgroundColor: '#F1F5F9' }]} />
+          <View style={[styles.notificationBtn, { backgroundColor: '#F1F5F9' }]} />
         </View>
         <Animated.View style={[animatedStyle, { width: '100%', height: 48, backgroundColor: '#F1F5F9', borderRadius: 14, marginTop: 16 }]} />
       </View>

@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itemImage: {width: 80, height: 80, borderRadius: 12, backgroundColor: '#F8FAFC'},
-  itemInfo: {flex: 1, marginLeft: 16},
+  itemInfo: {flex: 1, marginLeft: 16, marginRight: 45}, // Increased space for delete button
   itemTitle: {fontSize: 16, fontWeight: '700', color: theme.colors.text},
   itemPrice: {
     fontSize: 16,
@@ -445,6 +445,7 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap', // Allow wrapping for long price/badges
     gap: 8,
     marginTop: 6,
   },
@@ -515,9 +516,13 @@ const styles = StyleSheet.create({
     color: theme.colors.danger,
   },
   removeBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
     padding: 10,
     backgroundColor: '#FEF2F2',
     borderRadius: 12,
+    zIndex: 10,
   },
 
   footer: {

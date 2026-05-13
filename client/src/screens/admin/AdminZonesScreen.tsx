@@ -237,10 +237,10 @@ export default function AdminZonesScreen() {
                   <Text style={styles.label}>Center Latitude</Text>
                   <TextInput
                     style={styles.input}
-                    value={String(editingZone?.center?.coordinates[1] || '')}
+                    value={String(editingZone?.center?.coordinates[1] ?? '')}
                     onChangeText={text => setEditingZone(prev => {
-                      const coords = [...(prev?.center?.coordinates || [0,0])] as [number, number];
-                      coords[1] = Number(text);
+                      const coords = [...(prev?.center?.coordinates || [0,0])] as any;
+                      coords[1] = text;
                       return {...prev!, center: {type: 'Point', coordinates: coords}};
                     })}
                     placeholder="12.9716"
@@ -251,10 +251,10 @@ export default function AdminZonesScreen() {
                   <Text style={styles.label}>Center Longitude</Text>
                   <TextInput
                     style={styles.input}
-                    value={String(editingZone?.center?.coordinates[0] || '')}
+                    value={String(editingZone?.center?.coordinates[0] ?? '')}
                     onChangeText={text => setEditingZone(prev => {
-                      const coords = [...(prev?.center?.coordinates || [0,0])] as [number, number];
-                      coords[0] = Number(text);
+                      const coords = [...(prev?.center?.coordinates || [0,0])] as any;
+                      coords[0] = text;
                       return {...prev!, center: {type: 'Point', coordinates: coords}};
                     })}
                     placeholder="77.5946"

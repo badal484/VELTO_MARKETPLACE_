@@ -13,12 +13,11 @@ import {
   Linking,
   Image,
   PermissionsAndroid,
-  Alert,
+  Clipboard,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Geolocation from 'react-native-geolocation-service';
 import {locationService} from '../../services/locationService';
-import RazorpayCheckout from 'react-native-razorpay';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useToast} from '../../hooks/useToast';
@@ -34,7 +33,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/types';
 
-const DEFAULT_DELIVERY_FEE = 40;
+const DEFAULT_DELIVERY_FEE = 0; // Launch Promotion: Free Delivery
 const MAX_COD_AMOUNT = 5000; // Protection for high-value risk
 
 interface CheckoutItem {
@@ -58,7 +57,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const {products: initialProducts} = route.params as { products: CheckoutItem[] };
   const [products, setProducts] = useState<CheckoutItem[]>(initialProducts);
   const fulfillmentMethod = 'delivery';
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'Razorpay'>('Cash');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'UPI'>('Cash');
   const [loading, setLoading] = useState(false);
   
   // Address state
@@ -83,8 +82,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const [activeZoneName, setActiveZoneName] = useState<string | null>(null);
   const [deliveryCharge, setDeliveryCharge] = useState(DEFAULT_DELIVERY_FEE);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
-
-
+  
   const calculateSubtotal = () => {
     return products.reduce((total: number, item: CheckoutItem) => {
       const price = item.lockedPrice || item.product.price;
@@ -99,6 +97,13 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   
   const walletDeduction = useWallet ? Math.min(totalAmount, walletBalance) : 0;
   const finalPayable = totalAmount - walletDeduction;
+
+  // Intelligent default: UPI for high-value, Cash otherwise
+  React.useEffect(() => {
+    if (totalAmount > MAX_COD_AMOUNT && selectedPaymentMethod === 'Cash') {
+      setSelectedPaymentMethod('UPI');
+    }
+  }, [totalAmount]);
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') {
@@ -250,8 +255,8 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         }),
         paymentMethod: selectedPaymentMethod === 'Cash' 
              ? 'Cash on Delivery'
-             : 'Razorpay',
-        paymentReference: selectedPaymentMethod === 'Cash' ? undefined : 'PENDING_AUTO',
+             : 'Direct UPI Transfer',
+        paymentReference: selectedPaymentMethod === 'Cash' ? undefined : (utrValue || 'PENDING_AUTO'),
         fulfillmentMethod,
         deliveryAddress: address,
         deliveryCharge: deliveryFee, 
@@ -261,91 +266,6 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         useWallet: useWallet,
       };
 
-      if (selectedPaymentMethod === 'Razorpay') {
-        const res = await axiosInstance.post('/api/orders/batch', payload);
-        const { razorpayOrder, orders } = res.data.data;
-        setLoading(false);
-
-        const rzpFirstOrder = Array.isArray(orders[0]) ? orders[0][0] : orders[0];
-        const rzpOrderId = rzpFirstOrder?._id || rzpFirstOrder?.id;
-
-        Alert.alert(
-          'Gateway Simulation Mode',
-          'Would you like to simulate a successful Razorpay payment verification for testing, or open the Live Native Gateway?',
-          [
-            {
-              text: 'Simulate Success',
-              style: 'default',
-              onPress: async () => {
-                try {
-                  setLoading(true);
-                  await axiosInstance.post('/api/payments/verify', {
-                    razorpay_order_id: razorpayOrder.id,
-                    razorpay_payment_id: 'pay_simulated_' + Date.now().toString().slice(-6),
-                    razorpay_signature: 'SIMULATED_SUCCESS_VERIFIED'
-                  });
-
-                  navigation.replace('OrderSuccess', { 
-                    orderId: rzpOrderId,
-                    paymentMethod: 'Razorpay',
-                    fulfillmentMethod,
-                    deliveryCode: rzpFirstOrder?.deliveryCode,
-                    pickupCode: rzpFirstOrder?.pickupCode
-                  });
-                } catch (err: any) {
-                  setLoading(false);
-                  showToast({message: err.response?.data?.message || 'Simulation verification failed', type: 'error'});
-                }
-              }
-            },
-            {
-              text: 'Open Live Gateway',
-              style: 'cancel',
-              onPress: () => {
-                const options = {
-                  description: 'Payment for Velto Order',
-                  image: 'https://ik.imagekit.io/oellcbqek/velto_logo.png',
-                  currency: 'INR',
-                  key: 'rzp_test_SdCBOGIizlvuxK',
-                  amount: razorpayOrder.amount,
-                  name: 'Velto Marketplace',
-                  order_id: razorpayOrder.id,
-                  prefill: {
-                    email: user?.email || 'customer@example.com',
-                    contact: phoneNumber,
-                    name: user?.name || 'Velto Customer'
-                  },
-                  theme: {color: theme.colors.primary}
-                };
-
-                if (!RazorpayCheckout || typeof RazorpayCheckout.open !== 'function') {
-                   showToast({message: 'Payment module not linked', type: 'error'});
-                   return;
-                }
-
-                RazorpayCheckout.open(options).then(async (data: any) => {
-                  await axiosInstance.post('/api/payments/verify', {
-                    razorpay_order_id: data.razorpay_order_id,
-                    razorpay_payment_id: data.razorpay_payment_id,
-                    razorpay_signature: data.razorpay_signature
-                  });
-                  
-                  navigation.replace('OrderSuccess', { 
-                    orderId: rzpOrderId,
-                    paymentMethod: 'Razorpay',
-                    fulfillmentMethod,
-                    deliveryCode: rzpFirstOrder?.deliveryCode,
-                    pickupCode: rzpFirstOrder?.pickupCode
-                  });
-                }).catch((err: any) => {
-                  showToast({message: `Payment Failed: ${err.description || 'Cancelled'}`, type: 'error'});
-                });
-              }
-            }
-          ]
-        );
-        return;
-      }
 
       // Direct UPI transfer handling removed per user instruction
 
@@ -579,29 +499,57 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               
               {/* Direct UPI Option Removed */}
               
-              <TouchableOpacity 
-                style={[styles.methodCard, selectedPaymentMethod === 'Razorpay' && styles.activeMethod]}
-                onPress={() => {
-                  setSelectedPaymentMethod('Razorpay');
-                }}>
-                <Icon name="card-outline" size={24} color={selectedPaymentMethod === 'Razorpay' ? theme.colors.primary : theme.colors.muted} />
-                <Text style={[styles.methodLabel, selectedPaymentMethod === 'Razorpay' && styles.activeMethodLabel]}>Razorpay Secure</Text>
-              </TouchableOpacity>
             </View>
 
-            {/* Direct UPI Action Section Removed */}
+            {selectedPaymentMethod === 'UPI' && (
+              <Animated.View entering={FadeInUp} style={styles.upiActionBox}>
+                <Text style={styles.upiTitle}>Instant UPI Payment</Text>
+                
+                    <View style={styles.manualUpiBox}>
+                      <View>
+                        <Text style={styles.manualUpiLabel}>Platform UPI ID</Text>
+                        <Text style={styles.manualUpiId}>badal90603@okicici</Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.copyBtn}
+                        onPress={() => {
+                          Clipboard.setString('badal90603@okicici');
+                          showToast({message: 'UPI ID copied to clipboard', type: 'success'});
+                        }}>
+                        <Icon name="copy-outline" size={18} color={theme.colors.primary} />
+                        <Text style={styles.copyBtnText}>Copy</Text>
+                      </TouchableOpacity>
+                    </View>
+ 
+                <View style={styles.utrContainer}>
+                   <Input
+                     label="Enter 12-digit Transaction ID (UTR)"
+                     placeholder="e.g. 412345678901"
+                     value={utrValue}
+                     onChangeText={setUtrValue}
+                     keyboardType="numeric"
+                     maxLength={12}
+                   />
+                   <Text style={styles.utrHint}>Required for manual payment verification</Text>
+                   <View style={styles.manualTip}>
+                      <Icon name="information-circle-outline" size={14} color={theme.colors.muted} />
+                      <Text style={styles.manualTipText}>Please copy the UPI ID above and pay via your preferred UPI app. Then enter the UTR here.</Text>
+                   </View>
+                </View>
+              </Animated.View>
+            )}
 
             {totalAmount > MAX_COD_AMOUNT && (
               <Animated.View entering={FadeInUp} style={styles.codWarningBox}>
                 <Icon name="information-circle" size={18} color={theme.colors.text} />
                 <Text style={styles.codWarningText}>
-                  Cash on Delivery is unavailable for orders above ₹{MAX_COD_AMOUNT.toLocaleString()}. Please use Razorpay for secure high-value checkout.
+                  Cash on Delivery is unavailable for orders above ₹{MAX_COD_AMOUNT.toLocaleString()}. Please use Direct UPI for secure high-value checkout.
                 </Text>
               </Animated.View>
             )}
             
             <View style={styles.openBoxDisclaimer}>
-              <Icon name="cube-outline" size={18} color={theme.colors.info} />
+              <Icon name="cube-outline" size={20} color={theme.colors.info} />
               <Text style={styles.openBoxDisclaimerText}>
                 <Text style={{fontWeight: '900', color: theme.colors.text}}>Open Box Delivery:</Text> Please inspect your products before sharing the Handshake Code. No returns are accepted after acceptance.
               </Text>
@@ -622,7 +570,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                   <Text style={[styles.billTotal, {color: theme.colors.muted}]}>Calculating...</Text>
                 ) : (
                   <Text style={[styles.billTotal, {color: theme.colors.success}]}>
-                    ₹{deliveryCharge}
+                    {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
                   </Text>
                 )}
               </View>
@@ -992,5 +940,92 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.primary,
     letterSpacing: 0.5,
+  },
+  // UPI Styles
+  upiActionBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 24,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...theme.shadow.sm,
+  },
+  upiTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  manualUpiBox: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  manualUpiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.muted,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  manualUpiId: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  copyBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  manualTip: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: theme.colors.white,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  manualTipText: {
+    flex: 1,
+    fontSize: 10,
+    color: theme.colors.muted,
+    lineHeight: 14,
+    fontWeight: '500',
+  },
+  utrContainer: {
+    marginTop: 8,
+  },
+  utrLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  utrHint: {
+    fontSize: 11,
+    color: theme.colors.muted,
+    marginTop: 4,
+    fontWeight: '500',
   },
 });

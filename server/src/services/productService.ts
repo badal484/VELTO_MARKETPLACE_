@@ -91,17 +91,27 @@ export class ProductService {
     );
 
     // Search across product title/description, shop name, and location (city/address)
-    if (search) {
-      const searchRegex = { $regex: search, $options: 'i' };
+    if (search && search.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: 'i' };
+      
+      // If search is short (e.g. 1-2 chars), prioritize title and shop name only
+      // to avoid matching common substrings in addresses (like "p" in "Place")
+      const searchFields: any[] = [
+        { title: searchRegex },
+        { 'shopInfo.name': searchRegex }
+      ];
+
+      if (search.length > 2) {
+        searchFields.push(
+          { description: searchRegex },
+          { 'shopInfo.detailedAddress.city': searchRegex },
+          { 'shopInfo.address': searchRegex }
+        );
+      }
+
       pipeline.push({
         $match: {
-          $or: [
-            { title: searchRegex },
-            { description: searchRegex },
-            { 'shopInfo.name': searchRegex },
-            { 'shopInfo.detailedAddress.city': searchRegex },
-            { 'shopInfo.address': searchRegex },
-          ]
+          $or: searchFields
         }
       });
     }

@@ -15,13 +15,13 @@ export class ShopService {
 
     // Parse stringified nested objects if they exist (multipart/form-data compatibility)
     ['location', 'bankDetails', 'contactInfo', 'detailedAddress'].forEach(field => {
-      if (typeof data[field] === 'string') {
+      if (typeof data[field] === 'string' && data[field].trim().startsWith('{')) {
         try { data[field] = JSON.parse(data[field]); } catch (e) {}
       }
     });
 
-    // Security: Merchants should not be able to set their own commission rate
-    delete data.commissionRate;
+    if (data.isTermsAccepted === 'true') data.isTermsAccepted = true;
+    if (data.isTermsAccepted === 'false') data.isTermsAccepted = false;
 
     let logoUrl = data.logo;
     let coverImageUrl = data.coverImage;
@@ -95,13 +95,13 @@ export class ShopService {
 
     // Parse stringified nested objects if they exist (multipart/form-data compatibility)
     ['location', 'bankDetails', 'contactInfo', 'detailedAddress'].forEach(field => {
-      if (typeof data[field] === 'string') {
+      if (typeof data[field] === 'string' && data[field].trim().startsWith('{')) {
         try { data[field] = JSON.parse(data[field]); } catch (e) {}
       }
     });
 
-    // Security: Merchants should not be able to set their own commission rate
-    delete data.commissionRate;
+    if (data.isTermsAccepted === 'true') data.isTermsAccepted = true;
+    if (data.isTermsAccepted === 'false') data.isTermsAccepted = false;
 
     if (files) {
       if (files.logo && files.logo[0]) {

@@ -139,6 +139,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     const buyer = item.buyer as unknown as IUser;
     const { label, color } = getStatusDisplay(item.status) || { label: 'Unknown', color: '#94A3B8' };
     const isPending = item.status === OrderStatus.PENDING;
+    const isAwaitingConfirmation = item.status === OrderStatus.AWAITING_SELLER_CONFIRMATION;
     const isConfirmed = item.status === OrderStatus.CONFIRMED;
     const isCompleted = item.status === OrderStatus.COMPLETED;
 
@@ -229,35 +230,24 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
               </View>
             )}
             
+            {isAwaitingConfirmation && (
+              <Button 
+                title="Confirm & Accept Order" 
+                type="primary" 
+                onPress={() => handleUpdateStatus(item._id, OrderStatus.CONFIRMED)}
+                style={styles.fullBtn}
+                icon={<Icon name="checkmark-circle-outline" size={18} color="white" />}
+              />
+            )}
+            
             {isConfirmed && (
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Button 
-                    title="Cancel" 
-                    type="danger" 
-                    onPress={() => {
-                      Alert.alert(
-                        "Cancel Order", 
-                        "Are you sure you want to cancel this confirmed order?",
-                        [
-                          { text: "No", style: "cancel" },
-                          { text: "Yes", onPress: () => handleUpdateStatus(item._id, OrderStatus.CANCELLED) }
-                        ]
-                      );
-                    }}
-                    style={styles.fullBtn}
-                  />
-                </View>
-                <View style={{ flex: 2 }}>
-                  <Button 
-                    title="Ready for Pickup" 
-                    type="primary" 
-                    onPress={() => handleUpdateStatus(item._id, OrderStatus.SEARCHING_RIDER)}
-                    style={styles.fullBtn}
-                    icon={<Icon name="cube-outline" size={18} color="white" />}
-                  />
-                </View>
-              </View>
+               <Button 
+                title="Mark Ready for Pickup" 
+                type="primary" 
+                onPress={() => handleUpdateStatus(item._id, OrderStatus.READY_FOR_PICKUP)}
+                style={styles.fullBtn}
+                icon={<Icon name="cube-outline" size={18} color="white" />}
+              />
             )}
 
 

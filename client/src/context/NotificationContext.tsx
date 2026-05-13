@@ -17,7 +17,7 @@ interface NotificationContextType {
   incrementUnreadChatCount: () => void;
   cartCount: number;
   fetchCartCount: () => Promise<void>;
-  setCartCount: (count: number) => void;
+  setCartCount: React.Dispatch<React.SetStateAction<number>>;
   totalUnreadCount: number;
   markConversationAsRead: (conversationId: string) => Promise<void>;
 }

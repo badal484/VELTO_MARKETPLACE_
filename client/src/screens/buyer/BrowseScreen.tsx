@@ -329,12 +329,20 @@ export default function BrowseScreen({ navigation }: BrowseScreenProps) {
                   clearTimeout(searchDebounceRef.current);
                 searchDebounceRef.current = setTimeout(() => {
                   fetchProducts(undefined, undefined, text);
-                }, 500);
+                }, 300);
               }}
               onSubmitEditing={() => fetchProducts()}
               returnKeyType="search"
               placeholderTextColor={theme.colors.muted}
             />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => {
+                setSearch('');
+                fetchProducts(undefined, undefined, '');
+              }}>
+                <Icon name="close-circle" size={18} color={theme.colors.muted} />
+              </TouchableOpacity>
+            )}
           </View>
           <View style={styles.actionContainer}>
             <TouchableOpacity
@@ -761,11 +769,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f1f5f9',
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   listContent: {
     padding: 12,

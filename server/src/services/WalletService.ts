@@ -15,14 +15,10 @@ import { NotificationType } from '../models/Notification';
 import { RazorpayService } from './RazorpayService';
 
 export class WalletService {
-  // Velto takes 10% of the delivery charge from the rider
-  static readonly RIDER_COMMISSION_RATE = parseFloat(process.env.VELTO_RIDER_COMMISSION_RATE || '0.10');
-  // Velto takes 5% of the item price from the seller
-  static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.05');
-  // Fixed effort fee paid to rider when an assigned order is cancelled
-  static readonly RIDER_CANCEL_COMPENSATION = parseFloat(process.env.VELTO_RIDER_CANCEL_COMPENSATION || '15');
-  // Minimum allowed payout withdrawal
-  static readonly MIN_PAYOUT_AMOUNT = parseFloat(process.env.VELTO_MIN_PAYOUT || '500');
+  private static readonly COMMISSION_RATE = parseFloat(process.env.VELTO_COMMISSION_RATE || '0.10');
+  private static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.07');
+  private static readonly RIDER_CANCEL_COMPENSATION = 15; // ₹15 for effort
+  private static readonly MIN_PAYOUT_AMOUNT = 500;
 
   // ─── RIDER EARNINGS ──────────────────────────────────────────────────────────
 
@@ -55,9 +51,10 @@ export class WalletService {
         return;
       }
 
-      const deliveryCharge = order.deliveryCharge!;
-      const commission = round(deliveryCharge * this.RIDER_COMMISSION_RATE);
-      const grossEarnings = round(deliveryCharge - commission);
+      const deliveryCharge = order.deliveryCharge || 0;
+      // Guaranteed flat net payout of ₹27 to the rider per order delivery
+      const earnings = 27;
+      const commission = Math.max(0, deliveryCharge - earnings);
 
       const rider = await User.findById(order.rider).session(session);
       if (!rider) throw new AppError('Rider not found', 404);
@@ -149,20 +146,9 @@ export class WalletService {
         return;
       }
 
-      const itemTotal = round(order.totalPrice - (order.deliveryCharge || 0));
-      if (itemTotal <= 0) {
-        await session.commitTransaction();
-        return;
-      }
-
-      const shop = await Shop.findById(order.shop).session(session);
-      
-      // Calculate effective commission rate: use shop's custom percentage if defined, else fallback to global default
-      const appliedRate = (shop && typeof shop.commissionRate === 'number') 
-        ? shop.commissionRate / 100 
-        : this.SELLER_COMMISSION_RATE;
-
-      const commission = round(itemTotal * appliedRate);
+      // Under Free Delivery, order.totalPrice reflects pure product cost exactly
+      const itemTotal = order.totalPrice;
+      const commission = round(itemTotal * this.SELLER_COMMISSION_RATE);
       const earnings = round(itemTotal - commission);
 
       const updatedSeller = await User.findByIdAndUpdate(

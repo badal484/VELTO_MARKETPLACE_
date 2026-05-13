@@ -23,7 +23,7 @@ transporter.verify((error, success) => {
   }
 });
 
-const templates = {
+const templates: Record<string, (data: any) => { subject: string; html: string }> = {
   email_verify: (data: { name: string; otp: string }) => ({
     subject: 'Verify your Velto account',
     html: `<h1>Welcome to Velto</h1><p>Hi ${data.name}, use this OTP to verify your email: <strong>${data.otp}</strong>. Valid for 10 minutes.</p>`,
@@ -32,9 +32,13 @@ const templates = {
     subject: 'Reset your Velto password',
     html: `<p>Hi ${data.name}, use this OTP to reset your password: <strong>${data.otp}</strong>. Valid for 10 minutes.</p>`,
   }),
+  login_otp: (data: { name: string; otp: string }) => ({
+    subject: 'Velto Login OTP',
+    html: `<h1>Velto Login</h1><p>Hi ${data.name}, use this OTP to login to your account: <strong>${data.otp}</strong>. Valid for 10 minutes.</p>`,
+  }),
 };
 
-export const sendEmail = async (to: string, type: keyof typeof templates, data: any) => {
+export const sendEmail = async (to: string, type: 'email_verify' | 'forgot_password' | 'login_otp', data: any) => {
   console.log(`Sending email [${type}] to: ${to}...`);
   try {
     const tpl = (templates as any)[type](data);

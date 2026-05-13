@@ -1,4 +1,6 @@
 import React, {useEffect, useState, useCallback} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
+import {useSocket} from '../../hooks/useSocket';
 import {
   View,
   Text,
@@ -11,6 +13,7 @@ import {
   Image,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -38,9 +41,18 @@ export default function AdminOrdersScreen({route, navigation}: any) {
   const [searchQuery, setSearchQuery] = useState(deepSearchId ? String(deepSearchId) : '');
   const [filteredOrders, setFilteredOrders] = useState<IOrder[]>([]);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [])
+  );
+
+  useSocket('order_status_updated', (updatedOrder: IOrder) => {
+    setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
+    if (selectedOrder && selectedOrder._id === updatedOrder._id) {
+      setSelectedOrder(updatedOrder);
+    }
+  });
 
   const fetchOrders = async () => {
     try {
@@ -267,6 +279,7 @@ export default function AdminOrdersScreen({route, navigation}: any) {
       <AdminOrderDetailModal 
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
+        onRefresh={fetchOrders}
         order={selectedOrder}
       />
 
