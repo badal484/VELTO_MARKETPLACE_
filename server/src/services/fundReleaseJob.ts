@@ -3,7 +3,7 @@ import { Order } from '../models/Order';
 import { OrderStatus } from '@shared/types';
 import { WalletService } from './WalletService';
 
-const RELEASE_DELAY_MS = 48 * 60 * 60 * 1000; // 48 hours after delivery
+const RELEASE_DELAY_MS = 24 * 60 * 60 * 1000; // 24 hours after delivery
 const POLL_INTERVAL_MS = 30 * 60 * 1000; // check every 30 minutes
 
 export class FundReleaseJob {

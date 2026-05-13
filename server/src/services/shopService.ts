@@ -20,6 +20,9 @@ export class ShopService {
       }
     });
 
+    // Security: Merchants should not be able to set their own commission rate
+    delete data.commissionRate;
+
     let logoUrl = data.logo;
     let coverImageUrl = data.coverImage;
 
@@ -96,6 +99,9 @@ export class ShopService {
         try { data[field] = JSON.parse(data[field]); } catch (e) {}
       }
     });
+
+    // Security: Merchants should not be able to set their own commission rate
+    delete data.commissionRate;
 
     if (files) {
       if (files.logo && files.logo[0]) {

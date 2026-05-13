@@ -1,6 +1,22 @@
 import { z } from 'zod';
 import { OrderStatus, Category } from './types';
 
+const jsonOrObject = <T extends z.ZodTypeAny>(schema: T) =>
+  z.union([
+    schema,
+    z.string().transform((value, ctx) => {
+      try {
+        return JSON.parse(value);
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Invalid JSON payload',
+        });
+        return z.NEVER;
+      }
+    }).pipe(schema),
+  ]);
+
 export const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
@@ -54,28 +70,31 @@ export const createShopSchema = z.object({
   aadharCard: z.string().min(12, 'Valid Aadhar number required'),
   gstin: z.string().optional(),
   address: z.string().min(5, 'Address is required'),
-  detailedAddress: z.object({
-    street: z.string(),
-    city: z.string(),
-    state: z.string(),
-    pincode: z.string(),
-  }),
-  location: z.object({
+  detailedAddress: jsonOrObject(z.object({
+    street: z.string().min(1, 'Street is required'),
+    city: z.string().min(1, 'City is required'),
+    state: z.string().min(1, 'State is required'),
+    pincode: z.string().min(1, 'Pincode is required'),
+  })),
+  location: jsonOrObject(z.object({
     lat: z.number(),
     lng: z.number(),
-  }),
-  bankDetails: z.object({
+  })),
+  bankDetails: jsonOrObject(z.object({
     holderName: z.string(),
     bankName: z.string(),
     accountNumber: z.string(),
     ifscCode: z.string(),
-  }),
-  contactInfo: z.object({
+  })),
+  contactInfo: jsonOrObject(z.object({
     businessEmail: z.string().email(),
     businessPhone: z.string(),
-  }),
+  })),
   category: z.nativeEnum(Category),
-  isTermsAccepted: z.boolean(),
+  isTermsAccepted: z.preprocess(
+    value => (value === 'true' ? true : value === 'false' ? false : value),
+    z.boolean()
+  ),
 });
 
 export const updateProfileSchema = z.object({

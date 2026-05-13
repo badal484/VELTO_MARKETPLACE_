@@ -64,7 +64,8 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
   const checkInitialStatus = async () => {
     try {
       const res = await axiosInstance.get(`/api/orders/${orderId}`);
-      if (res.data.success && res.data.data.status === 'confirmed') {
+      const order = res.data.data;
+      if (res.data.success && (order.status !== 'payment_under_review' || order.razorpayPaymentId)) {
         setPaymentConfirmed(true);
       }
     } catch (err) {
@@ -77,7 +78,7 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
       socket.on('order_status_updated', (updatedOrder: any) => {
         if (
           updatedOrder._id === orderId &&
-          updatedOrder.status === 'confirmed'
+          (updatedOrder.status !== 'payment_under_review' || updatedOrder.razorpayPaymentId)
         ) {
           setPaymentConfirmed(true);
         }

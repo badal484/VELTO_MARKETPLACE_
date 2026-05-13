@@ -227,27 +227,63 @@ export class OrderService {
       return [];
     }
 
-    console.log(`[GEO] Searching jobs for rider at: lng=${riderLocation[0]}, lat=${riderLocation[1]} (radius: ${radiusMetres}m)`);
+    const zone = await ZoneService.checkServiceability(riderLocation[0], riderLocation[1]);
     
+    const targetStatuses = [
+      OrderStatus.PENDING,
+      OrderStatus.PAYMENT_UNDER_REVIEW,
+      OrderStatus.CONFIRMED, 
+      OrderStatus.SEARCHING_RIDER, 
+      OrderStatus.READY_FOR_PICKUP
+    ];
+
+    if (!zone) {
+      console.log(`[GEO] Rider ${riderId} is outside active Service Zones (Option 2 blocking applied).`);
+      
+      // Preserve emulator fallback query strictly for non-production environments
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GEO] [DEV ONLY] Executing Absolute Fallback query for out-of-zone emulator testing account...`);
+        const fallbackJobs = await Order.find({
+          status: { $in: targetStatuses },
+          fulfillmentMethod: 'delivery',
+          rider: null
+        })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .populate('shop')
+        .populate('product')
+        .populate('buyer')
+        .lean();
+
+        return fallbackJobs;
+      }
+
+      return [];
+    }
+    
+    const searchCenter: [number, number] = [zone.center.coordinates[0], zone.center.coordinates[1]];
+    const searchRadius = zone.radius * 1000; // Convert km to meters
+    console.log(`[GEO] Rider mapped to Service Zone: "${zone.name}". Querying full zone radius (${zone.radius}km) from zone center.`);
+    
+
     const results = await Order.aggregate([
       {
         $geoNear: {
-          near: { type: 'Point', coordinates: riderLocation },
+          near: { type: 'Point', coordinates: searchCenter },
           distanceField: 'distanceMetres',
-          maxDistance: radiusMetres,
+          maxDistance: searchRadius,
           spherical: true,
           key: 'pickupLocation',
-          query: { 
-            status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
+          query: {
+            status: { $in: targetStatuses },
             fulfillmentMethod: 'delivery',
-            rider: { $exists: false },
-            seller: { $ne: new mongoose.Types.ObjectId(riderId) }
+            rider: null
           }
         }
       },
       {
         $match: {
-          distanceMetres: { $lte: radiusMetres }
+          distanceMetres: { $lte: searchRadius }
         }
       },
       {
@@ -291,6 +327,24 @@ export class OrderService {
       { $unwind: '$buyer' }
     ]);
 
+    if (results.length === 0) {
+      console.log(`[GEO] No local jobs found. Executing Absolute Fallback query for emulator testing...`);
+      const fallbackJobs = await Order.find({
+        status: { $in: targetStatuses },
+        fulfillmentMethod: 'delivery',
+        rider: null
+      })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .populate('shop')
+      .populate('product')
+      .populate('buyer')
+      .lean();
+
+      console.log(`[GEO] Fallback returned ${fallbackJobs.length} jobs.`);
+      return fallbackJobs;
+    }
+
     console.log(`[GEO] Found ${results.length} local jobs.`);
     return results;
   }
@@ -325,10 +379,16 @@ export class OrderService {
     }
 
     const order = await Order.findOneAndUpdate(
-      { 
-        _id: orderId, 
-        rider: { $exists: false }, 
-        status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] } 
+      {
+        _id: orderId,
+        rider: null,
+        status: { $in: [
+          OrderStatus.PENDING,
+          OrderStatus.PAYMENT_UNDER_REVIEW,
+          OrderStatus.CONFIRMED,
+          OrderStatus.SEARCHING_RIDER, 
+          OrderStatus.READY_FOR_PICKUP
+        ] }
       },
       { 
         $set: { 
@@ -402,7 +462,7 @@ export class OrderService {
 
     if (assignedRider) {
       const updatedOrder = await Order.findOneAndUpdate(
-        { _id: orderId, status: OrderStatus.SEARCHING_RIDER, rider: { $exists: false } },
+        { _id: orderId, status: OrderStatus.SEARCHING_RIDER, rider: null },
         { $set: { rider: assignedRider._id, status: OrderStatus.RIDER_ASSIGNED } },
         { new: true }
       );
@@ -633,7 +693,10 @@ export class OrderService {
         }
         
         if (sellerId) {
-          io.to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
+          const isPrepaidPending = paymentMethod === 'Razorpay' && order.status === OrderStatus.PAYMENT_UNDER_REVIEW;
+          if (!isPrepaidPending) {
+            io.to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
+          }
         }
       }
 
@@ -642,15 +705,25 @@ export class OrderService {
         const firstOrderId = firstOrder?._id?.toString();
 
         if (firstOrderId) {
-          const summaryMsg = createdOrders.length === 1 
+          const isRazorpay = paymentMethod === 'Razorpay';
+          const isDirectUPI = paymentMethod === 'Direct UPI Transfer';
+          
+          let summaryMsg = createdOrders.length === 1 
             ? ` Success! Your order for ${firstOrder.productSnapshot?.title || 'item'} has been placed.`
             : ` Success! Your batch order for ${createdOrders.length} items has been placed successfully.`;
+            
+          if (isDirectUPI) {
+            summaryMsg = ` Order Placed: Your order is under review while we verify your Direct UPI payment.`;
+          }
+
+          // If Razorpay order is awaiting payment completion, do not send premature notification
+          const shouldBeSilent = isRazorpay && firstOrder.status === OrderStatus.PAYMENT_UNDER_REVIEW;
           
           await WorkflowService.syncOrderState(
             firstOrderId,
             firstOrder.status as any,
             summaryMsg,
-            { silent: false }
+            { silent: shouldBeSilent }
           );
         }
       }

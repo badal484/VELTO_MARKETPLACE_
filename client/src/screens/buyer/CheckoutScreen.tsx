@@ -13,6 +13,7 @@ import {
   Linking,
   Image,
   PermissionsAndroid,
+  Alert,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Geolocation from 'react-native-geolocation-service';
@@ -57,7 +58,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const {products: initialProducts} = route.params as { products: CheckoutItem[] };
   const [products, setProducts] = useState<CheckoutItem[]>(initialProducts);
   const fulfillmentMethod = 'delivery';
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'Razorpay' | 'UPI'>('Cash');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'Razorpay'>('Cash');
   const [loading, setLoading] = useState(false);
   
   // Address state
@@ -249,10 +250,8 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         }),
         paymentMethod: selectedPaymentMethod === 'Cash' 
              ? 'Cash on Delivery'
-             : selectedPaymentMethod === 'UPI' 
-               ? 'Direct UPI Transfer' 
-               : 'Razorpay',
-        paymentReference: selectedPaymentMethod === 'Cash' ? undefined : (utrValue || 'PENDING_AUTO'),
+             : 'Razorpay',
+        paymentReference: selectedPaymentMethod === 'Cash' ? undefined : 'PENDING_AUTO',
         fulfillmentMethod,
         deliveryAddress: address,
         deliveryCharge: deliveryFee, 
@@ -265,71 +264,90 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
       if (selectedPaymentMethod === 'Razorpay') {
         const res = await axiosInstance.post('/api/orders/batch', payload);
         const { razorpayOrder, orders } = res.data.data;
+        setLoading(false);
 
-        const options = {
-          description: 'Payment for Velto Order',
-          image: 'https://ik.imagekit.io/oellcbqek/velto_logo.png',
-          currency: 'INR',
-          key: 'rzp_test_SdCBOGIizlvuxK',
-          amount: razorpayOrder.amount,
-          name: 'Velto Marketplace',
-          order_id: razorpayOrder.id,
-          prefill: {
-            email: user?.email || 'customer@example.com',
-            contact: phoneNumber,
-            name: user?.name || 'Velto Customer'
-          },
-          theme: {color: theme.colors.primary}
-        };
+        const rzpFirstOrder = Array.isArray(orders[0]) ? orders[0][0] : orders[0];
+        const rzpOrderId = rzpFirstOrder?._id || rzpFirstOrder?.id;
 
-        if (!RazorpayCheckout || typeof RazorpayCheckout.open !== 'function') {
-           throw new Error('Payment module not linked. Please restart the app.');
-        }
+        Alert.alert(
+          'Gateway Simulation Mode',
+          'Would you like to simulate a successful Razorpay payment verification for testing, or open the Live Native Gateway?',
+          [
+            {
+              text: 'Simulate Success',
+              style: 'default',
+              onPress: async () => {
+                try {
+                  setLoading(true);
+                  await axiosInstance.post('/api/payments/verify', {
+                    razorpay_order_id: razorpayOrder.id,
+                    razorpay_payment_id: 'pay_simulated_' + Date.now().toString().slice(-6),
+                    razorpay_signature: 'SIMULATED_SUCCESS_VERIFIED'
+                  });
 
-        try {
-          RazorpayCheckout.open(options).then(async (data: any) => {
-            await axiosInstance.post('/api/payments/verify', {
-              razorpay_order_id: data.razorpay_order_id,
-              razorpay_payment_id: data.razorpay_payment_id,
-              razorpay_signature: data.razorpay_signature
-            });
-            
-            navigation.replace('OrderSuccess', { 
-              orderId: orders[0]._id,
-              paymentMethod: 'Razorpay',
-              fulfillmentMethod,
-              deliveryCode: orders[0].deliveryCode,
-              pickupCode: orders[0].pickupCode
-            });
-          }).catch((err: any) => {
-            showToast({message: `Payment Failed: ${err.description || 'Cancelled'}`, type: 'error'});
-          });
+                  navigation.replace('OrderSuccess', { 
+                    orderId: rzpOrderId,
+                    paymentMethod: 'Razorpay',
+                    fulfillmentMethod,
+                    deliveryCode: rzpFirstOrder?.deliveryCode,
+                    pickupCode: rzpFirstOrder?.pickupCode
+                  });
+                } catch (err: any) {
+                  setLoading(false);
+                  showToast({message: err.response?.data?.message || 'Simulation verification failed', type: 'error'});
+                }
+              }
+            },
+            {
+              text: 'Open Live Gateway',
+              style: 'cancel',
+              onPress: () => {
+                const options = {
+                  description: 'Payment for Velto Order',
+                  image: 'https://ik.imagekit.io/oellcbqek/velto_logo.png',
+                  currency: 'INR',
+                  key: 'rzp_test_SdCBOGIizlvuxK',
+                  amount: razorpayOrder.amount,
+                  name: 'Velto Marketplace',
+                  order_id: razorpayOrder.id,
+                  prefill: {
+                    email: user?.email || 'customer@example.com',
+                    contact: phoneNumber,
+                    name: user?.name || 'Velto Customer'
+                  },
+                  theme: {color: theme.colors.primary}
+                };
 
-        } catch (innerErr: any) {
-          showToast({message: innerErr.message, type: 'error'});
-        }
+                if (!RazorpayCheckout || typeof RazorpayCheckout.open !== 'function') {
+                   showToast({message: 'Payment module not linked', type: 'error'});
+                   return;
+                }
+
+                RazorpayCheckout.open(options).then(async (data: any) => {
+                  await axiosInstance.post('/api/payments/verify', {
+                    razorpay_order_id: data.razorpay_order_id,
+                    razorpay_payment_id: data.razorpay_payment_id,
+                    razorpay_signature: data.razorpay_signature
+                  });
+                  
+                  navigation.replace('OrderSuccess', { 
+                    orderId: rzpOrderId,
+                    paymentMethod: 'Razorpay',
+                    fulfillmentMethod,
+                    deliveryCode: rzpFirstOrder?.deliveryCode,
+                    pickupCode: rzpFirstOrder?.pickupCode
+                  });
+                }).catch((err: any) => {
+                  showToast({message: `Payment Failed: ${err.description || 'Cancelled'}`, type: 'error'});
+                });
+              }
+            }
+          ]
+        );
         return;
       }
 
-      if (selectedPaymentMethod === 'UPI') {
-        if (!utrValue || utrValue.length < 10) {
-          showToast({message: 'Please enter your 12-digit Transaction ID (UTR) for verification.', type: 'info'});
-          setLoading(false);
-          return;
-        }
-        
-        const response = await axiosInstance.post('/api/orders/batch', payload);
-        const orders = response.data.data.orders;
-        
-        navigation.replace('OrderSuccess', { 
-          orderId: orders[0]._id,
-          paymentMethod: 'Direct UPI Transfer',
-          fulfillmentMethod,
-          deliveryCode: orders[0].deliveryCode,
-          pickupCode: orders[0].pickupCode
-        });
-        return;
-      }
+      // Direct UPI transfer handling removed per user instruction
 
       // Cash method processing
       const response = await axiosInstance.post('/api/orders/batch', payload);
@@ -340,17 +358,25 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
         throw new Error('Order creation failed on server');
       }
       
+      const firstOrder = Array.isArray(orders[0]) ? orders[0][0] : orders[0];
+      const orderId = firstOrder?._id || firstOrder?.id;
+
+      if (!orderId) {
+        throw new Error('Order ID missing in server response');
+      }
+
       navigation.replace('OrderSuccess', { 
-        orderId: orders[0]._id,
+        orderId,
         paymentMethod: payload.paymentMethod,
         fulfillmentMethod,
-        deliveryCode: orders[0].deliveryCode,
-        pickupCode: orders[0].pickupCode
+        deliveryCode: firstOrder?.deliveryCode,
+        pickupCode: firstOrder?.pickupCode
       });
 
     } catch (error: any) {
+      console.log('Place Order Error:', error);
       showToast({
-        message: error.response?.data?.message || 'Failed to place order',
+        message: error.response?.data?.message || error.message || 'Failed to place order',
         type: 'error',
       });
     } finally {
@@ -551,12 +577,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                 </View>
               )}
               
-              <TouchableOpacity 
-                style={[styles.methodCard, selectedPaymentMethod === 'UPI' && styles.activeMethod]}
-                onPress={() => setSelectedPaymentMethod('UPI')}>
-                <Icon name="phone-portrait-outline" size={24} color={selectedPaymentMethod === 'UPI' ? theme.colors.primary : theme.colors.muted} />
-                <Text style={[styles.methodLabel, selectedPaymentMethod === 'UPI' && styles.activeMethodLabel]}>Direct UPI</Text>
-              </TouchableOpacity>
+              {/* Direct UPI Option Removed */}
               
               <TouchableOpacity 
                 style={[styles.methodCard, selectedPaymentMethod === 'Razorpay' && styles.activeMethod]}
@@ -568,56 +589,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               </TouchableOpacity>
             </View>
 
-            {selectedPaymentMethod === 'UPI' && (
-              <Animated.View entering={FadeInUp} style={styles.upiActionBox}>
-                <Text style={styles.upiTitle}>Instant UPI Payment</Text>
-                <Text style={styles.upiSub}>Select an app to pay ₹{finalPayable.toLocaleString()}</Text>
-                
-                <View style={styles.upiAppsRow}>
-                   <TouchableOpacity 
-                     style={styles.upiAppBtn} 
-                     onPress={() => {
-                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
-                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
-                     }}>
-                     <Image source={{uri: 'https://cdn.iconscout.com/icon/free/png-256/google-pay-2038779-1721670.png'}} style={styles.upiIcon} />
-                     <Text style={styles.upiAppName}>GPay</Text>
-                   </TouchableOpacity>
-
-                   <TouchableOpacity 
-                     style={styles.upiAppBtn}
-                     onPress={() => {
-                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
-                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
-                     }}>
-                     <Image source={{uri: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/phonepe-logo-icon.png'}} style={styles.upiIcon} />
-                     <Text style={styles.upiAppName}>PhonePe</Text>
-                   </TouchableOpacity>
-
-                   <TouchableOpacity 
-                     style={styles.upiAppBtn}
-                     onPress={() => {
-                       const url = `upi://pay?pa=badal90603@okicici&pn=Velto%20Marketplace&am=${finalPayable}&cu=INR&tn=Velto%20Order`;
-                       Linking.openURL(url).catch(() => showToast({message: 'Could not open UPI apps', type: 'error'}));
-                     }}>
-                     <Image source={{uri: 'https://cdn.iconscout.com/icon/free/png-256/paytm-226448.png'}} style={styles.upiIcon} />
-                     <Text style={styles.upiAppName}>Paytm</Text>
-                   </TouchableOpacity>
-                </View>
-
-                <View style={styles.utrContainer}>
-                   <Text style={styles.utrLabel}>Enter 12-digit Transaction ID (UTR)</Text>
-                   <Input
-                     placeholder="e.g. 412345678901"
-                     value={utrValue}
-                     onChangeText={setUtrValue}
-                     keyboardType="numeric"
-                     maxLength={12}
-                   />
-                   <Text style={styles.utrHint}>Required for payment verification</Text>
-                </View>
-              </Animated.View>
-            )}
+            {/* Direct UPI Action Section Removed */}
 
             {totalAmount > MAX_COD_AMOUNT && (
               <Animated.View entering={FadeInUp} style={styles.codWarningBox}>

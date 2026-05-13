@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
 });
 
 export default function RiderDashboardScreen({ navigation }: any) {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, updateUser } = useAuth();
   const { showToast } = useToast();
   const { socket, isConnected } = useSocket();
   const { unreadCount } = useNotifications();
@@ -819,7 +819,7 @@ export default function RiderDashboardScreen({ navigation }: any) {
         setStats(response.data.stats);
       }
     } catch (error: any) {
-      console.error('Fetch error:', error);
+      console.log('Fetch error:', error.message);
       if (error.response?.status !== 404) {
         showToast({
           message:
@@ -828,7 +828,7 @@ export default function RiderDashboardScreen({ navigation }: any) {
         });
       }
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
       setRefreshing(false);
     }
   };

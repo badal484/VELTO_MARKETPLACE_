@@ -5,9 +5,11 @@ import { AppError, handleError } from '../utils/errors';
 import mongoose from 'mongoose';
 import { io } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
+import { TransactionCategory } from '@shared/types';
 
 /**
- * Controller for Admin to manage physical cash settlements from delivery riders.
+ * Admin endpoint to record physical cash deposits from COD riders.
+ * Reduces the rider's cashInHand liability by the deposited amount.
  */
 export const recordCashDeposit = async (req: Request, res: Response) => {
   const session = await mongoose.startSession();
@@ -16,50 +18,49 @@ export const recordCashDeposit = async (req: Request, res: Response) => {
   try {
     const { riderId, amount, reference } = req.body;
 
-    if (!riderId || !amount || amount <= 0) {
+    if (!riderId || !amount || Number(amount) <= 0) {
       throw new AppError('Invalid rider ID or settlement amount', 400);
     }
 
     const rider = await User.findById(riderId).session(session);
     if (!rider) throw new AppError('Rider not found', 404);
 
-    const actualAmount = Math.min(amount, rider.cashInHand || 0);
+    const currentLiability = rider.cashInHand || 0;
+    if (currentLiability <= 0) {
+      throw new AppError(`Rider has no outstanding COD liability (cashInHand = ₹${currentLiability})`, 400);
+    }
 
-    // 1. Reduce the Rider's cash liability
-    await User.findByIdAndUpdate(
-      riderId,
-      { $inc: { cashInHand: -actualAmount } },
-      { session }
-    );
+    // Cap deposit at actual liability so we can't over-settle
+    const settledAmount = Math.min(Number(amount), currentLiability);
 
-    // 2. Record the transaction for audit
+    await User.findByIdAndUpdate(riderId, { $inc: { cashInHand: -settledAmount } }, { session });
+
     await WalletTransaction.create([{
       user: riderId,
-      amount: actualAmount,
-      type: 'debit', // Using debit to represent "Clearing a liability"
-      description: `Cash Settlement: ${reference || 'Physical Deposit at Office'}`,
-      createdAt: new Date()
+      amount: settledAmount,
+      type: 'debit',
+      category: TransactionCategory.CASH_SETTLEMENT,
+      description: `Cash deposit settled: ₹${settledAmount}${reference ? ` — Ref: ${reference}` : ' — Physical deposit at office'}`,
     }], { session });
 
     await session.commitTransaction();
 
-    // 3. Real-time update for the Rider's wallet screen
-    const updatedRider = await User.findById(riderId).select('walletBalance cashInHand');
-    io.to(riderId.toString()).emit(SocketEvent.WALLET_UPDATED, { 
-       balance: updatedRider?.walletBalance || 0,
-       cashInHand: updatedRider?.cashInHand || 0
+    const updatedRider = await User.findById(riderId).select('walletBalance cashInHand').lean();
+    io.to(riderId.toString()).emit(SocketEvent.WALLET_UPDATED, {
+      balance: updatedRider?.walletBalance || 0,
+      cashInHand: updatedRider?.cashInHand || 0,
     });
 
     res.json({
       success: true,
-      message: `Successfully recorded ₹${actualAmount} cash deposit for ${rider.name}.`,
+      message: `Recorded ₹${settledAmount} cash deposit for ${rider.name}.`,
       data: {
-        newCashInHand: updatedRider?.cashInHand || 0
-      }
+        settledAmount,
+        remainingCashInHand: updatedRider?.cashInHand || 0,
+      },
     });
-
   } catch (error) {
-    await session.abortTransaction();
+    if (session.inTransaction()) await session.abortTransaction();
     handleError(error, res);
   } finally {
     session.endSession();

@@ -177,22 +177,6 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
             </View>
           </View>
 
-          {item.fulfillmentMethod === 'delivery' && item.deliveryAddress && (
-            <View style={styles.addressBox}>
-              <View style={styles.addressHeader}>
-                <Icon name="location" size={14} color={theme.colors.primary} />
-                <Text style={styles.addressLabel}>DELIVERY ADDRESS</Text>
-              </View>
-              <Text style={styles.addressText}>
-                {item.deliveryAddress.street}, {item.deliveryAddress.city}, {item.deliveryAddress.pincode}
-              </Text>
-              {item.deliveryAddress.landmark && (
-                <Text style={styles.landmarkText}>Landmark: {item.deliveryAddress.landmark}</Text>
-              )}
-            </View>
-          )}
-
-
           {item.rider && (
             <View style={[styles.addressBox, {backgroundColor: '#ECFDF5', borderColor: '#10B981'}]}>
               <View style={styles.addressHeader}>
@@ -216,22 +200,64 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
             </View>
 
             {isPending && (
-              <Button 
-                title="Accept Order" 
-                type="warning" 
-                onPress={() => handleUpdateStatus(item._id, OrderStatus.CONFIRMED)}
-                style={styles.fullBtn}
-              />
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Button 
+                    title="Cancel" 
+                    type="danger" 
+                    onPress={() => {
+                      Alert.alert(
+                        "Cancel Order", 
+                        "Are you sure you want to cancel this order?",
+                        [
+                          { text: "No", style: "cancel" },
+                          { text: "Yes", onPress: () => handleUpdateStatus(item._id, OrderStatus.CANCELLED) }
+                        ]
+                      );
+                    }}
+                    style={styles.fullBtn}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button 
+                    title="Confirm" 
+                    type="success" 
+                    onPress={() => handleUpdateStatus(item._id, OrderStatus.CONFIRMED)}
+                    style={styles.fullBtn}
+                  />
+                </View>
+              </View>
             )}
             
             {isConfirmed && (
-               <Button 
-                title="Mark Ready for Pickup" 
-                type="primary" 
-                onPress={() => handleUpdateStatus(item._id, OrderStatus.SEARCHING_RIDER)}
-                style={styles.fullBtn}
-                icon={<Icon name="cube-outline" size={18} color="white" />}
-              />
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Button 
+                    title="Cancel" 
+                    type="danger" 
+                    onPress={() => {
+                      Alert.alert(
+                        "Cancel Order", 
+                        "Are you sure you want to cancel this confirmed order?",
+                        [
+                          { text: "No", style: "cancel" },
+                          { text: "Yes", onPress: () => handleUpdateStatus(item._id, OrderStatus.CANCELLED) }
+                        ]
+                      );
+                    }}
+                    style={styles.fullBtn}
+                  />
+                </View>
+                <View style={{ flex: 2 }}>
+                  <Button 
+                    title="Ready for Pickup" 
+                    type="primary" 
+                    onPress={() => handleUpdateStatus(item._id, OrderStatus.SEARCHING_RIDER)}
+                    style={styles.fullBtn}
+                    icon={<Icon name="cube-outline" size={18} color="white" />}
+                  />
+                </View>
+              </View>
             )}
 
 

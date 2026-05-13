@@ -103,9 +103,19 @@ export const getAllShops = async (req: Request, res: Response): Promise<void> =>
 
 export const approveShop = async (req: Request, res: Response): Promise<void> => {
   try {
+    const { commissionRate } = req.body;
+    const updatePayload: any = {
+      isVerified: true,
+      verifiedAt: new Date(),
+      rejectionReason: undefined,
+    };
+    if (commissionRate !== undefined && commissionRate !== null && commissionRate !== '') {
+      updatePayload.commissionRate = Number(commissionRate);
+    }
+
     const shop = await Shop.findByIdAndUpdate(
       req.params.id,
-      { isVerified: true, verifiedAt: new Date(), rejectionReason: undefined },
+      updatePayload,
       { new: true }
     );
     
@@ -440,19 +450,18 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       { $sort: { "_id": 1 } }
     ]);
 
-    const commissionStats = await Order.aggregate([
-      { $match: { status: 'completed' } },
+    const { PlatformRevenue } = require('../models/PlatformRevenue');
+    const [revenueDoc] = await PlatformRevenue.aggregate([
       {
         $group: {
           _id: null,
-          sellerComm: { $sum: { $multiply: [{ $multiply: ["$productSnapshot.originalPrice", "$quantity"] }, 0.05] } }, // 5% of item price
-          riderComm: { $sum: { $multiply: ["$deliveryCharge", 0.10] } } // 10% of delivery fee
-        }
-      }
+          totalCommission: { $sum: '$totalCommission' },
+          totalExpenses: { $sum: '$expenseAmount' },
+        },
+      },
     ]);
-
-    const platformRevenue = commissionStats.length > 0 
-      ? (commissionStats[0].sellerComm + commissionStats[0].riderComm) 
+    const platformRevenue = revenueDoc
+      ? Math.max(0, revenueDoc.totalCommission - revenueDoc.totalExpenses)
       : 0;
 
     const topShops = await Order.aggregate([

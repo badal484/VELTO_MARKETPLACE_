@@ -185,19 +185,6 @@ export default function OrderHistoryScreen({
     }
   };
 
-  const handleAcceptOrder = async (orderId: string) => {
-    try {
-      setRefreshing(true);
-      await axiosInstance.patch(`/api/orders/${orderId}/status`, { status: OrderStatus.COMPLETED });
-      fetchOrders();
-      showToast({ message: 'Delivery accepted. Funds released to merchant.', type: 'success' });
-    } catch (err: any) {
-      showToast({ message: err.response?.data?.message || 'Action failed', type: 'error' });
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const handleDownloadInvoice = async (orderId: string) => {
     try {
       const res = await axiosInstance.get(`/api/orders/${orderId}/invoice`);
@@ -209,6 +196,7 @@ export default function OrderHistoryScreen({
   };
 
   const renderOrder = useCallback(({item, index}: {item: IOrder; index: number}) => {
+    const isBuyerHistoryView = historyMode === 'purchases';
     const statusDisplay = getStatusDisplay(item.status as OrderStatus) || { label: (item.status || 'Active').replace(/_/g, ' '), color: theme.colors.primary };
     const { label, color } = statusDisplay;
     const orderDate = new Date(item.createdAt ?? Date.now()).toLocaleDateString('en-IN', {
@@ -238,7 +226,7 @@ export default function OrderHistoryScreen({
             </View>
 
             <View style={styles.headerRight}>
-              {(String(item.status).toLowerCase() === 'completed' || 
+              {isBuyerHistoryView && (String(item.status).toLowerCase() === 'completed' || 
                 String(item.status).toLowerCase() === 'delivered' || 
                 String(item.status).toLowerCase() === 'shipped') && (
                 <TouchableOpacity 
@@ -281,7 +269,7 @@ export default function OrderHistoryScreen({
             </View>
             <View style={styles.priceColumn}>
               <Text style={styles.price}>₹{item.totalPrice}</Text>
-              {(item.deliveryCharge ?? 0) > 0 && (
+              {isBuyerHistoryView && (item.deliveryCharge ?? 0) > 0 && (
                 <Text style={styles.deliveryFeeText}>Includes ₹{item.deliveryCharge} Delivery</Text>
               )}
               <Text style={styles.qtyText}>Qty: {item.quantity}</Text>
@@ -290,7 +278,7 @@ export default function OrderHistoryScreen({
 
 
 
-          {item.fulfillmentMethod === 'delivery' && item.deliveryAddress && (
+          {isBuyerHistoryView && item.fulfillmentMethod === 'delivery' && item.deliveryAddress && (
             <View style={styles.addressSummaryCard}>
               <Text style={styles.addressSummaryText}>
                 {item.deliveryAddress.street}, {item.deliveryAddress.city}, {item.deliveryAddress.state} - {item.deliveryAddress.pincode}
@@ -301,7 +289,7 @@ export default function OrderHistoryScreen({
 
 
 
-          {item.status === OrderStatus.COMPLETED && item.isReviewed === false && (
+          {isBuyerHistoryView && item.status === OrderStatus.COMPLETED && item.isReviewed === false && (
             <TouchableOpacity
               style={styles.reviewBtn}
               onPress={() => {
@@ -317,7 +305,7 @@ export default function OrderHistoryScreen({
             </TouchableOpacity>
           )}
 
-          {item.isReviewed === true && (
+          {isBuyerHistoryView && item.isReviewed === true && (
             <View style={styles.reviewedBadge}>
               <Icon name="checkmark-circle" size={16} color={theme.colors.success} />
               <Text style={styles.reviewedText}>Reviewed</Text>
@@ -337,15 +325,6 @@ export default function OrderHistoryScreen({
 
           {/* Real-time Tracking & Chat Actions */}
           <View style={styles.actionRow}>
-            {item.status === OrderStatus.COMPLETED_PENDING_RELEASE && (
-              <TouchableOpacity 
-                style={[styles.chatActionBtn, {backgroundColor: '#ECFDF5', borderColor: '#10B981', flex: 2}]} 
-                onPress={() => handleAcceptOrder(item._id)}>
-                <Icon name="checkmark-circle" size={16} color="#059669" />
-                <Text style={[styles.chatActionTxt, {color: '#059669'}]}>Accept Delivery</Text>
-              </TouchableOpacity>
-            )}
-
             {item.status !== OrderStatus.COMPLETED && item.status !== OrderStatus.CANCELLED && (
               <TouchableOpacity 
                 style={styles.chatActionBtn} 
@@ -391,7 +370,7 @@ export default function OrderHistoryScreen({
         </Card>
       </Animated.View>
     );
-  }, [navigation, showToast, riderUpdates]);
+  }, [historyMode, navigation, showToast, riderUpdates]);
 
   if (loading && !refreshing && orders.length === 0) {
     return (
@@ -830,17 +809,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   actionRow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     marginTop: 16,
-    gap: 12,
+    gap: 10,
   },
   chatActionBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.primary + '20',

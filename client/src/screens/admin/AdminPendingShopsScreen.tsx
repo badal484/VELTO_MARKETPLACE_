@@ -18,6 +18,7 @@ import {
   StatusBar,
   Alert,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { theme } from '../../theme';
 import { axiosInstance } from '../../api/axiosInstance';
@@ -149,10 +150,11 @@ export default function AdminPendingShopsScreen({
   }, [socket, isConnected, fetchData]);
 
   // --- Shop Actions ---
-  const handleApproveShop = async (shopId: string) => {
+  const handleApproveShop = async (shopId: string, customRate?: string) => {
     setProcessingId(shopId);
     try {
-      await axiosInstance.patch(`/api/admin/shops/${shopId}/approve`);
+      const payload = customRate?.trim() ? { commissionRate: customRate.trim() } : {};
+      await axiosInstance.patch(`/api/admin/shops/${shopId}/approve`, payload);
       showToast({ message: 'Shop approved and is now live!', type: 'success' });
       fetchData();
     } catch (e: any) {
@@ -707,6 +709,28 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   contactText: { fontSize: 12, fontWeight: '800', color: theme.colors.primary },
+  customRateInputContainer: {
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  customRateLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.muted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  customRateInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -716,7 +740,7 @@ type ShopCardProps = {
   item: IShop;
   index: number;
   processingId: string | null;
-  onApprove: (id: string) => void;
+  onApprove: (id: string, customRate?: string) => void;
   onReject: (id: string) => void;
   onContact: (userId: string, name: string) => void;
 };
@@ -730,6 +754,7 @@ const ShopCard = ({
   onContact,
 }: ShopCardProps) => {
   const [expanded, setExpanded] = useState(false);
+  const [customRate, setCustomRate] = useState('');
   const owner = item.owner as unknown as IUser;
   const isProcessing = processingId === String(item._id);
   const shop = item as any;
@@ -899,6 +924,14 @@ const ShopCard = ({
                 value={shop.isTermsAccepted ? 'Yes' : 'No'}
                 highlight={shop.isTermsAccepted}
               />
+              {shop.commissionRate !== undefined && shop.commissionRate !== null && (
+                <DetailRow
+                  icon="pie-chart-outline"
+                  label="Commission"
+                  value={`${shop.commissionRate}% (Custom)`}
+                  highlight
+                />
+              )}
             </View>
 
             {/* Bank */}
@@ -939,11 +972,24 @@ const ShopCard = ({
           </View>
         )}
 
+        {/* ── Custom Commission Rate Input ── */}
+        <View style={styles.customRateInputContainer}>
+          <Text style={styles.customRateLabel}>Override Commission Rate (%)</Text>
+          <TextInput
+            style={styles.customRateInput}
+            placeholder="Enter custom rate (optional, e.g. 12)"
+            value={customRate}
+            onChangeText={setCustomRate}
+            keyboardType="numeric"
+            placeholderTextColor={theme.colors.muted}
+          />
+        </View>
+
         {/* ── Actions ── */}
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.approveBtn, isProcessing && styles.disabledBtn]}
-            onPress={() => onApprove(String(item._id))}
+            onPress={() => onApprove(String(item._id), customRate)}
             disabled={isProcessing}
           >
             <Icon name="checkmark-circle-outline" size={15} color="#fff" />

@@ -50,6 +50,24 @@ export enum PayoutRequestStatus {
   REJECTED = 'rejected',
 }
 
+export enum TransactionCategory {
+  // Inflows
+  RIDER_EARNINGS = 'rider_earnings',
+  SELLER_EARNINGS = 'seller_earnings',
+  CANCELLATION_COMPENSATION = 'cancellation_compensation',
+  REFUND = 'refund',
+  PAYOUT_REVERSION = 'payout_reversion',
+  ADMIN_CREDIT = 'admin_credit',
+
+  // Outflows
+  PAYOUT = 'payout',
+  COD_COLLECTION = 'cod_collection',
+  COD_LIABILITY_OFFSET = 'cod_liability_offset',
+  CASH_SETTLEMENT = 'cash_settlement',
+  PLATFORM_COMMISSION = 'platform_commission',
+  PLATFORM_EXPENSE = 'platform_expense',
+}
+
 export type MongoId = any;
 
 export interface IAddress {
@@ -134,6 +152,7 @@ export interface IShop {
   category: Category;
   logo?: string;
   coverImage?: string;
+  commissionRate?: number;
   isVerified?: boolean;
   isTermsAccepted?: boolean;
   rejectionReason?: string;
@@ -278,6 +297,7 @@ export interface IWalletTransaction {
   user: MongoId;
   amount: number;
   type: 'credit' | 'debit';
+  category: TransactionCategory;
   description: string;
   orderId?: MongoId;
   payoutId?: MongoId;
@@ -286,7 +306,7 @@ export interface IWalletTransaction {
 
 export interface IPayoutRequest {
   _id: MongoId;
-  rider: MongoId;
+  user: MongoId;
   amount: number;
   bankDetails: {
     holderName: string;
@@ -296,8 +316,20 @@ export interface IPayoutRequest {
   };
   status: PayoutRequestStatus;
   adminNote?: string;
-  transactionId?: string;
+  utrNumber?: string;
+  razorpayPayoutId?: string;
   processedAt?: Date;
+  createdAt?: string | Date;
+}
+
+export interface IPlatformRevenue {
+  _id: MongoId;
+  orderId: MongoId;
+  riderCommission: number;
+  sellerCommission: number;
+  totalCommission: number;
+  expenseType?: 'cancellation_compensation' | 'refund_expense';
+  expenseAmount?: number;
   createdAt?: string | Date;
 }
 

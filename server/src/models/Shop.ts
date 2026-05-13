@@ -37,6 +37,7 @@ const shopSchema = new Schema<IShopDocument>({
   category: { type: String, enum: Object.values(Category), required: true },
   logo: { type: String },
   coverImage: { type: String },
+  commissionRate: { type: Number },
   isVerified: { type: Boolean, default: false },
   isTermsAccepted: { type: Boolean, required: true, default: false },
   rejectionReason: { type: String },

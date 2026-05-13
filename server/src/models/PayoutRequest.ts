@@ -5,7 +5,7 @@ export interface IPayoutRequestSchema extends Omit<IPayoutRequest, '_id' | 'crea
 
 const payoutRequestSchema = new Schema<IPayoutRequestSchema>(
   {
-    rider: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     amount: { type: Number, required: true },
     bankDetails: {
       holderName: { type: String, required: true },
@@ -19,10 +19,14 @@ const payoutRequestSchema = new Schema<IPayoutRequestSchema>(
       default: PayoutRequestStatus.PENDING,
     },
     adminNote: { type: String },
-    transactionId: { type: String },
+    utrNumber: { type: String },
+    razorpayPayoutId: { type: String },
     processedAt: { type: Date },
   },
   { timestamps: true }
 );
+
+payoutRequestSchema.index({ user: 1, createdAt: -1 });
+payoutRequestSchema.index({ status: 1 });
 
 export const PayoutRequest = mongoose.model<IPayoutRequestSchema>('PayoutRequest', payoutRequestSchema);

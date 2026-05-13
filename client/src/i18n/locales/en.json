@@ -38,7 +38,6 @@
     "success": "Order Placed Successfully!",
     "pickup_otp": "PICKUP OTP",
     "delivery_otp": "DELIVERY OTP",
-    "accept_delivery": "Accept Delivery",
     "sales_history": "Sales History",
     "delivery_history": "Delivery History",
     "no_orders": "No Orders Yet",

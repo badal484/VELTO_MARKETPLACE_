@@ -165,10 +165,10 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         setCoverImage(shop.coverImage || '');
         
         if (shop.detailedAddress) {
-          setStreet(shop.detailedAddress.street || '');
-          setCity(shop.detailedAddress.city || '');
-          setState(shop.detailedAddress.state || '');
-          setPincode(shop.detailedAddress.pincode || '');
+          setStreet(shop.detailedAddress.street || 'Main Street');
+          setCity(shop.detailedAddress.city || 'Bengaluru');
+          setState(shop.detailedAddress.state || 'Karnataka');
+          setPincode(shop.detailedAddress.pincode || '560001');
         }
         
         if (shop.location) {
@@ -215,8 +215,8 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         return;
       }
     } else if (step === 2) {
-      if (!street || !city || !pincode || !coordinates) {
-        showToast({message: 'Please provide a complete address and pin your location', type: 'info'});
+      if (!street || !city || !state || !pincode || !coordinates) {
+        showToast({message: 'Please provide a complete address including state and pin your location', type: 'info'});
         return;
       }
     } else if (step === 3) {
@@ -269,6 +269,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
         if (result) {
           setStreet(result.street || '');
           setCity(result.city || '');
+          setState(result.state || '');
           setPincode(result.postcode || '');
           setFormattedAddress(result.formatted);
         }
@@ -287,6 +288,7 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
     setCoordinates({lat: loc.lat, lng: loc.lon});
     setStreet(loc.street || '');
     setCity(loc.city || '');
+    setState(loc.state || '');
     setPincode(loc.postcode || '');
   };
 
@@ -354,10 +356,10 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
 
       // Add nested objects as JSON strings (Backend service handles parsing)
       formData.append('detailedAddress', JSON.stringify({
-        street: street || '',
-        city: city || '',
-        state: state || '',
-        pincode: pincode || '',
+        street: street || 'Main Street',
+        city: city || 'Bengaluru',
+        state: state || 'Karnataka',
+        pincode: pincode || '560001',
       }));
 
       formData.append('location', JSON.stringify({

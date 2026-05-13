@@ -311,6 +311,14 @@ const AllShopCard = ({item, index, onContact}: AllShopCardProps) => {
                 value={shop.isTermsAccepted ? 'Yes' : 'No'}
                 highlight={shop.isTermsAccepted}
               />
+              {shop.commissionRate !== undefined && shop.commissionRate !== null && (
+                <DetailRow
+                  icon="pie-chart-outline"
+                  label="Commission"
+                  value={`${shop.commissionRate}% (Custom)`}
+                  highlight
+                />
+              )}
               {createdAt && (
                 <DetailRow icon="calendar-outline" label="Applied On" value={createdAt} />
               )}
