@@ -68,9 +68,8 @@ export class OrderService {
       }
 
       const subtotal = round(product.price * data.quantity);
-      const isFreeDelivery = subtotal >= 500;
-      const finalDeliveryCharge = isFreeDelivery ? 0 : deliveryCharge;
-      
+      const finalDeliveryCharge = deliveryCharge;
+
       const totalPrice = subtotal; // Keep as product-only for commission logic
       const { productId, ...rest } = data;
       const order = await Order.create([{
@@ -585,16 +584,13 @@ export class OrderService {
         }
 
         const itemPrice = item.price || product.price;
-        // Launch Promotion: Free Delivery charges customer pure product price
         const itemTotalPrice = round(itemPrice * item.quantity);
-        
+
         totalBatchAmount += itemTotalPrice;
         tempItems.push({ ...item, product, itemDeliveryCharge, itemTotalPrice });
       }
 
-      // IMPLEMENT FREE DELIVERY OVER 500
-      const isFreeDelivery = totalBatchAmount >= 500;
-      const finalBatchDeliveryFee = isFreeDelivery ? 0 : tempItems.reduce((sum, item) => sum + (item.itemDeliveryCharge || 0), 0);
+      const finalBatchDeliveryFee = tempItems.reduce((sum, item) => sum + (item.itemDeliveryCharge || 0), 0);
       
       // The total the user MUST pay
       const totalPayable = totalBatchAmount + finalBatchDeliveryFee;
@@ -630,7 +626,7 @@ export class OrderService {
         }
 
         const itemTotalPrice = item.itemTotalPrice;
-        const itemDeliveryCharge = isFreeDelivery ? 0 : item.itemDeliveryCharge;
+        const itemDeliveryCharge = item.itemDeliveryCharge;
         const itemTotalWithDelivery = itemTotalPrice + itemDeliveryCharge;
         
         // Distribute wallet deduction proportionally based on item total (with delivery)
@@ -806,14 +802,12 @@ export class OrderService {
       });
     }
 
-    // Free Delivery for orders above ₹500
     const totalSubtotal = items.reduce((acc: number, item: any) => acc + (item.price || 0) * (item.quantity || 1), 0);
-    const isFreeDelivery = totalSubtotal >= 500;
 
     return {
-      totalDeliveryFee: isFreeDelivery ? 0 : totalDeliveryFee,
+      totalDeliveryFee,
       itemQuotes,
-      isFreeDelivery,
+      isFreeDelivery: false,
       subtotal: totalSubtotal
     };
   }

@@ -61,9 +61,20 @@ export const axiosInstance = {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 150000); // Increased to 150s for Render cold-starts
 
-    console.log(`[FETCH] GET ${BASE_URL}${url}`);
+    let finalUrl = url;
+    if (config?.params) {
+      const query = Object.entries(config.params)
+        .filter(([_, v]) => v !== undefined && v !== null)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&');
+      if (query) {
+        finalUrl += (url.includes('?') ? '&' : '?') + query;
+      }
+    }
+
+    console.log(`[FETCH] GET ${BASE_URL}${finalUrl}`);
     try {
-      const response = await fetch(`${BASE_URL}${url}`, {
+      const response = await fetch(`${BASE_URL}${finalUrl}`, {
         method: 'GET',
         headers,
         signal: controller.signal,

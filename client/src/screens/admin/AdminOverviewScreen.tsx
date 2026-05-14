@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import {useSocket} from '../../hooks/useSocket';
 import Animated, {FadeInUp, FadeInRight} from '../../mocks/reanimated';
 import {IShop, IUser} from '@shared/types';
 import {SocketEvent} from '@shared/constants/socketEvents';
+import {useFocusEffect} from '@react-navigation/native';
 
 interface AdminStats {
   totalUsers: number;
@@ -46,6 +47,7 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
   const {socket, isConnected} = useSocket();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [pendingShops, setPendingShops] = useState<IShop[]>([]);
+  const [pendingRiders, setPendingRiders] = useState<IUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -55,25 +57,31 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
 
   useEffect(() => {
     if (!socket || !isConnected) return;
-    socket.on(SocketEvent.NEW_APPLICATION, (data: { shop?: IShop }) => {
-      if (data?.shop) {
-        setPendingShops(prev => [data.shop!, ...prev]);
-        setStats(prev => prev ? {...prev, pendingShops: prev.pendingShops + 1} : prev);
-      } else {
-        axiosInstance.get('/api/admin/shops/pending').then(res => setPendingShops(res.data.data)).catch(() => {});
-      }
-    });
-    return () => { socket.off(SocketEvent.NEW_APPLICATION); };
+    socket.on(SocketEvent.NEW_APPLICATION, () => fetchData());
+    socket.on(SocketEvent.APPLICATION_PROCESSED, () => fetchData());
+    return () => { 
+      socket.off(SocketEvent.NEW_APPLICATION); 
+      socket.off(SocketEvent.APPLICATION_PROCESSED);
+    };
   }, [socket, isConnected]);
 
-  const fetchData = async () => {
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(true); // Silent refresh
+    }, [])
+  );
+
+  const fetchData = async (silent = false) => {
     try {
-      const [statsRes, pendingRes] = await Promise.all([
+      if (!silent) setLoading(true);
+      const [statsRes, pendingRes, ridersRes] = await Promise.all([
         axiosInstance.get('/api/admin/stats'),
         axiosInstance.get('/api/admin/shops/pending'),
+        axiosInstance.get('/api/admin/users/pending-riders'),
       ]);
       setStats(statsRes.data.data);
-      setPendingShops(pendingRes.data.data);
+      setPendingShops(pendingRes.data.data || []);
+      setPendingRiders(ridersRes.data.data || []);
     } catch (e: unknown) {
       console.log('Admin Overview Data Error:', e);
     } finally {
@@ -122,6 +130,42 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
                 const axiosErr = e as {response: {data: {message: string}}};
                 showToast({message: axiosErr.response?.data?.message || 'Failed to reject shop', type: 'error'});
               }
+            }
+          },
+        },
+      ],
+    );
+  };
+  const handleApproveRider = async (riderId: string) => {
+    try {
+      await axiosInstance.patch(`/api/admin/users/${riderId}/verify-rider`);
+      showToast({message: 'Rider verified and activated!', type: 'success'});
+      setPendingRiders(prev => prev.filter(r => String(r._id) !== riderId));
+    } catch (e: any) {
+      showToast({message: e.response?.data?.message || 'Failed to verify rider', type: 'error'});
+    }
+  };
+
+  const handleRejectRider = (riderId: string) => {
+    Alert.prompt(
+      'Reject Rider',
+      'Please enter the reason for rejection:',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async reason => {
+            if (!reason) {
+              showToast({message: 'A rejection reason is required', type: 'info'});
+              return;
+            }
+            try {
+              await axiosInstance.patch(`/api/admin/users/${riderId}/reject-rider`, { reason });
+              showToast({message: 'Rider application rejected', type: 'info'});
+              setPendingRiders(prev => prev.filter(r => String(r._id) !== riderId));
+            } catch (e: any) {
+              showToast({message: e.response?.data?.message || 'Failed to reject rider', type: 'error'});
             }
           },
         },
@@ -289,12 +333,14 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Verification Queue</Text>
           <View style={styles.badgeCount}>
-            <Text style={styles.badgeText}>{pendingShops.length} {pendingShops.length === 1 ? 'App' : 'Apps'}</Text>
+            <Text style={styles.badgeText}>
+              {pendingShops.length + pendingRiders.length} Total
+            </Text>
           </View>
         </View>
 
         <View style={styles.queueContainer}>
-          {pendingShops.length === 0 ? (
+          {pendingShops.length === 0 && pendingRiders.length === 0 ? (
             <View style={styles.empty}>
               <View style={styles.emptyCircle}>
                 <Icon
@@ -305,62 +351,116 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
               </View>
               <Text style={styles.emptyTitle}>Queue Cleared</Text>
               <Text style={styles.emptyText}>
-                All shop applications have been reviewed.
+                All applications have been reviewed.
               </Text>
             </View>
           ) : (
-            pendingShops.map((shop, index) => (
-              <Animated.View
-                key={String(shop._id)}
-                entering={FadeInRight.delay(index * 150)}>
-                <TouchableOpacity 
-                  activeOpacity={0.9} 
-                  onPress={() => navigation.navigate('Pending')}>
-                  <Card style={styles.shopCard} variant="elevated">
-                    <View style={styles.shopContent}>
-                      <View style={styles.shopInfo}>
-                        <Text style={styles.shopName} numberOfLines={1}>
-                          {shop.name}
-                        </Text>
-                        <View style={styles.locRow}>
-                          <Icon
-                            name="location-outline"
-                            size={12}
-                            color={theme.colors.muted}
-                          />
-                          <Text style={styles.shopAddress} numberOfLines={1}>
-                            {shop.address}
+            <>
+              {pendingShops.map((shop, index) => (
+                <Animated.View
+                  key={String(shop._id)}
+                  entering={FadeInRight.delay(index * 150)}>
+                  <TouchableOpacity 
+                    activeOpacity={0.9} 
+                    onPress={() => navigation.navigate('Pending')}>
+                    <Card style={styles.shopCard} variant="elevated">
+                      <View style={styles.shopContent}>
+                        <View style={styles.shopInfo}>
+                          <Text style={styles.shopName} numberOfLines={1}>
+                            {shop.name}
+                          </Text>
+                          <View style={styles.locRow}>
+                            <Icon
+                              name="location-outline"
+                              size={12}
+                              color={theme.colors.muted}
+                            />
+                            <Text style={styles.shopAddress} numberOfLines={1}>
+                              {shop.address}
+                            </Text>
+                          </View>
+                          <Text style={styles.ownerText}>
+                            Owner:{' '}
+                            {(shop.owner as unknown as IUser)?.name || 'Merchant'}
                           </Text>
                         </View>
-                        <Text style={styles.ownerText}>
-                          Owner:{' '}
-                          {(shop.owner as unknown as IUser)?.name || 'Merchant'}
-                        </Text>
+                        <View style={styles.catBadge}>
+                          <Text style={styles.catText}>SHOP</Text>
+                        </View>
                       </View>
-                      <View style={styles.catBadge}>
-                        <Text style={styles.catText}>{shop.category}</Text>
-                      </View>
-                    </View>
 
-                    <View style={styles.actions}>
-                      <TouchableOpacity
-                        style={[styles.actionBtn, styles.approveBtn]}
-                        onPress={() => handleApprove(String(shop._id))}>
-                        <Text style={styles.btnText}>Quick Verify</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionBtn, styles.rejectBtn]}
-                        onPress={() => handleReject(String(shop._id))}>
-                        <Text
-                          style={[styles.btnText, {color: theme.colors.danger}]}>
-                          Refuse
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </Card>
-                </TouchableOpacity>
-              </Animated.View>
-            ))
+                      <View style={styles.actions}>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.approveBtn]}
+                          onPress={() => handleApprove(String(shop._id))}>
+                          <Text style={styles.btnText}>Verify Shop</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.rejectBtn]}
+                          onPress={() => handleReject(String(shop._id))}>
+                          <Text
+                            style={[styles.btnText, {color: theme.colors.danger}]}>
+                            Refuse
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
+
+              {pendingRiders.map((rider, index) => (
+                <Animated.View
+                  key={String(rider._id)}
+                  entering={FadeInRight.delay((pendingShops.length + index) * 150)}>
+                  <TouchableOpacity 
+                    activeOpacity={0.9} 
+                    onPress={() => navigation.navigate('Pending')}>
+                    <Card style={styles.shopCard} variant="elevated">
+                      <View style={styles.shopContent}>
+                        <View style={styles.shopInfo}>
+                          <Text style={styles.shopName} numberOfLines={1}>
+                            {rider.name}
+                          </Text>
+                          <View style={styles.locRow}>
+                            <Icon
+                              name="bicycle-outline"
+                              size={12}
+                              color={theme.colors.muted}
+                            />
+                            <Text style={styles.shopAddress} numberOfLines={1}>
+                              {rider.vehicleDetails?.model} ({rider.vehicleDetails?.type})
+                            </Text>
+                          </View>
+                          <Text style={styles.ownerText}>
+                            License: {rider.licenseNumber}
+                          </Text>
+                        </View>
+                        <View style={[styles.catBadge, {backgroundColor: '#EEF2FF'}]}>
+                          <Text style={[styles.catText, {color: '#4F46E5'}]}>RIDER</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.actions}>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.approveBtn, {backgroundColor: '#4F46E5'}]}
+                          onPress={() => handleApproveRider(String(rider._id))}>
+                          <Text style={styles.btnText}>Verify Rider</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.rejectBtn]}
+                          onPress={() => handleRejectRider(String(rider._id))}>
+                          <Text
+                            style={[styles.btnText, {color: theme.colors.danger}]}>
+                            Refuse
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
+            </>
           )}
         </View>
         <View style={{height: 60}} />

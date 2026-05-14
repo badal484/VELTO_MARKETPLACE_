@@ -105,9 +105,9 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
 
   const renderItem = ({item, index}: {item: IConversation; index: number}) => {
     const participants = item.participants.filter(p => typeof p !== 'string') as IUser[];
+    const isUserParticipant = participants.some(p => p._id === user?._id);
     const otherParticipant = participants.find(p => p._id !== user?._id);
     const order = (typeof item.order === 'object' ? item.order : null) as any;
-    
     const isSupport = otherParticipant?.role === Role.ADMIN;
     const isRider = otherParticipant?.role === Role.RIDER;
     const isSeller = otherParticipant?.role === Role.SELLER || otherParticipant?.role === Role.SHOP_OWNER;
@@ -155,7 +155,9 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
             <View style={styles.metaRow}>
               <View style={styles.nameRow}>
                 <Text style={styles.participantName} numberOfLines={1}>
-                  {isSupport ? "Official Support" : otherParticipant?.name}
+                  {isSupport ? "Official Support" : 
+                   isUserParticipant ? otherParticipant?.name : 
+                   `${participants[0]?.name.split(' ')[0]} & ${participants[1]?.name.split(' ')[0]}`}
                 </Text>
                  <View style={[
                    styles.roleBadge,

@@ -139,6 +139,8 @@ export const approveShop = async (req: Request, res: Response): Promise<void> =>
         message: 'Success: Your shop has been officially verified. You are now authorized to list products and accept orders from the community. Welcome to Velto.',
         data: { shopId: shop._id }
       }).catch(notifyErr => console.error('Notification Error:', notifyErr));
+
+      io.emit(SocketEvent.APPLICATION_PROCESSED, { type: 'shop', id: shop._id, status: 'approved' });
     }
 
     res.json({ success: true, data: shop });
@@ -172,6 +174,8 @@ export const rejectShop = async (req: Request, res: Response): Promise<void> => 
         message: `Application Update: Your shop verification could not be completed at this time. Reason: ${reason}. Please update your profile with valid details to re-apply.`,
         data: { shopId: shop._id, rejectionReason: reason }
       }).catch(notifyErr => console.error('Notification Error:', notifyErr));
+
+      io.emit(SocketEvent.APPLICATION_PROCESSED, { type: 'shop', id: shop._id, status: 'rejected' });
     }
 
     res.json({ success: true, data: shop });
@@ -330,6 +334,8 @@ export const verifyRider = async (req: Request, res: Response): Promise<void> =>
         message: 'Success: Your documentation has been verified. You can now accept deliveries on the Velto platform.',
         data: { userId: user._id }
       }).catch(err => console.error('Rider notify error:', err));
+      
+      io.emit(SocketEvent.APPLICATION_PROCESSED, { type: 'rider', id: user._id, status: 'verified' });
     }
 
     res.json({ success: true, data: user });
@@ -368,6 +374,8 @@ export const rejectRider = async (req: Request, res: Response): Promise<void> =>
         message: `Application Update: Your rider verification could not be completed at this time. Reason: ${reason}. Please update your profile with valid documents to re-apply.`,
         data: { userId: user._id, rejectionReason: reason }
       }).catch(err => console.error('Rider reject notify error:', err));
+      
+      io.emit(SocketEvent.APPLICATION_PROCESSED, { type: 'rider', id: user._id, status: 'rejected' });
     }
 
     res.json({ success: true, data: user });

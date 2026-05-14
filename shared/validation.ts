@@ -115,7 +115,7 @@ export const addressSchema = z.object({
 
 export const riderRegisterSchema = z.object({
   licenseNumber: z.string().min(5, 'License number is required'),
-  phoneNumber: z.string().min(10, 'Valid phone number is required'),
+  phoneNumber: z.string().length(10, 'Phone number must be exactly 10 digits'),
   vehicleDetails: z.object({
     type: z.string(),
     model: z.string(),

@@ -128,7 +128,7 @@ export default function WalletScreen({navigation}: any) {
           />
         </View>
         <View style={styles.txInfo}>
-          <Text style={styles.txDescription} numberOfLines={1}>{item.description}</Text>
+          <Text style={styles.txDescription}>{item.description}</Text>
           <Text style={styles.txDate}>{format(new Date(item.createdAt), 'dd MMM yyyy, hh:mm a')}</Text>
         </View>
         <View style={{alignItems: 'flex-end'}}>

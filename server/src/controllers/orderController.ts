@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { OrderService } from '../services/orderService';
+import { WalletService } from '../services/WalletService';
 import { createOrderSchema, updateOrderStatusSchema } from '../utils/validation';
 import { handleError, AppError } from '../utils/errors';
 import { Order } from '../models/Order';
@@ -202,26 +203,7 @@ export const getRiderOrders = async (req: Request, res: Response): Promise<void>
       .limit(limit)
       .lean();
 
-    const finishedStatuses = [
-      OrderStatus.DELIVERED, 
-      OrderStatus.COMPLETED_PENDING_RELEASE, 
-      OrderStatus.COMPLETED
-    ];
-
-    const statsAgg = await Order.aggregate([
-      { $match: { rider: req.user?._id, status: { $in: finishedStatuses } } },
-      { 
-        $group: { 
-          _id: null, 
-          earnings: { $sum: "$deliveryCharge" },
-          deliveries: { $sum: 1 }
-        } 
-      }
-    ]);
-
-    const stats = statsAgg.length > 0 
-      ? { earnings: statsAgg[0].earnings || 0, deliveries: statsAgg[0].deliveries || 0 }
-      : { earnings: 0, deliveries: 0 };
+    const stats = await WalletService.getRiderStats(req.user?._id.toString()!);
 
     res.json({ success: true, data: orders, stats });
   } catch (error) {

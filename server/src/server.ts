@@ -26,6 +26,7 @@ import paymentRoutes from './routes/payment';
 import payoutRoutes from './routes/payout';
 import bannerRoutes from './routes/bannerRoutes';
 import zoneRoutes from './routes/zone';
+import locationRoutes from './routes/location';
 
 // Global Model Registration to prevent Mongoose "Cold Start" Schema errors
 import './models/index';
@@ -70,6 +71,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/payouts', payoutRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/zones', zoneRoutes);
+app.use('/api/location', locationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -641,7 +641,11 @@ export default function RiderDashboardScreen({ navigation }: any) {
   useEffect(() => {
     if (socket && isConnected) {
       socket.on('new_job_available', (data: any) => {
-        showToast({ message: `New job available at ${data.shopName}!`, type: 'info' });
+        showToast({ 
+          title: 'New Job Available',
+          message: `At ${data.shopName}`, 
+          type: 'info' 
+        });
         // Add to available jobs list without a full refetch
         if (data.order) setJobs(prev => [data.order, ...prev.filter((j: any) => j._id !== data.order._id)]);
       });
@@ -841,7 +845,11 @@ export default function RiderDashboardScreen({ navigation }: any) {
   const handleClaim = async (orderId: string) => {
     try {
       await axiosInstance.patch(`/api/orders/${orderId}/claim`);
-      showToast({ message: 'Job claimed successfully!', type: 'success' });
+      showToast({ 
+        title: 'Job Claimed',
+        message: 'Head to the shop for pickup!', 
+        type: 'success' 
+      });
       setActiveTab('active');
       fetchJobs();
     } catch (error: any) {

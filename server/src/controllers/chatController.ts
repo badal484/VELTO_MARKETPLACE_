@@ -3,6 +3,8 @@ import { Conversation } from '../models/Conversation';
 import { User } from '../models/User';
 import { Message } from '../models/Message';
 import { Role } from '@shared/types';
+import { io } from '../socket/socket';
+import { SocketEvent } from '@shared/constants/socketEvents';
 import { handleError, AppError } from '../utils/errors';
 import mongoose from 'mongoose';
 
@@ -225,6 +227,16 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: text.trim(),
       updatedAt: new Date(),
+    });
+
+    // --- REAL-TIME EMISSION FROM SERVER ---
+    const populatedMessage = await Message.findById(message._id).populate('sender', 'name avatar role');
+    
+    console.log(`[REST] Emitting message to conv: ${conversationId}, receiver: ${receiverId}`);
+    io.to(conversationId).emit(SocketEvent.RECEIVE_MESSAGE, populatedMessage);
+    io.to(receiverId).emit(SocketEvent.NEW_MESSAGE_NOTIFICATION, {
+      conversationId,
+      message: populatedMessage
     });
 
     res.status(201).json({ success: true, data: message });

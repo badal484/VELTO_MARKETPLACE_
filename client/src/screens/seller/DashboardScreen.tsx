@@ -106,7 +106,11 @@ export default function DashboardScreen({navigation}: DashboardProps) {
       const dayOrders = orders.filter(o =>
         o.status === OrderStatus.COMPLETED && isSameDay(new Date(o.createdAt ?? Date.now()), date)
       );
-      const total = dayOrders.reduce((acc, o) => acc + (o.totalPrice || 0), 0);
+      const total = dayOrders.reduce((acc, o) => {
+        const rate = (shop as any)?.commissionRate !== undefined ? (shop as any).commissionRate / 100 : 0.07;
+        const net = (o.totalPrice || 0) * (1 - rate);
+        return acc + net;
+      }, 0);
       if (total > maxVal) maxVal = total;
       days.push({ label: format(date, 'eee').charAt(0), value: total, isToday: i === 0 });
     }
@@ -394,7 +398,7 @@ const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => vo
                 style={styles.statBox}
                 onPress={() => navigation.navigate('Wallet')}>
                 <Icon name="cash-outline" size={20} color={theme.colors.success} />
-                <Text style={styles.statNum}>₹{orders.filter(o => o.status === OrderStatus.COMPLETED).reduce((acc, o) => acc + (o.totalPrice || 0), 0).toLocaleString()}</Text>
+                <Text style={styles.statNum}>₹{((shop as any)?.stats?.totalEarnings || 0).toLocaleString()}</Text>
                 <Text style={styles.statLab}>Total Earnings</Text>
               </TouchableOpacity>
             </View>

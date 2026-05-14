@@ -92,7 +92,8 @@ export class ProductService {
 
     // Search across product title/description, shop name, and location (city/address)
     if (search && search.trim()) {
-      const searchRegex = { $regex: search.trim(), $options: 'i' };
+      const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = { $regex: escapedSearch, $options: 'i' };
       
       // If search is short (e.g. 1-2 chars), prioritize title and shop name only
       // to avoid matching common substrings in addresses (like "p" in "Place")

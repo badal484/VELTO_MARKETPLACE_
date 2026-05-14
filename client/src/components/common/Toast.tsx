@@ -78,9 +78,16 @@ export const Toast = () => {
         },
       ]}>
       <Icon name={styles_config.icon} size={20} color={styles_config.iconColor} />
-      <Text style={[styles.text, {color: styles_config.textColor}]}>
-        {toast.message}
-      </Text>
+      <View style={styles.textContainer}>
+        {toast.title && (
+          <Text style={[styles.title, {color: styles_config.textColor}]}>
+            {toast.title}
+          </Text>
+        )}
+        <Text style={[styles.message, {color: styles_config.textColor}]}>
+          {toast.message}
+        </Text>
+      </View>
     </Animated.View>
   );
 };
@@ -99,10 +106,17 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     ...theme.shadow.md,
   },
-  text: {
+  textContainer: {
     marginLeft: 12,
-    fontSize: 14,
-    fontWeight: '700',
     flex: 1,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 2,
+  },
+  message: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

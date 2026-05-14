@@ -25,7 +25,8 @@ export const SocketHandler: React.FC = () => {
         incrementUnreadChatCount();
         
         showToast({
-          message: `New message from ${data.message.sender?.name || 'User'}`,
+          title: 'New Message',
+          message: `From ${data.message.sender?.name || 'User'}`,
           type: 'info',
           duration: 3000,
         });
@@ -41,9 +42,10 @@ export const SocketHandler: React.FC = () => {
       refreshUser();
       
       showToast({
+        title: data.isVerified ? 'Verification Success' : 'Shop Update',
         message: data.isVerified 
-          ? ' Shop Approved! You are now live.' 
-          : (data.rejectionReason ? `Shop Update: ${data.rejectionReason}` : data.message),
+          ? 'Your shop is now live on Velto!' 
+          : (data.rejectionReason ? data.rejectionReason : data.message),
         type: data.isVerified ? 'success' : 'info',
         duration: 5000,
       });
@@ -57,7 +59,8 @@ export const SocketHandler: React.FC = () => {
       incrementUnreadCount();
       
       showToast({
-        message: `${notification.title}: ${notification.message}`,
+        title: notification.title,
+        message: notification.message,
         type: 'info',
         duration: 4000,
       });

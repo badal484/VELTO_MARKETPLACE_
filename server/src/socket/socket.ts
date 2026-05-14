@@ -16,13 +16,16 @@ export const initSocket = (httpServer: HttpServer) => {
     
     socket.on('join_user', (userId: string) => {
       socket.join(userId);
-      console.log(`User ${userId} joined their private room`);
+      console.log(`[SOCKET] User ${userId} joined their private room`);
     });
+
     socket.on(SocketEvent.JOIN_CONVERSATION, (conversationId: string) => {
       socket.join(conversationId);
+      console.log(`[SOCKET] Socket ${socket.id} joined conversation room: ${conversationId}`);
     });
 
     socket.on(SocketEvent.SEND_MESSAGE, async (data: { conversationId: string; text: string; receiverId: string; message: IMessage }) => {
+      console.log(`[SOCKET] Relay message to room ${data.conversationId} and receiver ${data.receiverId}`);
       // 1. Emit to the conversation room (for those currently in the chat)
       io.to(data.conversationId).emit(SocketEvent.RECEIVE_MESSAGE, data.message);
       

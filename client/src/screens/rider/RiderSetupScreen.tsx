@@ -10,6 +10,8 @@ import {
   Alert,
 } from 'react-native';
 import {theme} from '../../theme';
+import {Input} from '../../components/common/Input';
+import {SuccessModal} from '../../components/common/SuccessModal';
 import {Button} from '../../components/common/Button';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useAuth} from '../../hooks/useAuth';
@@ -20,6 +22,8 @@ import {riderRegisterSchema} from '@shared/validation';
 export default function RiderSetupScreen({navigation}: any) {
   const {updateUser, user} = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     licenseNumber: '',
     phoneNumber: user?.phoneNumber || '',
@@ -33,6 +37,7 @@ export default function RiderSetupScreen({navigation}: any) {
   });
 
   const handleSubmit = async () => {
+    setErrors({});
     // Zod Validation
     const validation = riderRegisterSchema.safeParse({
       licenseNumber: formData.licenseNumber,
@@ -51,7 +56,23 @@ export default function RiderSetupScreen({navigation}: any) {
     });
 
     if (!validation.success) {
-      Alert.alert('Validation Error', validation.error.issues[0].message);
+      const fieldErrors: Record<string, string> = {};
+      validation.error.issues.forEach(issue => {
+        // Handle nested paths (e.g., vehicleDetails.model -> vehicleModel)
+        const path = issue.path.join('.');
+        let fieldName = path;
+        
+        // Map common nested paths to our form state keys
+        if (path === 'vehicleDetails.type') fieldName = 'vehicleType';
+        if (path === 'vehicleDetails.model') fieldName = 'vehicleModel';
+        if (path === 'vehicleDetails.number') fieldName = 'vehicleNumber';
+        if (path === 'bankDetails.bankName') fieldName = 'bankName';
+        if (path === 'bankDetails.accountNumber') fieldName = 'accountNumber';
+        if (path === 'bankDetails.ifscCode') fieldName = 'ifscCode';
+
+        fieldErrors[fieldName] = issue.message;
+      });
+      setErrors(fieldErrors);
       return;
     }
 
@@ -75,11 +96,7 @@ export default function RiderSetupScreen({navigation}: any) {
 
       if (res.data.success) {
         updateUser(res.data.data);
-        Alert.alert(
-          'Application Submitted',
-          'Your rider application is pending verification. You can now access the Rider Dashboard.',
-          [{text: 'Great', onPress: () => navigation.navigate('Profile')}]
-        );
+        setShowSuccess(true);
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to submit application';
@@ -108,34 +125,44 @@ export default function RiderSetupScreen({navigation}: any) {
           </View>
 
           <Text style={styles.sectionTitle}>CONTACT INFO</Text>
-          <Text style={styles.label}>Phone Number</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="Phone Number"
             placeholder="10-digit mobile number"
             keyboardType="phone-pad"
+            maxLength={10}
             value={formData.phoneNumber}
-            onChangeText={(t) => setFormData({...formData, phoneNumber: t})}
+            onChangeText={(t) => {
+              setFormData({...formData, phoneNumber: t});
+              if (errors.phoneNumber) setErrors({...errors, phoneNumber: ''});
+            }}
+            error={errors.phoneNumber}
           />
 
           <Text style={styles.sectionTitle}>DOCUMENTATION</Text>
-          <Text style={styles.label}>Driving License Number</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="Driving License Number"
             placeholder="DL-XXXXXXXXXXXXX"
             value={formData.licenseNumber}
-            onChangeText={(t) => setFormData({...formData, licenseNumber: t})}
+            onChangeText={(t) => {
+              setFormData({...formData, licenseNumber: t});
+              if (errors.licenseNumber) setErrors({...errors, licenseNumber: ''});
+            }}
+            error={errors.licenseNumber}
           />
 
           <Text style={styles.label}>Vehicle Type</Text>
           <View style={styles.row}>
-            {['Bike', 'Scooter', 'Cycle'].map((type) => (
+            {['Bike', 'Scooter'].map((type) => (
               <TouchableOpacity
                 key={type}
                 style={[
                   styles.chip,
                   formData.vehicleType === type && styles.chipActive
                 ]}
-                onPress={() => setFormData({...formData, vehicleType: type})}>
+                onPress={() => {
+                  setFormData({...formData, vehicleType: type});
+                  if (errors.vehicleType) setErrors({...errors, vehicleType: ''});
+                }}>
                 <Text style={[
                   styles.chipText,
                   formData.vehicleType === type && styles.chipTextActive
@@ -143,49 +170,66 @@ export default function RiderSetupScreen({navigation}: any) {
               </TouchableOpacity>
             ))}
           </View>
+          {errors.vehicleType && <Text style={styles.errorText}>{errors.vehicleType}</Text>}
 
-          <Text style={styles.label}>Vehicle Model</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="Vehicle Model"
             placeholder="e.g. Honda Activa, Hero Splendor"
             value={formData.vehicleModel}
-            onChangeText={(t) => setFormData({...formData, vehicleModel: t})}
+            onChangeText={(t) => {
+              setFormData({...formData, vehicleModel: t});
+              if (errors.vehicleModel) setErrors({...errors, vehicleModel: ''});
+            }}
+            containerStyle={{marginTop: 16}}
+            error={errors.vehicleModel}
           />
 
-          <Text style={styles.label}>Vehicle Plate Number</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="Vehicle Plate Number"
             placeholder="KA 01 XX 0000"
             value={formData.vehicleNumber}
             autoCapitalize="characters"
-            onChangeText={(t) => setFormData({...formData, vehicleNumber: t})}
+            onChangeText={(t) => {
+              setFormData({...formData, vehicleNumber: t});
+              if (errors.vehicleNumber) setErrors({...errors, vehicleNumber: ''});
+            }}
+            error={errors.vehicleNumber}
           />
 
           <Text style={styles.sectionTitle}>BANKING DETAILS (For Payouts)</Text>
-          <Text style={styles.label}>Bank Name</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="Bank Name"
             placeholder="e.g. HDFC Bank, SBI"
             value={formData.bankName}
-            onChangeText={(t) => setFormData({...formData, bankName: t})}
+            onChangeText={(t) => {
+              setFormData({...formData, bankName: t});
+              if (errors.bankName) setErrors({...errors, bankName: ''});
+            }}
+            error={errors.bankName}
           />
 
-          <Text style={styles.label}>Account Number</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="Account Number"
             placeholder="Your bank account number"
             keyboardType="numeric"
             value={formData.accountNumber}
-            onChangeText={(t) => setFormData({...formData, accountNumber: t})}
+            onChangeText={(t) => {
+              setFormData({...formData, accountNumber: t});
+              if (errors.accountNumber) setErrors({...errors, accountNumber: ''});
+            }}
+            error={errors.accountNumber}
           />
 
-          <Text style={styles.label}>IFSC Code</Text>
-          <TextInput
-            style={styles.input}
+          <Input
+            label="IFSC Code"
             placeholder="11-digit IFSC code"
             autoCapitalize="characters"
             value={formData.ifscCode}
-            onChangeText={(t) => setFormData({...formData, ifscCode: t})}
+            onChangeText={(t) => {
+              setFormData({...formData, ifscCode: t});
+              if (errors.ifscCode) setErrors({...errors, ifscCode: ''});
+            }}
+            error={errors.ifscCode}
           />
 
           <Button
@@ -196,6 +240,17 @@ export default function RiderSetupScreen({navigation}: any) {
           />
         </Animated.View>
       </ScrollView>
+      <SuccessModal
+        isVisible={showSuccess}
+        title="Application Submitted!"
+        message="Your rider application is pending verification. We will notify you once you're cleared to start delivering."
+        buttonText="Go to Profile"
+        onButtonPress={() => {
+          setShowSuccess(false);
+          navigation.navigate('Profile');
+        }}
+        onClose={() => setShowSuccess(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -222,15 +277,7 @@ const styles = StyleSheet.create({
   },
   infoText: {flex: 1, fontSize: 13, color: theme.colors.textSecondary, lineHeight: 18},
   label: {fontSize: 14, fontWeight: '700', color: theme.colors.text, marginBottom: 10, marginTop: 16},
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
+  errorText: {fontSize: 12, color: theme.colors.danger, marginTop: 4, marginLeft: 2},
   row: {flexDirection: 'row', gap: 12},
   chip: {
     paddingVertical: 10,

@@ -5,6 +5,9 @@ import { uploadImage } from '../utils/imagekit';
 import { AppError } from '../utils/errors';
 import { io } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
+import { WalletTransaction } from '../models/WalletTransaction';
+import { TransactionCategory } from '@shared/types';
+import mongoose from 'mongoose';
 
 export class ShopService {
   static async createShop(owner: string, data: any, files?: any) {
@@ -60,8 +63,8 @@ export class ShopService {
     return shop;
   }
 
-  static async getShopStats(shopId: string) {
-    const [productCount, salesData, ratingData] = await Promise.all([
+  static async getShopStats(shopId: string, ownerId?: string) {
+    const [productCount, salesData, ratingData, earningsData] = await Promise.all([
       Product.countDocuments({ shop: shopId, isActive: true }),
       Order.aggregate([
         { $match: { shop: shopId } },
@@ -76,16 +79,27 @@ export class ShopService {
       Product.aggregate([
         { $match: { shop: shopId, isActive: true } },
         { $group: { _id: null, avgRating: { $avg: "$rating" } } }
-      ])
+      ]),
+      ownerId ? WalletTransaction.aggregate([
+        { 
+          $match: { 
+            user: new mongoose.Types.ObjectId(ownerId), 
+            category: TransactionCategory.SELLER_EARNINGS 
+          } 
+        },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]) : Promise.resolve([])
     ]);
 
     const completed = salesData[0]?.completed || 0;
     const total = salesData[0]?.total || 0;
+    const totalEarnings = earningsData[0]?.total || 0;
 
     return {
       productCount,
       completedOrders: completed,
       totalOrders: total,
+      totalEarnings,
       avgRating: ratingData[0]?.avgRating ? Math.round(ratingData[0].avgRating * 10) / 10 : 0,
       reliabilityScore: total > 0 ? Math.round((completed / total) * 100) : 100
     };

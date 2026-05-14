@@ -54,7 +54,7 @@ export const getShop = async (req: Request, res: Response): Promise<void> => {
     const shop = await Shop.findById(req.params.id);
     if (!shop) throw new AppError('Shop not found', 404);
 
-    const stats = await ShopService.getShopStats(shop._id.toString());
+    const stats = await ShopService.getShopStats(shop._id.toString(), shop.owner.toString());
     
     res.json({ 
       success: true, 
@@ -80,7 +80,13 @@ export const getMyShop = async (req: Request, res: Response): Promise<void> => {
     if (!req.user) throw new AppError('Unauthorized', 401);
     const shop = await Shop.findOne({ owner: req.user._id });
     if (!shop) throw new AppError('Shop not found', 404);
-    res.json({ success: true, data: shop });
+    
+    const stats = await ShopService.getShopStats(shop._id.toString(), req.user._id.toString());
+    
+    res.json({ 
+      success: true, 
+      data: { ...shop.toObject(), stats } 
+    });
   } catch (error) {
     handleError(error, res);
   }

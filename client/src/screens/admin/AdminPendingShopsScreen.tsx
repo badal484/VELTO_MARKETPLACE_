@@ -139,10 +139,12 @@ export default function AdminPendingShopsScreen({
 
   useEffect(() => {
     if (!socket || !isConnected) return;
-    socket.on(SocketEvent.NEW_APPLICATION, () => {
-      fetchData();
-    });
-    return () => { socket.off(SocketEvent.NEW_APPLICATION); };
+    socket.on(SocketEvent.NEW_APPLICATION, () => fetchData());
+    socket.on(SocketEvent.APPLICATION_PROCESSED, () => fetchData());
+    return () => { 
+      socket.off(SocketEvent.NEW_APPLICATION); 
+      socket.off(SocketEvent.APPLICATION_PROCESSED);
+    };
   }, [socket, isConnected, fetchData]);
 
   // --- Shop Actions ---

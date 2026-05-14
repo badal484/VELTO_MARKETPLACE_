@@ -3,6 +3,7 @@ import React, {createContext, useState, useCallback, ReactNode} from 'react';
 export type ToastType = 'success' | 'error' | 'info';
 
 interface ToastOptions {
+  title?: string;
   message: string;
   type?: ToastType;
   duration?: number;

@@ -34,7 +34,7 @@ import { RouteProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/types';
 import RazorpayCheckout from 'react-native-razorpay';
 
-const DEFAULT_DELIVERY_FEE = 0; // Launch Promotion: Free Delivery
+const DEFAULT_DELIVERY_FEE = 0;
 const MAX_COD_AMOUNT = 5000; // Protection for high-value risk
 
 interface CheckoutItem {
@@ -624,7 +624,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                   <Text style={[styles.billTotal, {color: theme.colors.muted}]}>Calculating...</Text>
                 ) : (
                   <Text style={[styles.billTotal, {color: theme.colors.success}]}>
-                    {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
+                    ₹{deliveryCharge}
                   </Text>
                 )}
               </View>

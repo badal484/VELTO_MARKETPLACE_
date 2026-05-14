@@ -13,6 +13,7 @@ import { round } from '../utils/math';
 import { NotificationService } from './notificationService';
 import { NotificationType } from '../models/Notification';
 import { RazorpayService } from './RazorpayService';
+import { OrderStatus } from '@shared/types';
 
 export class WalletService {
   private static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.07');
@@ -34,11 +35,6 @@ export class WalletService {
       const order = await Order.findById(orderId).session(session);
       if (!order || !order.rider) throw new AppError('Order or rider not found', 404);
 
-      if ((order.deliveryCharge || 0) <= 0) {
-        await session.commitTransaction();
-        return;
-      }
-
       // Idempotency: skip if already credited
       const existingTx = await WalletTransaction.findOne({
         orderId: order._id,
@@ -51,7 +47,7 @@ export class WalletService {
       }
 
       const deliveryCharge = order.deliveryCharge || 0;
-      // Guaranteed flat net payout of ₹27 to the rider per order delivery
+      // Guaranteed flat net payout of ₹27 to the rider per delivery regardless of free-delivery promo
       const grossEarnings = 27;
       const commission = Math.max(0, deliveryCharge - grossEarnings);
 
@@ -95,7 +91,6 @@ export class WalletService {
         orderId: order._id,
       }], { session });
 
-      // Track Velto's share
       await PlatformRevenue.findOneAndUpdate(
         { orderId: order._id },
         { $inc: { riderCommission: commission, totalCommission: commission } },
@@ -145,7 +140,6 @@ export class WalletService {
         return;
       }
 
-      // Under Free Delivery, order.totalPrice reflects pure product cost exactly
       const itemTotal = order.totalPrice;
 
       // Dynamically resolve commission rate: shop override or platform default
@@ -168,7 +162,7 @@ export class WalletService {
         amount: earnings,
         type: 'credit',
         category: TransactionCategory.SELLER_EARNINGS,
-        description: `Product sale (after ${appliedRate * 100}% platform fee) — order #${orderId.slice(-6).toUpperCase()}`,
+        description: `Product sale (after ${round(appliedRate * 100, 1)}% platform fee) — order #${orderId.slice(-6).toUpperCase()}`,
         orderId: order._id,
       }], { session });
 
@@ -611,6 +605,35 @@ export class WalletService {
       totalExpenses: 0,
       netRevenue: 0,
       orderCount: 0,
+    };
+  }
+
+  static async getRiderStats(riderId: string) {
+    const [statsAgg, deliveriesCount] = await Promise.all([
+      WalletTransaction.aggregate([
+        { $match: { user: new mongoose.Types.ObjectId(riderId), category: TransactionCategory.RIDER_EARNINGS } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]),
+      Order.countDocuments({ 
+        rider: riderId, 
+        status: { $in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED_PENDING_RELEASE, OrderStatus.COMPLETED] } 
+      })
+    ]);
+
+    return {
+      earnings: statsAgg.length > 0 ? statsAgg[0].total : 0,
+      deliveries: deliveriesCount
+    };
+  }
+
+  static async getMerchantStats(merchantId: string) {
+    const statsAgg = await WalletTransaction.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(merchantId), category: TransactionCategory.SELLER_EARNINGS } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+
+    return {
+      totalEarnings: statsAgg.length > 0 ? statsAgg[0].total : 0,
     };
   }
 }

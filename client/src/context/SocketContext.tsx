@@ -27,7 +27,10 @@ export const SocketProvider: React.FC<{children: React.ReactNode}> = ({
   const {user, refreshUser, logout} = useAuth();
 
   useEffect(() => {
-    const newSocket = io(BASE_URL);
+    const newSocket = io(BASE_URL, {
+      transports: ['websocket'],
+      autoConnect: true,
+    });
 
     newSocket.on('connect', () => {
       setIsConnected(true);
