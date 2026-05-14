@@ -208,13 +208,20 @@ export const getRiderOrders = async (req: Request, res: Response): Promise<void>
       OrderStatus.COMPLETED
     ];
 
-    const stats = orders.reduce((acc, order) => {
-      if (finishedStatuses.includes(order.status as OrderStatus)) {
-        acc.deliveries += 1;
-        acc.earnings += (order.deliveryCharge || 0);
+    const statsAgg = await Order.aggregate([
+      { $match: { rider: req.user?._id, status: { $in: finishedStatuses } } },
+      { 
+        $group: { 
+          _id: null, 
+          earnings: { $sum: "$deliveryCharge" },
+          deliveries: { $sum: 1 }
+        } 
       }
-      return acc;
-    }, { earnings: 0, deliveries: 0 });
+    ]);
+
+    const stats = statsAgg.length > 0 
+      ? { earnings: statsAgg[0].earnings || 0, deliveries: statsAgg[0].deliveries || 0 }
+      : { earnings: 0, deliveries: 0 };
 
     res.json({ success: true, data: orders, stats });
   } catch (error) {
