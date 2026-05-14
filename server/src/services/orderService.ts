@@ -27,7 +27,7 @@ export class OrderService {
     [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CANCELLED],
     [OrderStatus.AWAITING_SELLER_CONFIRMATION]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.CONFIRMED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.SEARCHING_RIDER, OrderStatus.CANCELLED],
-    [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+    [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.SEARCHING_RIDER, OrderStatus.COMPLETED, OrderStatus.CANCELLED],
     [OrderStatus.SEARCHING_RIDER]: [OrderStatus.RIDER_ASSIGNED, OrderStatus.CANCELLED],
     [OrderStatus.RIDER_ASSIGNED]: [OrderStatus.AT_SHOP, OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
     [OrderStatus.AT_SHOP]: [OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
@@ -206,9 +206,9 @@ export class OrderService {
     order.status = newStatus;
     await order.save();
 
-    //  AUTO-TRIGGER RIDER SEARCH 
-    if (newStatus === OrderStatus.CONFIRMED && order.fulfillmentMethod === 'delivery') {
-      // Trigger rider search once seller confirms
+    //  AUTO-TRIGGER RIDER SEARCH
+    if (newStatus === OrderStatus.READY_FOR_PICKUP && order.fulfillmentMethod === 'delivery') {
+      // Trigger rider search only after seller marks order as ready — not on confirm
       setTimeout(() => {
         this.autoAssignRider(order._id.toString()).catch(console.error);
       }, 1000);
@@ -255,10 +255,7 @@ export class OrderService {
     const zone = await ZoneService.checkServiceability(riderLocation[0], riderLocation[1]);
     
     const targetStatuses = [
-      OrderStatus.PENDING,
-      OrderStatus.PAYMENT_UNDER_REVIEW,
-      OrderStatus.CONFIRMED, 
-      OrderStatus.SEARCHING_RIDER, 
+      OrderStatus.SEARCHING_RIDER,
       OrderStatus.READY_FOR_PICKUP
     ];
 
@@ -426,7 +423,7 @@ export class OrderService {
 
   static async autoAssignRider(orderId: string) {
     const order = await Order.findById(orderId).select('status rider pickupLocation seller').lean();
-    if (!order || ![OrderStatus.SEARCHING_RIDER, OrderStatus.CONFIRMED].includes(order.status as OrderStatus) || order.rider) return;
+    if (!order || ![OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP].includes(order.status as OrderStatus) || order.rider) return;
 
     const pickupLocation = order.pickupLocation!.coordinates;
     
@@ -479,7 +476,7 @@ export class OrderService {
 
     if (assignedRider) {
       const updatedOrder = await Order.findOneAndUpdate(
-        { _id: orderId, status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.CONFIRMED] }, $or: [{ rider: { $exists: false } }, { rider: null }] },
+        { _id: orderId, status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] }, $or: [{ rider: { $exists: false } }, { rider: null }] },
         { $set: { rider: assignedRider._id, status: OrderStatus.RIDER_ASSIGNED } },
         { new: true }
       );
@@ -498,9 +495,9 @@ export class OrderService {
         });
         io.emit('order_status_updated', updatedOrder);
       }
-    } else if (order.status === OrderStatus.CONFIRMED) {
+    } else if (order.status === OrderStatus.READY_FOR_PICKUP) {
       const updatedOrder = await Order.findOneAndUpdate(
-        { _id: orderId, status: OrderStatus.CONFIRMED },
+        { _id: orderId, status: OrderStatus.READY_FOR_PICKUP },
         { $set: { status: OrderStatus.SEARCHING_RIDER } },
         { new: true }
       );
