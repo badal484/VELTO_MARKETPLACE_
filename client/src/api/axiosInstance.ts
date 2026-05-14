@@ -1,8 +1,9 @@
 import {tokenStore} from './tokenStore';
 
 const PROD_URL = 'https://velto-marketplace.onrender.com';
+const DEV_URL = 'http://10.0.2.2:8082'; // Standard Android Emulator Localhost bridge
 
-export const BASE_URL = PROD_URL;
+export const BASE_URL = __DEV__ ? DEV_URL : PROD_URL;
 
 type LogoutHandler = () => void;
 let _logoutHandler: LogoutHandler | null = null;

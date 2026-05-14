@@ -23,6 +23,9 @@ export class ShopService {
     if (data.isTermsAccepted === 'true') data.isTermsAccepted = true;
     if (data.isTermsAccepted === 'false') data.isTermsAccepted = false;
 
+    // Security: Merchants should not be able to set their own commission rate
+    delete data.commissionRate;
+
     let logoUrl = data.logo;
     let coverImageUrl = data.coverImage;
 
@@ -102,6 +105,9 @@ export class ShopService {
 
     if (data.isTermsAccepted === 'true') data.isTermsAccepted = true;
     if (data.isTermsAccepted === 'false') data.isTermsAccepted = false;
+
+    // Security: Merchants should not be able to set their own commission rate
+    delete data.commissionRate;
 
     if (files) {
       if (files.logo && files.logo[0]) {

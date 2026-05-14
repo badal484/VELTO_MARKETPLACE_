@@ -11,6 +11,7 @@ import { OrderStatus, IUser } from '@shared/types';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { WorkflowService } from '../services/workflowService';
 import { OrderService } from '../services/orderService';
+import { WalletService } from '../services/WalletService';
 import { NotificationService } from '../services/notificationService';
 import { handleError, AppError } from '../utils/errors';
 
@@ -452,19 +453,8 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       { $sort: { "_id": 1 } }
     ]);
 
-    const commissionStats = await Order.aggregate([
-      { $match: { status: 'Completed' } },
-      {
-        $group: {
-          _id: null,
-          sellerComm: { $sum: { $multiply: [{ $multiply: [{ $ifNull: ["$productSnapshot.originalPrice", 0] }, { $ifNull: ["$quantity", 0] }] }, 0.05] } },
-          riderComm: { $sum: { $multiply: [{ $ifNull: ["$deliveryCharge", 0] }, 0.10] } }
-        }
-      }
-    ]);
-    const platformRevenue = revenueDoc
-      ? Math.max(0, revenueDoc.totalCommission - revenueDoc.totalExpenses)
-      : 0;
+    const revenueDoc = await WalletService.getPlatformRevenueSummary();
+    const platformRevenue = revenueDoc.netRevenue;
 
     const topShops = await Order.aggregate([
       { $match: { status: { $ne: OrderStatus.CANCELLED } } },
@@ -632,13 +622,13 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 
     const updated = await OrderService.updateStatus(
       id, 
-      OrderStatus.CONFIRMED, 
+      OrderStatus.AWAITING_SELLER_CONFIRMATION, 
       req.user!._id.toString(), 
       req.user!.role
     );
     
     io.emit('order_status_updated', updated);
-    res.json({ success: true, message: 'Payment verified and order confirmed.', data: updated });
+    res.json({ success: true, message: 'Payment verified. Now awaiting seller confirmation.', data: updated });
   } catch (error) {
     handleError(error, res);
   }

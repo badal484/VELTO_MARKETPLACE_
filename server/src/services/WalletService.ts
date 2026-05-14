@@ -53,8 +53,8 @@ export class WalletService {
 
       const deliveryCharge = order.deliveryCharge || 0;
       // Guaranteed flat net payout of ₹27 to the rider per order delivery
-      const earnings = 27;
-      const commission = Math.max(0, deliveryCharge - earnings);
+      const grossEarnings = 27;
+      const commission = Math.max(0, deliveryCharge - grossEarnings);
 
       const rider = await User.findById(order.rider).session(session);
       if (!rider) throw new AppError('Rider not found', 404);
@@ -148,7 +148,14 @@ export class WalletService {
 
       // Under Free Delivery, order.totalPrice reflects pure product cost exactly
       const itemTotal = order.totalPrice;
-      const commission = round(itemTotal * this.SELLER_COMMISSION_RATE);
+
+      // Dynamically resolve commission rate: shop override or platform default
+      const shop = await Shop.findById(order.shop).session(session);
+      const appliedRate = (shop?.commissionRate !== undefined && shop.commissionRate !== null)
+        ? shop.commissionRate / 100
+        : this.SELLER_COMMISSION_RATE;
+
+      const commission = round(itemTotal * appliedRate);
       const earnings = round(itemTotal - commission);
 
       const updatedSeller = await User.findByIdAndUpdate(
