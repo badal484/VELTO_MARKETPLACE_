@@ -14,22 +14,20 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withSequence,
   withTiming,
 } from '../../mocks/reanimated';
 
-import { axiosInstance } from '../../api/axiosInstance';
 import { useSocket } from '../../hooks/useSocket';
-import { Linking } from 'react-native';
-import RazorpayCheckout from 'react-native-razorpay';
 import { useNotifications } from '../../context/NotificationContext';
+import { OrderStatus } from '@shared/types';
 
 export default function OrderSuccessScreen({ navigation, route }: any) {
   const { fetchCartCount } = useNotifications();
   const { orderId, paymentMethod } = route.params || {};
   const { socket, isConnected } = useSocket();
 
-  const [paymentConfirmed, setPaymentConfirmed] = React.useState(false);
+  // Razorpay orders arrive here ONLY after successful payment verification in CheckoutScreen
+  const [paymentConfirmed, setPaymentConfirmed] = React.useState(paymentMethod === 'Razorpay');
 
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
@@ -40,7 +38,6 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
     });
     opacity.value = withTiming(1, { duration: 800 });
 
-    // Prevent going back to checkout
     const backAction = () => {
       navigation.reset({
         index: 0,
@@ -48,38 +45,15 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
       });
       return true;
     };
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction,
-    );
-
-    if (paymentMethod === 'Razorpay') {
-      checkInitialStatus();
-    }
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     fetchCartCount();
-
     return () => backHandler.remove();
   }, []);
-
-  const checkInitialStatus = async () => {
-    try {
-      const res = await axiosInstance.get(`/api/orders/${orderId}`);
-      const order = res.data.data;
-      if (res.data.success && (order.status !== 'payment_under_review' || order.razorpayPaymentId)) {
-        setPaymentConfirmed(true);
-      }
-    } catch (err) {
-      // Failed to check initial status
-    }
-  };
 
   useEffect(() => {
     if (socket && isConnected) {
       socket.on('order_status_updated', (updatedOrder: any) => {
-        if (
-          updatedOrder._id === orderId &&
-          (updatedOrder.status !== 'payment_under_review' || updatedOrder.razorpayPaymentId)
-        ) {
+        if (updatedOrder._id === orderId && updatedOrder.status !== OrderStatus.PAYMENT_UNDER_REVIEW) {
           setPaymentConfirmed(true);
         }
       });
@@ -88,44 +62,6 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
       if (socket) socket.off('order_status_updated');
     };
   }, [socket, isConnected, orderId]);
-
-  const handlePayNow = async () => {
-    try {
-      const res = await axiosInstance.get(`/api/orders/${orderId}`);
-      const order = res.data.data;
-
-      const options = {
-        description: 'Payment for Velto Order',
-        image: 'https://ik.imagekit.io/oellcbqek/velto_logo.png',
-        currency: 'INR',
-        key: 'rzp_test_SdCBOGIizlvuxK',
-        amount: Math.round(order.totalPrice * 100),
-        name: 'Velto Marketplace',
-        order_id: order.razorpayOrderId,
-        prefill: {
-          email: 'customer@example.com',
-          contact: order.buyerPhone,
-          name: 'Velto Customer',
-        },
-        theme: { color: theme.colors.primary },
-      };
-
-      RazorpayCheckout.open(options)
-        .then(async (data: any) => {
-          await axiosInstance.post('/api/payments/verify', {
-            razorpay_order_id: data.razorpay_order_id,
-            razorpay_payment_id: data.razorpay_payment_id,
-            razorpay_signature: data.razorpay_signature,
-          });
-          setPaymentConfirmed(true);
-        })
-        .catch((e: any) => {
-          // Payment retry failed or cancelled
-        });
-    } catch (err) {
-      // Retry payment initialization failed
-    }
-  };
 
   const animatedCircle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -217,22 +153,6 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
       </View>
 
       <View style={styles.footer}>
-        {paymentMethod === 'Razorpay' && !paymentConfirmed && (
-          <Button
-            title="Complete Razorpay Payment"
-            type="primary"
-            style={{ ...styles.btn, backgroundColor: '#4F46E5' }}
-            onPress={handlePayNow}
-            leftIcon={
-              <Icon
-                name="shield-checkmark-outline"
-                size={20}
-                color="white"
-                style={{ marginRight: 8 }}
-              />
-            }
-          />
-        )}
         <Button
           title={paymentConfirmed ? 'View Order Status' : 'Track Order'}
           type="primary"

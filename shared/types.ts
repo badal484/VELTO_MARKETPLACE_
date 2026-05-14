@@ -61,6 +61,7 @@ export enum TransactionCategory {
   ADMIN_CREDIT = 'admin_credit',
 
   // Outflows
+  ORDER_PAYMENT = 'order_payment',
   PAYOUT = 'payout',
   COD_COLLECTION = 'cod_collection',
   COD_LIABILITY_OFFSET = 'cod_liability_offset',

@@ -6,7 +6,7 @@ import { Shop } from '../models/Shop';
 import { Cart } from '../models/Cart';
 import { Notification, NotificationType } from '../models/Notification';
 import { io } from '../socket/socket';
-import { OrderStatus, Role } from '@shared/types';
+import { OrderStatus, Role, TransactionCategory } from '@shared/types';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { AppError } from '../utils/errors';
 import { WalletService } from './WalletService';
@@ -23,8 +23,8 @@ export class OrderService {
    * Defines which status can move to which other status
    */
   private static readonly transitions: Record<OrderStatus, OrderStatus[]> = {
-    [OrderStatus.PENDING]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.PAYMENT_UNDER_REVIEW, OrderStatus.CANCELLED],
-    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.PENDING]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.PAYMENT_UNDER_REVIEW, OrderStatus.CANCELLED, OrderStatus.CONFIRMED],
+    [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CANCELLED],
     [OrderStatus.AWAITING_SELLER_CONFIRMATION]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.CONFIRMED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.SEARCHING_RIDER, OrderStatus.CANCELLED],
     [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
@@ -165,6 +165,9 @@ export class OrderService {
       if (isBuyer && ![OrderStatus.PENDING, OrderStatus.SEARCHING_RIDER, OrderStatus.PAYMENT_UNDER_REVIEW].includes(currentStatus)) {
         throw new AppError('Cannot cancel order in current state', 400);
       }
+      if (isSeller && !options.reason?.trim()) {
+        throw new AppError('A cancellation reason is required when declining an order', 400);
+      }
       // Revert stock
       await Product.findByIdAndUpdate(order.product, { $inc: { stock: order.quantity } });
     }
@@ -173,7 +176,7 @@ export class OrderService {
       throw new AppError('Only seller can mark order as ready', 403);
     }
 
-    if (newStatus === OrderStatus.CONFIRMED && currentStatus === OrderStatus.AWAITING_SELLER_CONFIRMATION && !isSeller && !isAdmin) {
+    if (newStatus === OrderStatus.CONFIRMED && !isSeller && !isAdmin) {
       throw new AppError('Only the seller can confirm this order', 403);
     }
 
@@ -234,8 +237,11 @@ export class OrderService {
       }
     }
 
-    await WorkflowService.syncOrderState(order._id.toString(), newStatus);
-    
+    const statusMessage = newStatus === OrderStatus.CANCELLED && options.reason
+      ? `Your order has been cancelled. Reason: ${options.reason}`
+      : undefined;
+    await WorkflowService.syncOrderState(order._id.toString(), newStatus, statusMessage);
+
     return order;
   }
 
@@ -596,7 +602,8 @@ export class OrderService {
           user: buyerId,
           amount: walletDeduction,
           type: 'debit',
-          description: `Used wallet balance for batch order`,
+          category: TransactionCategory.ORDER_PAYMENT,
+          description: `Wallet used for batch order`,
         }], { session });
       }
 
@@ -724,26 +731,24 @@ export class OrderService {
         const firstOrderId = firstOrder?._id?.toString();
 
         if (firstOrderId) {
-          const isRazorpay = paymentMethod === 'Razorpay';
-          const isDirectUPI = paymentMethod === 'Direct UPI Transfer';
+          const status = firstOrder.status as OrderStatus;
           
-          let summaryMsg = createdOrders.length === 1 
-            ? ` Success! Your order for ${firstOrder.productSnapshot?.title || 'item'} has been placed.`
-            : ` Success! Your batch order for ${createdOrders.length} items has been placed successfully.`;
+          // Defensive check: Never send a success notification if payment is still under review (Razorpay/UPI)
+          if (status !== OrderStatus.PAYMENT_UNDER_REVIEW) {
+            console.log(`[OrderService] Sending order placement notification for order ${firstOrderId}. Status: ${status}`);
             
-          if (isDirectUPI) {
-            summaryMsg = ` Order Placed: Your order is under review while we verify your Direct UPI payment.`;
-          }
+            const summaryMsg = createdOrders.length === 1
+              ? `Order placed! Your order for ${firstOrder.productSnapshot?.title || 'item'} is awaiting seller confirmation.`
+              : `Order placed! Your ${createdOrders.length}-item order is awaiting seller confirmation.`;
 
-          // If Razorpay order is awaiting payment completion, do not send premature notification
-          const shouldBeSilent = isRazorpay && firstOrder.status === OrderStatus.PAYMENT_UNDER_REVIEW;
-          
-          await WorkflowService.syncOrderState(
-            firstOrderId,
-            firstOrder.status as any,
-            summaryMsg,
-            { silent: shouldBeSilent }
-          );
+            await WorkflowService.syncOrderState(
+              firstOrderId,
+              status,
+              summaryMsg,
+            );
+          } else {
+            console.log(`[OrderService] Notification suppressed for order ${firstOrderId} as payment is still under review.`);
+          }
         }
       }
 

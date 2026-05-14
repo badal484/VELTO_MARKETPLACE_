@@ -32,6 +32,7 @@ import { IProduct } from '@shared/types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/types';
+import RazorpayCheckout from 'react-native-razorpay';
 
 const DEFAULT_DELIVERY_FEE = 0; // Launch Promotion: Free Delivery
 const MAX_COD_AMOUNT = 5000; // Protection for high-value risk
@@ -57,7 +58,9 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const {products: initialProducts} = route.params as { products: CheckoutItem[] };
   const [products, setProducts] = useState<CheckoutItem[]>(initialProducts);
   const fulfillmentMethod = 'delivery';
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'UPI'>('Cash');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'UPI' | 'Razorpay'>(
+    (products.reduce((total, item) => total + (item.lockedPrice || item.product.price) * item.quantity, 0) + deliveryCharge) > MAX_COD_AMOUNT ? 'Razorpay' : 'Cash'
+  );
   const [loading, setLoading] = useState(false);
   
   // Address state
@@ -98,10 +101,10 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const walletDeduction = useWallet ? Math.min(totalAmount, walletBalance) : 0;
   const finalPayable = totalAmount - walletDeduction;
 
-  // Intelligent default: UPI for high-value, Cash otherwise
+  // Intelligent default: Razorpay for high-value, Cash otherwise
   React.useEffect(() => {
     if (totalAmount > MAX_COD_AMOUNT && selectedPaymentMethod === 'Cash') {
-      setSelectedPaymentMethod('UPI');
+      setSelectedPaymentMethod('Razorpay');
     }
   }, [totalAmount]);
 
@@ -241,9 +244,8 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const handlePlaceOrder = async () => {
     if (!validateCheckout()) return;
 
+    setLoading(true);
     try {
-      setLoading(true);
-      
       const payload = {
         items: products.map((item: CheckoutItem) => {
           if (!item.product?._id) throw new Error('Invalid product in cart');
@@ -253,54 +255,101 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
             price: item.lockedPrice || item.product.price
           };
         }),
-        paymentMethod: selectedPaymentMethod === 'Cash' 
-             ? 'Cash on Delivery'
-             : 'Direct UPI Transfer',
-        paymentReference: selectedPaymentMethod === 'Cash' ? undefined : (utrValue || 'PENDING_AUTO'),
+        paymentMethod: selectedPaymentMethod === 'Cash'
+          ? 'Cash on Delivery'
+          : selectedPaymentMethod === 'Razorpay'
+            ? 'Razorpay'
+            : 'Direct UPI Transfer',
+        paymentReference: selectedPaymentMethod === 'UPI' ? (utrValue || 'PENDING_AUTO') : undefined,
         fulfillmentMethod,
         deliveryAddress: address,
-        deliveryCharge: deliveryFee, 
+        deliveryCharge: deliveryFee,
         buyerPhone: phoneNumber,
         lat: coordinates?.lat,
         lng: coordinates?.lng,
-        useWallet: useWallet,
+        useWallet,
       };
 
-
-      // Direct UPI transfer handling removed per user instruction
-
-      // Cash method processing
       const response = await axiosInstance.post('/api/orders/batch', payload);
       const batchData = response.data.data;
       const orders = batchData?.orders || [];
-      
-      if (!orders || orders.length === 0) {
-        throw new Error('Order creation failed on server');
-      }
-      
+
+      if (!orders || orders.length === 0) throw new Error('Order creation failed on server');
+
       const firstOrder = Array.isArray(orders[0]) ? orders[0][0] : orders[0];
       const orderId = firstOrder?._id || firstOrder?.id;
+      if (!orderId) throw new Error('Order ID missing in server response');
 
-      if (!orderId) {
-        throw new Error('Order ID missing in server response');
+      // ── Razorpay flow: collect payment BEFORE navigating away ────────────────
+      if (selectedPaymentMethod === 'Razorpay' && batchData.razorpayOrder) {
+        setLoading(false); // release spinner while payment sheet is open
+
+        const rzpOrder = batchData.razorpayOrder;
+        const options = {
+          description: 'Payment for Velto Order',
+          image: 'https://ik.imagekit.io/oellcbqek/velto_logo.png',
+          currency: 'INR',
+          key: 'rzp_test_SdCBOGIizlvuxK',
+          amount: rzpOrder.amount, // server already computed the correct paise amount
+          name: 'Velto Marketplace',
+          order_id: rzpOrder.id,
+          prefill: {
+            contact: phoneNumber,
+            email: user?.email || '',
+            name: user?.name || 'Customer',
+          },
+          theme: { color: '#2563EB' },
+        };
+
+        try {
+          const paymentData = await RazorpayCheckout.open(options);
+          setLoading(true); // show loading while verifying signature
+          await axiosInstance.post('/api/payments/verify', {
+            razorpay_order_id: paymentData.razorpay_order_id,
+            razorpay_payment_id: paymentData.razorpay_payment_id,
+            razorpay_signature: paymentData.razorpay_signature,
+          });
+          navigation.replace('OrderSuccess', {
+            orderId,
+            paymentMethod: payload.paymentMethod,
+            fulfillmentMethod,
+          });
+        } catch (payErr: any) {
+          // Cancel all just-created orders to restore stock + refund any wallet usage
+          const allIds = orders
+            .map((o: any) => { const ord = Array.isArray(o) ? o[0] : o; return ord?._id || ord?.id; })
+            .filter(Boolean);
+          await Promise.allSettled(
+            allIds.map((id: string) =>
+              axiosInstance.patch(`/api/orders/${id}/status`, {
+                status: 'Cancelled',
+                cancellationReason: 'Payment cancelled by user',
+              })
+            )
+          );
+          showToast({
+            message: payErr?.code === 0 ? 'Payment cancelled.' : 'Payment failed. Please try again.',
+            type: payErr?.code === 0 ? 'info' : 'error',
+          });
+        }
+        return; // handled above
       }
 
-      navigation.replace('OrderSuccess', { 
+      // ── COD / full-wallet flow: navigate directly ─────────────────────────────
+      navigation.replace('OrderSuccess', {
         orderId,
         paymentMethod: payload.paymentMethod,
         fulfillmentMethod,
         deliveryCode: firstOrder?.deliveryCode,
-        pickupCode: firstOrder?.pickupCode
+        pickupCode: firstOrder?.pickupCode,
       });
 
     } catch (error: any) {
-      console.log('Place Order Error:', error);
       showToast({
         message: error.response?.data?.message || error.message || 'Failed to place order',
         type: 'error',
       });
     } finally {
-
       setLoading(false);
     }
   };
@@ -497,7 +546,12 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
                 </View>
               )}
               
-              {/* Direct UPI Option Removed */}
+              <TouchableOpacity 
+                style={[styles.methodCard, selectedPaymentMethod === 'Razorpay' && styles.activeMethod]}
+                onPress={() => setSelectedPaymentMethod('Razorpay')}>
+                <Icon name="card-outline" size={24} color={selectedPaymentMethod === 'Razorpay' ? theme.colors.primary : theme.colors.muted} />
+                <Text style={[styles.methodLabel, selectedPaymentMethod === 'Razorpay' && styles.activeMethodLabel]}>Razorpay</Text>
+              </TouchableOpacity>
               
             </View>
 
@@ -543,7 +597,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
               <Animated.View entering={FadeInUp} style={styles.codWarningBox}>
                 <Icon name="information-circle" size={18} color={theme.colors.text} />
                 <Text style={styles.codWarningText}>
-                  Cash on Delivery is unavailable for orders above ₹{MAX_COD_AMOUNT.toLocaleString()}. Please use Direct UPI for secure high-value checkout.
+                  Cash on Delivery is unavailable for orders above ₹{MAX_COD_AMOUNT.toLocaleString()}. Please use Razorpay for secure high-value checkout.
                 </Text>
               </Animated.View>
             )}

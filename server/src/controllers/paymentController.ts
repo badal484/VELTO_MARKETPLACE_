@@ -31,7 +31,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
       { razorpayOrderId: razorpay_order_id },
       {
         $set: {
-          status: OrderStatus.PENDING,
+          status: OrderStatus.AWAITING_SELLER_CONFIRMATION,
           razorpayPaymentId: razorpay_payment_id,
           razorpaySignature: razorpay_signature,
         },
@@ -44,24 +44,45 @@ export const verifyPayment = async (req: Request, res: Response) => {
       type: NotificationType.ORDER,
       title: 'Payment Successful',
       message: orders.length === 1
-        ? 'Your order has been placed and sent to the seller for confirmation.'
-        : `Your batch order for ${orders.length} items has been placed successfully.`,
+        ? 'Payment confirmed! Your order is now awaiting seller acceptance.'
+        : `Payment confirmed! Your ${orders.length}-item order is awaiting seller acceptance.`,
       data: { razorpayOrderId: razorpay_order_id },
     });
+
+    // Group orders by seller to send one notification per seller
+    const sellerOrderMap = new Map<string, typeof orders[0][]>();
+    for (const order of orders) {
+      const sellerId = order.seller.toString();
+      if (!sellerOrderMap.has(sellerId)) sellerOrderMap.set(sellerId, []);
+      sellerOrderMap.get(sellerId)!.push(order);
+    }
 
     for (const order of orders) {
       await WorkflowService.syncOrderState(
         order._id.toString(),
-        OrderStatus.PENDING,
+        OrderStatus.AWAITING_SELLER_CONFIRMATION,
         'Payment received via Razorpay. Awaiting seller confirmation.',
         { silent: true }
       );
       io.to(order.seller.toString()).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
-      io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.PENDING });
-      io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.PENDING });
+      io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
+      io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
     }
 
-    res.json({ success: true, message: 'Payment verified. Orders are pending seller approval.' });
+    // Notify each seller — push goes through even if they're offline
+    for (const [sellerId, sellerOrders] of sellerOrderMap) {
+      await NotificationService.send({
+        recipient: sellerId,
+        type: NotificationType.ORDER,
+        title: 'New Order — Action Required',
+        message: sellerOrders.length === 1
+          ? `A new order for ${(sellerOrders[0] as any).productSnapshot?.title || 'your product'} requires your confirmation.`
+          : `${sellerOrders.length} new orders require your confirmation.`,
+        data: { orderId: sellerOrders[0]._id.toString() },
+      });
+    }
+
+    res.json({ success: true, message: 'Payment verified. Awaiting seller confirmation.' });
   } catch (error) {
     handleError(error, res);
   }
@@ -87,27 +108,58 @@ export const handleWebhook = async (req: Request, res: Response) => {
         || req.body.payload?.order?.entity?.id;
 
       if (razorpayOrderId) {
+        // Only act on orders still awaiting payment — don't overwrite seller-confirmed orders
         const orders = await Order.find({
           razorpayOrderId,
-          status: { $in: [OrderStatus.PENDING, OrderStatus.PAYMENT_UNDER_REVIEW] },
+          status: OrderStatus.PAYMENT_UNDER_REVIEW,
         });
 
         if (orders.length > 0) {
           const paymentId = req.body.payload?.payment?.entity?.id;
           await Order.updateMany(
-            { razorpayOrderId },
-            { $set: { status: OrderStatus.PENDING, ...(paymentId && { razorpayPaymentId: paymentId }) } }
+            { razorpayOrderId, status: OrderStatus.PAYMENT_UNDER_REVIEW },
+            { $set: { status: OrderStatus.AWAITING_SELLER_CONFIRMATION, ...(paymentId && { razorpayPaymentId: paymentId }) } }
           );
 
+          const webhookSellerOrderMap = new Map<string, typeof orders[0][]>();
           for (const order of orders) {
             await WorkflowService.syncOrderState(
               order._id.toString(),
-              OrderStatus.PENDING,
-              'Payment confirmed via Razorpay.'
+              OrderStatus.AWAITING_SELLER_CONFIRMATION,
+              'Payment confirmed via Razorpay webhook. Awaiting seller confirmation.',
+              { silent: true }
             );
-            io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.PENDING });
-            io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.PENDING });
+            io.to(order.seller.toString()).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
+            io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
+            io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
+
+            const sellerId = order.seller.toString();
+            if (!webhookSellerOrderMap.has(sellerId)) webhookSellerOrderMap.set(sellerId, []);
+            webhookSellerOrderMap.get(sellerId)!.push(order);
           }
+
+          for (const [sellerId, sellerOrders] of webhookSellerOrderMap) {
+            await NotificationService.send({
+              recipient: sellerId,
+              type: NotificationType.ORDER,
+              title: 'New Order — Action Required',
+              message: sellerOrders.length === 1
+                ? `A new order for ${(sellerOrders[0] as any).productSnapshot?.title || 'your product'} requires your confirmation.`
+                : `${sellerOrders.length} new orders require your confirmation.`,
+              data: { orderId: sellerOrders[0]._id.toString() },
+            });
+          }
+
+          const buyerId = (orders[0].buyer as any)?._id?.toString() || orders[0].buyer.toString();
+          await NotificationService.send({
+            recipient: buyerId,
+            type: NotificationType.ORDER,
+            title: 'Payment Successful',
+            message: orders.length === 1
+              ? 'Payment confirmed! Your order is now awaiting seller acceptance.'
+              : `Payment confirmed! Your ${orders.length}-item order is awaiting seller acceptance.`,
+            data: { razorpayOrderId },
+          });
         }
       }
     }

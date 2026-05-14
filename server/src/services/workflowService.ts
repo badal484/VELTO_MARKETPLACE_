@@ -32,14 +32,19 @@ export class WorkflowService {
           .populate('rider', 'name avatar phoneNumber');
 
         if (buyerId) {
-          await NotificationService.send({
-            recipient: buyerId,
-            type: NotificationType.ORDER,
-            title: 'Order Update',
-            message: notifMessage,
-            relatedId: orderId,
-            data: { status, orderId }
-          });
+          // Defensive check: Do not send push notifications for 'Payment Under Review' status
+          if (status !== OrderStatus.PAYMENT_UNDER_REVIEW) {
+            await NotificationService.send({
+              recipient: buyerId,
+              type: NotificationType.ORDER,
+              title: 'Order Update',
+              message: notifMessage,
+              relatedId: orderId,
+              data: { status, orderId }
+            });
+          } else {
+            console.log(`[WorkflowService] Skipping push notification for ${orderId} - Status is Payment Under Review`);
+          }
           io.to(buyerId).emit('order_status_updated', fullOrder);
         }
 

@@ -17,12 +17,13 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { status } = updateOrderStatusSchema.parse(req.body);
+    const { status, cancellationReason } = updateOrderStatusSchema.parse(req.body);
     const order = await OrderService.updateStatus(
-      req.params.id, 
-      status, 
-      req.user?._id.toString()!, 
-      req.user?.role!
+      req.params.id,
+      status,
+      req.user?._id.toString()!,
+      req.user?.role!,
+      { reason: cancellationReason }
     );
     res.json({ success: true, data: order });
   } catch (error) {

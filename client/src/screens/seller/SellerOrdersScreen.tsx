@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
@@ -40,10 +40,13 @@ interface SellerOrdersProps {
 export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
   const {showToast} = useToast();
   const {socket, isConnected} = useSocket();
-  // State
+
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [cancelModal, setCancelModal] = useState<{visible: boolean; orderId: string | null}>({visible: false, orderId: null});
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     if (socket && isConnected) {
@@ -88,19 +91,57 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     }
   };
 
-  const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
+  const handleConfirm = async (orderId: string) => {
+    setActionLoading(orderId);
     try {
-      await axiosInstance.patch(`/api/orders/${orderId}/status`, { status });
+      await axiosInstance.patch(`/api/orders/${orderId}/status`, {status: OrderStatus.CONFIRMED});
+      showToast({message: 'Order accepted and confirmed!', type: 'success'});
       fetchOrders();
-      showToast({message: `Order marked as ${status.replace('_', ' ')}`, type: 'success'});
-    } catch (error) {
-      showToast({message: 'Update failed', type: 'error'});
+    } catch (err: any) {
+      showToast({message: err.response?.data?.message || 'Failed to confirm order', type: 'error'});
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleChat = async (receiverId: string, order: IOrder, role: string) => {
-    // Legacy P2P Chat disabled for Sellers. Routing to Support.
-    handleSupport(order);
+  const openCancelModal = (orderId: string) => {
+    setCancelReason('');
+    setCancelModal({visible: true, orderId});
+  };
+
+  const submitCancel = async () => {
+    if (!cancelModal.orderId) return;
+    if (!cancelReason.trim()) {
+      showToast({message: 'Please enter a reason for cancellation', type: 'error'});
+      return;
+    }
+    setActionLoading(cancelModal.orderId);
+    try {
+      await axiosInstance.patch(`/api/orders/${cancelModal.orderId}/status`, {
+        status: OrderStatus.CANCELLED,
+        cancellationReason: cancelReason.trim(),
+      });
+      setCancelModal({visible: false, orderId: null});
+      showToast({message: 'Order cancelled', type: 'success'});
+      fetchOrders();
+    } catch (err: any) {
+      showToast({message: err.response?.data?.message || 'Failed to cancel order', type: 'error'});
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
+    setActionLoading(orderId);
+    try {
+      await axiosInstance.patch(`/api/orders/${orderId}/status`, {status});
+      showToast({message: `Order updated`, type: 'success'});
+      fetchOrders();
+    } catch (error) {
+      showToast({message: 'Update failed', type: 'error'});
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleSupport = async (order?: IOrder) => {
@@ -192,77 +233,80 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
 
           <View style={styles.actions}>
             <View style={styles.p2pActions}>
-               <TouchableOpacity 
-                  style={styles.chatBtnSmall} 
-                  onPress={() => handleSupport(item)}>
-                  <Icon name="help-buoy-outline" size={14} color={theme.colors.primary} />
-                  <Text style={styles.chatBtnTxt}>Contact Support</Text>
-               </TouchableOpacity>
+              <TouchableOpacity style={styles.chatBtnSmall} onPress={() => handleSupport(item)}>
+                <Icon name="help-buoy-outline" size={14} color={theme.colors.primary} />
+                <Text style={styles.chatBtnTxt}>Contact Support</Text>
+              </TouchableOpacity>
             </View>
 
-            {isPending && (
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Button 
-                    title="Cancel" 
-                    type="danger" 
-                    onPress={() => {
-                      Alert.alert(
-                        "Cancel Order", 
-                        "Are you sure you want to cancel this order?",
-                        [
-                          { text: "No", style: "cancel" },
-                          { text: "Yes", onPress: () => handleUpdateStatus(item._id, OrderStatus.CANCELLED) }
-                        ]
-                      );
-                    }}
-                    style={styles.fullBtn}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button 
-                    title="Confirm" 
-                    type="success" 
-                    onPress={() => handleUpdateStatus(item._id, OrderStatus.CONFIRMED)}
-                    style={styles.fullBtn}
-                  />
-                </View>
+            {(isPending || isAwaitingConfirmation) && (
+              <View style={styles.decisionRow}>
+                <TouchableOpacity
+                  style={[styles.decisionBtn, styles.declineBtnStyle]}
+                  onPress={() => openCancelModal(item._id)}
+                  disabled={actionLoading === item._id}>
+                  <Icon name="close-circle-outline" size={18} color="#EF4444" />
+                  <Text style={styles.declineBtnText}>Decline</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.decisionBtn, styles.acceptBtnStyle]}
+                  onPress={() => handleConfirm(item._id)}
+                  disabled={actionLoading === item._id}>
+                  {actionLoading === item._id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Icon name="checkmark-circle-outline" size={18} color="#fff" />
+                      <Text style={styles.acceptBtnText}>Confirm Order</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
             )}
-            
-            {isAwaitingConfirmation && (
-              <Button 
-                title="Confirm & Accept Order" 
-                type="primary" 
-                onPress={() => handleUpdateStatus(item._id, OrderStatus.CONFIRMED)}
-                style={styles.fullBtn}
-                icon={<Icon name="checkmark-circle-outline" size={18} color="white" />}
-              />
-            )}
-            
+
             {isConfirmed && (
-               <Button 
-                title="Mark Ready for Pickup" 
-                type="primary" 
-                onPress={() => handleUpdateStatus(item._id, OrderStatus.READY_FOR_PICKUP)}
-                style={styles.fullBtn}
-                icon={<Icon name="cube-outline" size={18} color="white" />}
-              />
+              <View style={{gap: 8}}>
+                <Button
+                  title="Mark Ready for Pickup"
+                  type="primary"
+                  onPress={() => handleUpdateStatus(item._id, OrderStatus.READY_FOR_PICKUP)}
+                  style={styles.fullBtn}
+                  icon={<Icon name="cube-outline" size={18} color="white" />}
+                />
+                <TouchableOpacity 
+                  style={styles.secondaryCancelBtn}
+                  onPress={() => openCancelModal(item._id)}>
+                  <Text style={styles.secondaryCancelBtnTxt}>Cancel Order</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
+            {item.status === OrderStatus.READY_FOR_PICKUP && (
+              <View style={{gap: 8}}>
+                <View style={styles.readyBadge}>
+                  <Icon name="checkbox" size={16} color={theme.colors.success} />
+                  <Text style={styles.readyText}>Order is Ready for Pickup</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.secondaryCancelBtn}
+                  onPress={() => openCancelModal(item._id)}>
+                  <Text style={styles.secondaryCancelBtnTxt}>Cancel Order</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {item.status === OrderStatus.SEARCHING_RIDER && (
-               <View style={styles.searchingBox}>
-                 <Icon name="search" size={16} color={theme.colors.primary} />
-                 <Text style={styles.searchingTxt}>Searching for nearby delivery partners...</Text>
-               </View>
+              <View style={styles.searchingBox}>
+                <Icon name="search" size={16} color={theme.colors.primary} />
+                <Text style={styles.searchingTxt}>Searching for nearby delivery partners...</Text>
+              </View>
             )}
 
             {item.status === OrderStatus.RIDER_ASSIGNED && (
-               <View style={styles.searchingBox}>
-                 <Icon name="bicycle" size={16} color="#059669" />
-                 <Text style={[styles.searchingTxt, {color: '#059669'}]}>Rider is picking up the package...</Text>
-               </View>
+              <View style={styles.searchingBox}>
+                <Icon name="bicycle" size={16} color="#059669" />
+                <Text style={[styles.searchingTxt, {color: '#059669'}]}>Rider is picking up the package...</Text>
+              </View>
             )}
 
             {isCompleted && (
@@ -324,6 +368,63 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
           </View>
         }
       />
+
+      {/* Cancel with Reason Modal */}
+      <Modal
+        visible={cancelModal.visible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCancelModal({visible: false, orderId: null})}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCancelModal({visible: false, orderId: null})}>
+          <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalIconRow}>
+              <View style={styles.modalIconBox}>
+                <Icon name="close-circle" size={28} color="#EF4444" />
+              </View>
+            </View>
+            <Text style={styles.modalTitle}>Decline Order</Text>
+            <Text style={styles.modalSubtitle}>
+              Please tell the customer why you're declining this order. This helps them find alternatives quickly.
+            </Text>
+
+            <Text style={styles.reasonLabel}>Reason for Decline</Text>
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="e.g. Item is out of stock, unable to fulfil at this time..."
+              placeholderTextColor={theme.colors.muted}
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              multiline
+              numberOfLines={3}
+              maxLength={200}
+              textAlignVertical="top"
+            />
+            <Text style={styles.charCount}>{cancelReason.length}/200</Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setCancelModal({visible: false, orderId: null})}>
+                <Text style={styles.modalCancelBtnText}>Go Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, !cancelReason.trim() && {opacity: 0.4}]}
+                onPress={submitCancel}
+                disabled={!cancelReason.trim() || actionLoading === cancelModal.orderId}>
+                {actionLoading === cancelModal.orderId ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalConfirmBtnText}>Confirm Decline</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -411,11 +512,6 @@ const styles = StyleSheet.create({
   landmarkText: {fontSize: 11, color: theme.colors.muted, marginTop: 2, fontStyle: 'italic'},
   methodBox: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16, opacity: 0.7},
   methodText: {fontSize: 11, fontWeight: '700', color: theme.colors.muted},
-  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24},
-  modalContent: {backgroundColor: theme.colors.white, borderRadius: 28, padding: 24, ...theme.shadow.lg},
-  modalHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16},
-  modalTitle: {fontSize: 22, fontWeight: '900', color: theme.colors.text},
-  modalSubtitle: {fontSize: 14, color: theme.colors.textSecondary, marginBottom: 24, lineHeight: 20},
   otpInput: {
     backgroundColor: '#F1F5F9',
     borderRadius: 16,
@@ -490,4 +586,126 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginTop: 16,
   },
+  // Decision buttons (Accept / Decline)
+  decisionRow: {flexDirection: 'row', gap: 10, marginTop: 4},
+  decisionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  declineBtnStyle: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  declineBtnText: {fontSize: 13, fontWeight: '800', color: '#EF4444'},
+  acceptBtnStyle: {backgroundColor: '#16A34A'},
+  acceptBtnText: {fontSize: 13, fontWeight: '800', color: '#fff'},
+  secondaryCancelBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  secondaryCancelBtnTxt: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
+    textDecorationLine: 'underline',
+  },
+  readyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    backgroundColor: theme.colors.success + '10',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.success + '20',
+  },
+  readyText: {
+    fontSize: 13,
+    color: theme.colors.success,
+    fontWeight: '800',
+  },
+  // Cancel modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: theme.colors.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 40,
+    ...theme.shadow.lg,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {fontSize: 22, fontWeight: '900', color: theme.colors.text, marginBottom: 8},
+  modalSubtitle: {fontSize: 14, color: theme.colors.textSecondary, marginBottom: 20, lineHeight: 20},
+  modalIconRow: {alignItems: 'center', marginBottom: 16},
+  modalIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reasonLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  reasonInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 14,
+    color: theme.colors.text,
+    minHeight: 80,
+  },
+  charCount: {
+    fontSize: 11,
+    color: theme.colors.muted,
+    textAlign: 'right',
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  modalActions: {flexDirection: 'row', gap: 12},
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  modalCancelBtnText: {fontSize: 14, fontWeight: '700', color: theme.colors.text},
+  modalConfirmBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+  },
+  modalConfirmBtnText: {fontSize: 14, fontWeight: '800', color: '#fff'},
 });
