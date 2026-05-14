@@ -163,6 +163,7 @@ export default function WalletScreen({navigation}: any) {
             title="Withdraw Funds" 
             type="accent" 
             style={styles.withdrawBtn}
+            textStyle={{color: theme.colors.primary}}
             onPress={() => {
               // Pre-fill from user profile
               if (user?.bankDetails) {
