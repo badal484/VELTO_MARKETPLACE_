@@ -415,7 +415,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     const totalProducts = await Product.countDocuments();
     const totalOrders = await Order.countDocuments();
     const totalConversations = await Conversation.countDocuments({});
-
+    const revenueData = await Order.aggregate([
       { $match: { status: OrderStatus.COMPLETED } },
       { $group: { _id: null, total: { $sum: { $add: ["$totalPrice", { $ifNull: ["$deliveryCharge", 0] }] } } } }
     ]);
