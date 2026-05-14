@@ -355,25 +355,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   }, [selectedCategory]);
 
-  // Auto-refresh when screen gains focus and every 60s to keep data in sync
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      if (currentCoords) {
-        fetchProducts(currentCoords);
-      }
-    });
-
-    const interval = setInterval(() => {
-      if (currentCoords) {
-        fetchProducts(currentCoords);
-      }
-    }, 60000); // 60s background pulse for buyers
-
-    return () => {
-      unsubscribe();
-      clearInterval(interval);
-    };
-  }, [navigation, currentCoords, selectedCategory]);
 
   const [isServiceable, setIsServiceable] = useState(true);
   const [serviceZoneName, setServiceZoneName] = useState<string | null>(null);

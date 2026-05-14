@@ -12,7 +12,6 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import { IOrder, IProduct, IShop, OrderStatus, Role } from '@shared/types';
 import { getStatusDisplay } from '@shared/constants/orderStatus';
@@ -70,14 +69,10 @@ export default function OrderHistoryScreen({
     (user?.role === Role.RIDER || user?.role === Role.SELLER || user?.role === Role.SHOP_OWNER) ? 'workspace' : 'purchases'
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchOrders();
-      // Background pulse every 30s to keep order statuses live
-      const interval = setInterval(fetchOrders, 30000);
-      return () => clearInterval(interval);
-    }, [historyMode])
-  );
+  // Fetch on mount and whenever the user switches workspace/purchases mode
+  useEffect(() => {
+    fetchOrders();
+  }, [historyMode]);
 
   useEffect(() => {
     if (socket && isConnected) {

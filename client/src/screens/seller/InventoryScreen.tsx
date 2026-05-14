@@ -17,7 +17,9 @@ import {
 import {theme} from '../../theme';
 import {axiosInstance} from '../../api/axiosInstance';
 import {useToast} from '../../hooks/useToast';
+import {useSocket} from '../../hooks/useSocket';
 import {IProduct} from '@shared/types';
+import {SocketEvent} from '@shared/constants/socketEvents';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {FadeInUp, Layout} from '../../mocks/reanimated';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -36,6 +38,7 @@ export default function InventoryScreen({
   navigation,
 }: InventoryScreenProps) {
   const {showToast} = useToast();
+  const {socket, isConnected} = useSocket();
   const [products, setProducts] = useState<IProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<IProduct[]>([]);
   const [search, setSearch] = useState('');
@@ -45,6 +48,20 @@ export default function InventoryScreen({
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+    socket.on(SocketEvent.INVENTORY_UPDATED, (data: { action: string; product?: IProduct; productId?: string }) => {
+      if (data.action === 'created' && data.product) {
+        setProducts(prev => [data.product!, ...prev]);
+      } else if (data.action === 'updated' && data.product) {
+        setProducts(prev => prev.map(p => p._id === data.product!._id ? { ...p, ...data.product } : p));
+      } else if (data.action === 'deleted' && data.productId) {
+        setProducts(prev => prev.filter(p => p._id !== data.productId));
+      }
+    });
+    return () => { socket.off(SocketEvent.INVENTORY_UPDATED); };
+  }, [socket, isConnected]);
 
   useEffect(() => {
     if (search.trim() === '') {

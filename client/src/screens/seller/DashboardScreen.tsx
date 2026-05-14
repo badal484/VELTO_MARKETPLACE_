@@ -1,5 +1,4 @@
-import React, {useEffect, useState, useCallback, useMemo, memo} from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import React, {useEffect, useState, memo} from 'react';
 import {
   View,
   Text,
@@ -71,27 +70,57 @@ export default function DashboardScreen({navigation}: DashboardProps) {
   useEffect(() => {
     if (socket && isConnected) {
       socket.on('order_status_updated', (updatedOrder: IOrder) => {
-        // Trigger a silent refresh to update earnings and pipeline
-        fetchData();
+        // Update the order in-place — no full refetch needed
+        setOrders(prev => prev.map(o => o._id === updatedOrder._id ? { ...o, ...updatedOrder } : o));
         showToast({ message: `Order #${updatedOrder._id.slice(-6).toUpperCase()} is now ${updatedOrder.status.replace(/_/g, ' ')}`, type: 'info' });
+      });
+
+      socket.on('new_order_for_seller', (newOrder: IOrder) => {
+        if (newOrder?._id) {
+          setOrders(prev => [newOrder, ...prev]);
+          showToast({ message: `New order! #${newOrder._id.slice(-6).toUpperCase()}`, type: 'success' });
+        }
       });
     }
     return () => {
-      if (socket) socket.off('order_status_updated');
+      if (socket) {
+        socket.off('order_status_updated');
+        socket.off('new_order_for_seller');
+      }
     };
   }, [socket, isConnected]);
 
-  // Use focus effect to refresh data and reset unread badges when user returns to this tab
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-      resetUnreadCount();
+  // Fetch once on mount — socket keeps everything live after that
+  useEffect(() => {
+    fetchData();
+    resetUnreadCount();
+  }, []);
 
-      // Background pulse every 30s to ensure zero manual refresh
-      const interval = setInterval(fetchData, 30000);
-      return () => clearInterval(interval);
-    }, [])
-  );
+  // Recalculate chart whenever orders change (initial fetch OR socket in-place update)
+  useEffect(() => {
+    if (orders.length === 0) return;
+    const days = [];
+    let maxVal = 500;
+    for (let i = 13; i >= 0; i--) {
+      const date = subDays(new Date(), i);
+      const dayOrders = orders.filter(o =>
+        o.status === OrderStatus.COMPLETED && isSameDay(new Date(o.createdAt ?? Date.now()), date)
+      );
+      const total = dayOrders.reduce((acc, o) => acc + (o.totalPrice || 0), 0);
+      if (total > maxVal) maxVal = total;
+      days.push({ label: format(date, 'eee').charAt(0), value: total, isToday: i === 0 });
+    }
+    setChartData(days);
+    setMaxEarnings(Math.ceil(maxVal / 500) * 500);
+    const currentWeek = days.slice(7).reduce((acc, d) => acc + d.value, 0);
+    const prevWeek = days.slice(0, 7).reduce((acc, d) => acc + d.value, 0);
+    if (prevWeek === 0) {
+      setGrowth({ value: currentWeek > 0 ? '100' : '0.0', isPositive: true });
+    } else {
+      const diff = ((currentWeek - prevWeek) / prevWeek) * 100;
+      setGrowth({ value: Math.abs(diff).toFixed(1), isPositive: diff >= 0 });
+    }
+  }, [orders]);
 
   const fetchData = async () => {
     try {
@@ -101,48 +130,9 @@ export default function DashboardScreen({navigation}: DashboardProps) {
         axiosInstance.get('/api/products/my').catch(() => ({ data: { success: false, data: [] } })),
         axiosInstance.get('/api/orders/seller').catch(() => ({ data: { success: false, data: [] } })),
       ]);
-
-      if (shopRes.data?.success) {
-        setShop(shopRes.data.data);
-      }
-      if (productsRes.data?.success) {
-        setProducts(productsRes.data.data);
-      }
-      if (ordersRes.data?.success) {
-        setOrders(ordersRes.data.data);
-        // -- Aggregate Chart Data (Last 14 days) --
-        const days = [];
-        let maxVal = 500;
-        for (let i = 13; i >= 0; i--) {
-          const date = subDays(new Date(), i);
-          const dayOrders = ordersRes.data.data.filter((o: IOrder) => 
-            o.status === OrderStatus.COMPLETED && isSameDay(new Date(o.createdAt ?? Date.now()), date)
-          );
-          const total = dayOrders.reduce((acc: number, o: IOrder) => acc + (o.totalPrice || 0), 0);
-          if (total > maxVal) maxVal = total;
-          days.push({
-            label: format(date, 'eee').charAt(0),
-            value: total,
-            isToday: i === 0
-          });
-        }
-        setChartData(days);
-        setMaxEarnings(Math.ceil(maxVal / 500) * 500);
-
-        // -- Calculate Real Growth (Current 7d vs Prev 7d) --
-        const currentWeek = days.slice(7).reduce((acc, d) => acc + d.value, 0);
-        const prevWeek = days.slice(0, 7).reduce((acc, d) => acc + d.value, 0);
-        
-        if (prevWeek === 0) {
-          setGrowth({ value: currentWeek > 0 ? '100' : '0.0', isPositive: true });
-        } else {
-          const diff = ((currentWeek - prevWeek) / prevWeek) * 100;
-          setGrowth({ 
-            value: Math.abs(diff).toFixed(1), 
-            isPositive: diff >= 0 
-          });
-        }
-      }
+      if (shopRes.data?.success) setShop(shopRes.data.data);
+      if (productsRes.data?.success) setProducts(productsRes.data.data);
+      if (ordersRes.data?.success) setOrders(ordersRes.data.data);
     } catch (error) {
       console.error('Dashboard Fetch Error:', error);
     } finally {
@@ -153,8 +143,10 @@ export default function DashboardScreen({navigation}: DashboardProps) {
 
   const handleAcceptOrder = async (orderId: string) => {
     try {
-      await axiosInstance.patch(`/api/orders/${orderId}/status`, { status: OrderStatus.CONFIRMED });
-      fetchData();
+      const res = await axiosInstance.patch(`/api/orders/${orderId}/status`, { status: OrderStatus.CONFIRMED });
+      if (res.data?.success) {
+        setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: OrderStatus.CONFIRMED } : o));
+      }
       showToast({message: 'Order Accepted. Buyer notified.', type: 'success'});
     } catch (error) {
       showToast({message: 'Could not accept order.', type: 'error'});
@@ -173,7 +165,6 @@ export default function DashboardScreen({navigation}: DashboardProps) {
       setIsOtpModalVisible(false);
       setOtpValue('');
       setActiveOrderId(null);
-      fetchData();
       showToast({message: 'Handover verified. Order completed!', type: 'success'});
     } catch (error: any) {
       showToast({message: error.response?.data?.message || 'Invalid code.', type: 'error'});

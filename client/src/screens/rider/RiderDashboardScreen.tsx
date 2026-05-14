@@ -1,6 +1,5 @@
 // Rider Dashboard Screen - Real-time fleet management
-import React, { useEffect, useState, useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -642,33 +641,37 @@ export default function RiderDashboardScreen({ navigation }: any) {
   useEffect(() => {
     if (socket && isConnected) {
       socket.on('new_job_available', (data: any) => {
-        showToast({
-          message: `New job available at ${data.shopName}!`,
-          type: 'info',
-        });
-        fetchJobs();
+        showToast({ message: `New job available at ${data.shopName}!`, type: 'info' });
+        // Add to available jobs list without a full refetch
+        if (data.order) setJobs(prev => [data.order, ...prev.filter((j: any) => j._id !== data.order._id)]);
       });
 
       socket.on('order_status_updated', (updatedOrder: any) => {
-        showToast({
-          message: `Order status updated: ${updatedOrder.status}`,
-          type: 'info',
-        });
-        fetchJobs(true); // Silent refresh
+        if (!updatedOrder?._id) return;
+        const terminal = [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.COMPLETED_PENDING_RELEASE];
+        if (terminal.includes(updatedOrder.status)) {
+          // Move out of active into history
+          setActiveJobs(prev => prev.filter((j: any) => j._id !== updatedOrder._id));
+          setHistoryJobs(prev => [updatedOrder, ...prev.filter((j: any) => j._id !== updatedOrder._id)]);
+        } else {
+          // Update in-place across all lists
+          setActiveJobs(prev => prev.map((j: any) => j._id === updatedOrder._id ? { ...j, ...updatedOrder } : j));
+          setJobs(prev => prev.filter((j: any) => j._id !== updatedOrder._id));
+        }
+        showToast({ message: `Order #${updatedOrder._id?.slice(-6).toUpperCase()} → ${updatedOrder.status}`, type: 'info' });
       });
 
-      socket.on(
-        'order_assigned',
-        (data: { orderId: string; message: string; order: any }) => {
-          showToast({ message: data.message, type: 'success' });
-          fetchJobs(true); // Silent refresh
-        },
-      );
+      socket.on('order_assigned', (data: { orderId: string; message: string; order: any }) => {
+        showToast({ message: data.message, type: 'success' });
+        if (data.order) {
+          setActiveJobs(prev => [data.order, ...prev.filter((j: any) => j._id !== data.orderId)]);
+          setJobs(prev => prev.filter((j: any) => j._id !== data.orderId));
+        }
+      });
 
       socket.on('available_jobs_updated', () => {
-        if (activeTab === 'available') {
-          fetchJobs(true); // Silent real-time sync
-        }
+        // Only re-fetch the lightweight available-jobs endpoint, not everything
+        if (activeTab === 'available') fetchJobs(true);
       });
     }
     return () => {
@@ -676,9 +679,10 @@ export default function RiderDashboardScreen({ navigation }: any) {
         socket.off('new_job_available');
         socket.off('order_status_updated');
         socket.off('order_assigned');
+        socket.off('available_jobs_updated');
       }
     };
-  }, [socket, isConnected, user?._id]);
+  }, [socket, isConnected, user?._id, activeTab]);
 
   useEffect(() => {
     let watchId: number | null = null;
@@ -729,18 +733,10 @@ export default function RiderDashboardScreen({ navigation }: any) {
     };
   }, [activeJobs, socket, isConnected, activeTab, user?.isRiderVerified]);
 
-  // Auto-refresh jobs when focused and every 30s
-  useFocusEffect(
-    useCallback(() => {
-      fetchJobs(true); // Initial silent fetch
-      const interval = setInterval(() => fetchJobs(true), 30000);
-      return () => clearInterval(interval);
-    }, [activeTab])
-  );
-
-  useSocket('order_status_updated', () => {
+  // Fetch on mount and when the active tab changes
+  useEffect(() => {
     fetchJobs(true);
-  });
+  }, [activeTab]);
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') return true;
