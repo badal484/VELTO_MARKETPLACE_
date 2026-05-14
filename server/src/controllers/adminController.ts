@@ -464,7 +464,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
           orderCount: { $sum: 1 }
         }
       },
-      { $sort: { revenue: -1 } },
+      { $sort: { orderCount: -1 } },
       { $limit: 5 },
       {
         $lookup: {
