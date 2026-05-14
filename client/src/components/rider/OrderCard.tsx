@@ -70,18 +70,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ item, activeTab, handleStatusUpda
         </View>
       </View>
 
-      {(item.status === OrderStatus.RIDER_ASSIGNED || item.status === OrderStatus.AT_SHOP) && item.pickupCode && (
-        <View style={styles.pickupCodeBox}>
-          <View style={styles.pickupCodeContent}>
-            <Text style={styles.pickupCodeLabel}>PICKUP VERIFICATION CODE</Text>
-            <Text style={styles.pickupCodeValue}>{item.pickupCode}</Text>
-            <Text style={styles.pickupCodeHint}>Show this to the merchant to confirm handover</Text>
-          </View>
-          <View style={styles.pickupCodeIcon}>
-            <Icon name="shield-checkmark" size={32} color="#059669" />
-          </View>
-        </View>
-      )}
+      {/* Pickup OTP card removed as per requirement */}
 
       {!isDelivered && (
         <View style={styles.chatRow}>

@@ -195,9 +195,12 @@ export class OrderService {
     if (!isSeller && !isAdmin && !isBuyer && !isRider) throw new AppError('Not authorized', 403);
 
     // Dynamic PIN Generation
+    // Pickup OTP disabled as per requirement
+    /*
     if (newStatus === OrderStatus.READY_FOR_PICKUP && !order.pickupCode) {
       order.pickupCode = Math.floor(1000 + Math.random() * 9000).toString();
     }
+    */
     
     if (newStatus === OrderStatus.IN_TRANSIT && order.fulfillmentMethod === 'delivery' && !order.deliveryCode) {
       order.deliveryCode = Math.floor(1000 + Math.random() * 9000).toString();
