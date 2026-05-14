@@ -159,16 +159,9 @@ export default function CartScreen({navigation}: CartProps) {
   const {setCartCount} = useNotifications();
   const syncTimers = useRef<{[key: string]: NodeJS.Timeout}>({});
 
-  useEffect(() => {
-    fetchCart();
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       fetchCart();
-      // Background pulse every 30s to catch price/stock changes
-      const interval = setInterval(fetchCart, 30000);
-      return () => clearInterval(interval);
     }, [])
   );
 

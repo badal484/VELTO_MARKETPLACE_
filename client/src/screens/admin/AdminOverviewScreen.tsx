@@ -1,5 +1,4 @@
-import React, {useEffect, useState, useCallback} from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -19,8 +18,10 @@ import {Button} from '../../components/common/Button';
 import {AdminAnalyticsCard} from '../../components/admin/AdminAnalyticsCard';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useToast} from '../../hooks/useToast';
+import {useSocket} from '../../hooks/useSocket';
 import Animated, {FadeInUp, FadeInRight} from '../../mocks/reanimated';
 import {IShop, IUser} from '@shared/types';
+import {SocketEvent} from '@shared/constants/socketEvents';
 
 interface AdminStats {
   totalUsers: number;
@@ -42,19 +43,28 @@ interface AdminStats {
 
 export default function AdminOverviewScreen({navigation}: {navigation: any}) {
   const {showToast} = useToast();
+  const {socket, isConnected} = useSocket();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [pendingShops, setPendingShops] = useState<IShop[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Auto-refresh stats when focused and every 60s
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-      const interval = setInterval(fetchData, 60000);
-      return () => clearInterval(interval);
-    }, [])
-  );
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+    socket.on(SocketEvent.NEW_APPLICATION, (data: { shop?: IShop }) => {
+      if (data?.shop) {
+        setPendingShops(prev => [data.shop!, ...prev]);
+        setStats(prev => prev ? {...prev, pendingShops: prev.pendingShops + 1} : prev);
+      } else {
+        axiosInstance.get('/api/admin/shops/pending').then(res => setPendingShops(res.data.data)).catch(() => {});
+      }
+    });
+    return () => { socket.off(SocketEvent.NEW_APPLICATION); };
+  }, [socket, isConnected]);
 
   const fetchData = async () => {
     try {
@@ -76,7 +86,8 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
     try {
       await axiosInstance.patch(`/api/admin/shops/${shopId}/approve`);
       showToast({message: 'Shop approved and verified live!', type: 'success'});
-      fetchData();
+      setPendingShops(prev => prev.filter(s => String(s._id) !== shopId));
+      setStats(prev => prev ? {...prev, pendingShops: Math.max(0, prev.pendingShops - 1)} : prev);
     } catch (e: unknown) {
       if (e && typeof e === 'object' && 'response' in e) {
         const axiosErr = e as {response: {data: {message: string}}};
@@ -104,7 +115,8 @@ export default function AdminOverviewScreen({navigation}: {navigation: any}) {
                 reason,
               });
               showToast({message: 'Shop application rejected', type: 'info'});
-              fetchData();
+              setPendingShops(prev => prev.filter(s => String(s._id) !== shopId));
+              setStats(prev => prev ? {...prev, pendingShops: Math.max(0, prev.pendingShops - 1)} : prev);
             } catch (e: unknown) {
               if (e && typeof e === 'object' && 'response' in e) {
                 const axiosErr = e as {response: {data: {message: string}}};

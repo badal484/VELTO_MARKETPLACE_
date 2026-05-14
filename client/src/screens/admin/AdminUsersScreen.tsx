@@ -71,7 +71,7 @@ export default function AdminUsersScreen() {
                 'User Removed',
                 `${name} has been successfully deleted from the platform.`,
               );
-              fetchUsers();
+              setUsers(prev => prev.filter(u => u._id !== id));
             } catch (error: unknown) {
               if (error && typeof error === 'object' && 'response' in error) {
                 const axiosErr = error as {response: {data: {message: string}}};
@@ -89,43 +89,32 @@ export default function AdminUsersScreen() {
 
   const handleVerifyRider = async (id: string) => {
     try {
-      setLoading(true);
       await axiosInstance.patch(`/api/admin/users/${id}/verify-rider`);
       Alert.alert('Success', 'Rider has been verified and can now accept deliveries.');
-      fetchUsers();
+      setUsers(prev => prev.map(u => u._id === id ? {...u, isRiderVerified: true} as IUser : u));
       setModalVisible(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to verify rider');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleRejectRider = async (id: string, reason: string) => {
     try {
-      setLoading(true);
       await axiosInstance.patch(`/api/admin/users/${id}/reject-rider`, { rejectionReason: reason });
       Alert.alert('Rider Rejected', 'The application has been rejected and the user notified.');
-      fetchUsers();
       setModalVisible(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to reject rider');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSettleCash = async (riderId: string, amount: number) => {
     try {
-      setLoading(true);
       await axiosInstance.post('/api/admin/cash-settlement', { riderId, amount });
       Alert.alert('Success', `Recorded ₹${amount} cash settlement.`);
-      fetchUsers();
       setModalVisible(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to record settlement');
-    } finally {
-      setLoading(false);
     }
   };
 

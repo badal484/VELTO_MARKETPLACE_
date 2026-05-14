@@ -89,11 +89,11 @@ function CategoryChip({
 const categoriesList = [
   { id: null, icon: 'sparkles', label: 'For You' },
   { id: Category.ELECTRONICS, icon: 'hardware-chip', label: 'Electronics' },
-  { id: Category.FOOD, icon: 'fast-food', label: 'Food' },
   { id: Category.PHARMACY, icon: 'medkit', label: 'Pharmacy' },
+  { id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction' },
+  { id: Category.FOOD, icon: 'fast-food', label: 'Food' },
   { id: Category.CLOTHING, icon: 'shirt', label: 'Clothing' },
   { id: Category.HOME, icon: 'home', label: 'Home' },
-  { id: Category.CONSTRUCTION, icon: 'construct', label: 'Construction' },
   { id: Category.SPORTS, icon: 'basketball', label: 'Sports' },
 ];
 // Distance calculation helper (Haversine formula)

@@ -27,7 +27,7 @@ export class OrderService {
     [OrderStatus.PAYMENT_UNDER_REVIEW]: [OrderStatus.AWAITING_SELLER_CONFIRMATION, OrderStatus.CANCELLED],
     [OrderStatus.AWAITING_SELLER_CONFIRMATION]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.CONFIRMED]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.SEARCHING_RIDER, OrderStatus.CANCELLED],
-    [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.SEARCHING_RIDER, OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+    [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.SEARCHING_RIDER, OrderStatus.CANCELLED],
     [OrderStatus.SEARCHING_RIDER]: [OrderStatus.RIDER_ASSIGNED, OrderStatus.CANCELLED],
     [OrderStatus.RIDER_ASSIGNED]: [OrderStatus.AT_SHOP, OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
     [OrderStatus.AT_SHOP]: [OrderStatus.PICKED_UP, OrderStatus.CANCELLED],
@@ -303,8 +303,8 @@ export class OrderService {
           maxDistance: searchRadius,
           spherical: true,
           key: 'pickupLocation',
-          query: { 
-            status: { $in: [OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
+          query: {
+            status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] },
             fulfillmentMethod: 'delivery',
             $or: [{ rider: { $exists: false } }, { rider: null }]
           }
@@ -408,7 +408,7 @@ export class OrderService {
       { 
         _id: orderId, 
         $or: [{ rider: { $exists: false } }, { rider: null }], 
-        status: { $in: [OrderStatus.CONFIRMED, OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] } 
+        status: { $in: [OrderStatus.SEARCHING_RIDER, OrderStatus.READY_FOR_PICKUP] }
       },
       { 
         $set: { 

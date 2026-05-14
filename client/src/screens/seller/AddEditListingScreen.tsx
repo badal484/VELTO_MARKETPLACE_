@@ -225,13 +225,13 @@ export default function AddEditListingScreen({
 
   const categoriesList = [
     {id: Category.ELECTRONICS, icon: 'hardware-chip'},
-    {id: Category.FOOD, icon: 'fast-food'},
     {id: Category.PHARMACY, icon: 'medkit'},
+    {id: Category.CONSTRUCTION, icon: 'construct'},
+    {id: Category.FOOD, icon: 'fast-food'},
     {id: Category.CLOTHING, icon: 'shirt'},
     {id: Category.HOME, icon: 'home'},
     {id: Category.SPORTS, icon: 'basketball'},
     {id: Category.OTHER, icon: 'build'},
-    {id: Category.CONSTRUCTION, icon: 'construct'},
   ];
 
   return (

@@ -138,14 +138,11 @@ export default function AdminPendingShopsScreen({
   }, [fetchData]);
 
   useEffect(() => {
-    if (socket && isConnected) {
-      socket.on(SocketEvent.NEW_APPLICATION, () => {
-        fetchData();
-      });
-    }
-    return () => {
-      if (socket) socket.off(SocketEvent.NEW_APPLICATION);
-    };
+    if (!socket || !isConnected) return;
+    socket.on(SocketEvent.NEW_APPLICATION, () => {
+      fetchData();
+    });
+    return () => { socket.off(SocketEvent.NEW_APPLICATION); };
   }, [socket, isConnected, fetchData]);
 
   // --- Shop Actions ---
@@ -155,7 +152,7 @@ export default function AdminPendingShopsScreen({
       const payload = customRate?.trim() ? { commissionRate: customRate.trim() } : {};
       await axiosInstance.patch(`/api/admin/shops/${shopId}/approve`, payload);
       showToast({ message: 'Shop approved and is now live!', type: 'success' });
-      fetchData();
+      setPendingShops(prev => prev.filter(s => String(s._id) !== shopId));
     } catch (e: any) {
       showToast({
         message: e.response?.data?.message || 'Failed to approve',
@@ -183,7 +180,7 @@ export default function AdminPendingShopsScreen({
               reason,
             });
             showToast({ message: 'Shop application rejected', type: 'info' });
-            fetchData();
+            setPendingShops(prev => prev.filter(s => String(s._id) !== shopId));
           } catch (e: any) {
             showToast({
               message: e.response?.data?.message || 'Failed to reject',
@@ -203,7 +200,7 @@ export default function AdminPendingShopsScreen({
     try {
       await axiosInstance.patch(`/api/admin/users/${riderId}/verify-rider`);
       showToast({ message: 'Rider verified and activated!', type: 'success' });
-      fetchData();
+      setPendingRiders(prev => prev.filter(r => String(r._id) !== riderId));
     } catch (e: any) {
       showToast({
         message: e.response?.data?.message || 'Failed to verify rider',
@@ -232,7 +229,7 @@ export default function AdminPendingShopsScreen({
               { reason },
             );
             showToast({ message: 'Rider application rejected', type: 'info' });
-            fetchData();
+            setPendingRiders(prev => prev.filter(r => String(r._id) !== riderId));
           } catch (e: any) {
             showToast({
               message: e.response?.data?.message || 'Failed to reject',

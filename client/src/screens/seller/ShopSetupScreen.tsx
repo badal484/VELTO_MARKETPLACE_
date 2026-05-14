@@ -685,13 +685,13 @@ export default function ShopSetupScreen({navigation}: ShopSetupProps) {
                 contentContainerStyle={styles.categoryScroll}>
                 {[
                   {id: Category.ELECTRONICS, icon: 'hardware-chip'},
-                  {id: Category.FOOD, icon: 'fast-food'},
                   {id: Category.PHARMACY, icon: 'medkit'},
+                  {id: Category.CONSTRUCTION, icon: 'construct'},
+                  {id: Category.FOOD, icon: 'fast-food'},
                   {id: Category.CLOTHING, icon: 'shirt'},
                   {id: Category.HOME, icon: 'home'},
-                  {id: Category.OTHER, icon: 'build'},
-                  {id: Category.CONSTRUCTION, icon: 'construct'},
                   {id: Category.SPORTS, icon: 'basketball'},
+                  {id: Category.OTHER, icon: 'build'},
                 ].map((cat, idx) => {
                   const isActive = selectedCategory === cat.id;
                   return (

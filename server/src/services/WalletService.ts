@@ -15,7 +15,6 @@ import { NotificationType } from '../models/Notification';
 import { RazorpayService } from './RazorpayService';
 
 export class WalletService {
-  private static readonly COMMISSION_RATE = parseFloat(process.env.VELTO_COMMISSION_RATE || '0.10');
   private static readonly SELLER_COMMISSION_RATE = parseFloat(process.env.VELTO_SELLER_COMMISSION_RATE || '0.07');
   private static readonly RIDER_CANCEL_COMPENSATION = 15; // ₹15 for effort
   private static readonly MIN_PAYOUT_AMOUNT = 500;
@@ -224,18 +223,21 @@ export class WalletService {
         return;
       }
 
+      // Rider collects full amount: product price + delivery charge
+      const amountCollected = round(order.totalPrice + (order.deliveryCharge || 0));
+
       const updatedRider = await User.findByIdAndUpdate(
         order.rider,
-        { $inc: { cashInHand: order.totalPrice } },
+        { $inc: { cashInHand: amountCollected } },
         { session, new: true, select: 'walletBalance cashInHand' }
       );
 
       await WalletTransaction.create([{
         user: order.rider,
-        amount: order.totalPrice,
+        amount: amountCollected,
         type: 'debit',
         category: TransactionCategory.COD_COLLECTION,
-        description: `COD cash collected — must deposit ₹${order.totalPrice} — order #${orderId.slice(-6).toUpperCase()}`,
+        description: `COD cash collected — must deposit ₹${amountCollected} — order #${orderId.slice(-6).toUpperCase()}`,
         orderId: order._id,
       }], { session });
 
@@ -347,9 +349,11 @@ export class WalletService {
       }
 
       const walletPaid = order.walletAmountPaid || 0;
-      // The portion that was actually charged to Razorpay
+      // Full amount buyer paid = product price + delivery charge
+      const totalPaid = round(order.totalPrice + (order.deliveryCharge || 0));
+      // The portion that was actually charged to Razorpay (anything wallet didn't cover)
       const razorpayPaid = order.paymentMethod === 'Razorpay'
-        ? round(order.totalPrice - walletPaid)
+        ? round(totalPaid - walletPaid)
         : 0;
 
       const dest = (order as any).refundDestination || 'wallet';

@@ -67,8 +67,21 @@ export default function AdminPayoutsScreen({navigation}: any) {
 
       if (res.data.success) {
         Alert.alert('Success', `Payout marked as ${status}`);
+        setRequests(prev => prev.map(r =>
+          r._id === selectedRequest._id
+            ? {...r, status, transactionId: transactionId || r.transactionId, adminNote: adminNote || r.adminNote}
+            : r
+        ));
+        setStats((prev: any) => {
+          if (!prev) return prev;
+          const wasPending = selectedRequest.status === PayoutRequestStatus.PENDING;
+          return {
+            ...prev,
+            pending: wasPending ? Math.max(0, prev.pending - 1) : prev.pending,
+            completed: status === PayoutRequestStatus.COMPLETED ? prev.completed + 1 : prev.completed,
+          };
+        });
         setSelectedRequest(null);
-        fetchRequests();
       }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Update failed');

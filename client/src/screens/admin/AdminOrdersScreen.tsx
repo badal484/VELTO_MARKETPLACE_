@@ -1,5 +1,4 @@
 import React, {useEffect, useState, useCallback} from 'react';
-import {useFocusEffect} from '@react-navigation/native';
 import {useSocket} from '../../hooks/useSocket';
 import {
   View,
@@ -41,11 +40,9 @@ export default function AdminOrdersScreen({route, navigation}: any) {
   const [searchQuery, setSearchQuery] = useState(deepSearchId ? String(deepSearchId) : '');
   const [filteredOrders, setFilteredOrders] = useState<IOrder[]>([]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchOrders();
-    }, [])
-  );
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   useSocket('order_status_updated', (updatedOrder: IOrder) => {
     setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
@@ -107,13 +104,13 @@ export default function AdminOrdersScreen({route, navigation}: any) {
     try {
       setLoading(true);
       setCancelModalVisible(false);
-      await axiosInstance.patch(`/api/admin/orders/${cancellingOrderId}/status`, { 
+      await axiosInstance.patch(`/api/admin/orders/${cancellingOrderId}/status`, {
         status: OrderStatus.CANCELLED,
         reason: `Admin: ${cancelReason}`,
         refundDestination
       });
       showToast({ message: `Order cancelled. Refund to ${refundDestination} initiated.`, type: 'success' });
-      fetchOrders();
+      setOrders(prev => prev.map(o => o._id === cancellingOrderId ? {...o, status: OrderStatus.CANCELLED} : o));
     } catch (err: any) {
       showToast({ message: err.response?.data?.message || 'Cancellation failed', type: 'error' });
       setLoading(false);

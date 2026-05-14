@@ -56,7 +56,7 @@ export default function AdminProductsScreen() {
                 'Listing Removed',
                 'The product has been successfully moderated and taken down.',
               );
-              fetchProducts();
+              setProducts(prev => prev.filter(p => String(p._id) !== id));
             } catch (error: unknown) {
               if (error && typeof error === 'object' && 'response' in error) {
                 const axiosErr = error as {response: {data: {message: string}}};
