@@ -5,7 +5,7 @@ import { User } from '../models/User';
 import { Product } from '../models/Product';
 import { Order } from '../models/Order';
 import { Conversation } from '../models/Conversation';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { NotificationType } from '../models/Notification';
 import { OrderStatus, IUser } from '@shared/types';
 import { SocketEvent } from '@shared/constants/socketEvents';
@@ -125,6 +125,7 @@ export const approveShop = async (req: Request, res: Response): Promise<void> =>
     if (shop) {
       await User.findByIdAndUpdate(shop.owner, { role: 'shop_owner' });
 
+      const io = getIO();
       io.to(shop.owner.toString()).emit('shop_status_update', { 
         success: true, 
         isVerified: true, 
@@ -159,6 +160,7 @@ export const rejectShop = async (req: Request, res: Response): Promise<void> => 
       { new: true }
     );
     if (shop) {
+      const io = getIO();
       io.to(shop.owner.toString()).emit('shop_status_update', { 
         success: true, 
         isVerified: false, 
@@ -296,6 +298,7 @@ export const toggleUserBlock = async (req: Request, res: Response): Promise<void
       data: { isBlocked: user.isBlocked }
     });
 
+    const io = getIO();
     io.to(user._id.toString()).emit(SocketEvent.USER_STATE_UPDATED, { isBlocked: user.isBlocked });
     if (user.isBlocked) {
       io.to(user._id.toString()).emit('force_logout', { message: 'Your account has been restricted by an administrator.' });
@@ -319,6 +322,7 @@ export const verifyRider = async (req: Request, res: Response): Promise<void> =>
     );
     
     if (user) {
+      const io = getIO();
       io.to(user._id.toString()).emit('rider_status_update', { 
         success: true, 
         isRiderVerified: true, 
@@ -358,6 +362,7 @@ export const rejectRider = async (req: Request, res: Response): Promise<void> =>
     );
     
     if (user) {
+      const io = getIO();
       io.to(user._id.toString()).emit('rider_status_update', { 
         success: true, 
         isRiderVerified: false, 
@@ -598,7 +603,7 @@ export const forceReleaseOrder = async (req: Request, res: Response): Promise<vo
     order.status = OrderStatus.SEARCHING_RIDER;
     await order.save();
 
-    io.to(previousRiderId.toString()).emit('order_unassigned', {
+    getIO().to(previousRiderId.toString()).emit('order_unassigned', {
       orderId: order._id,
       message: 'You have been unassigned from this order by an administrator.'
     });
@@ -634,7 +639,7 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
       req.user!.role
     );
     
-    io.emit('order_status_updated', updated);
+    getIO().emit('order_status_updated', updated);
     res.json({ success: true, message: 'Payment verified. Now awaiting seller confirmation.', data: updated });
   } catch (error) {
     handleError(error, res);

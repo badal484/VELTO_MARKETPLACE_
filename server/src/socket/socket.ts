@@ -3,16 +3,23 @@ import { Server as HttpServer } from 'http';
 import { IMessage } from '@shared/types';
 import { SocketEvent } from '@shared/constants/socketEvents';
 
-export let io: Server;
+let ioInstance: Server;
+
+export const getIO = (): Server => {
+  if (!ioInstance) {
+    throw new Error('Socket.io not initialized!');
+  }
+  return ioInstance;
+};
 
 export const initSocket = (httpServer: HttpServer) => {
-  io = new Server(httpServer, {
+  ioInstance = new Server(httpServer, {
     cors: {
       origin: '*',
     }
   });
 
-  io.on('connection', (socket: Socket) => {
+  ioInstance.on('connection', (socket: Socket) => {
     
     socket.on('join_user', (userId: string) => {
       socket.join(userId);
@@ -20,18 +27,22 @@ export const initSocket = (httpServer: HttpServer) => {
     });
 
     socket.on(SocketEvent.JOIN_CONVERSATION, (conversationId: string) => {
-      socket.join(conversationId);
-      console.log(`[SOCKET] Socket ${socket.id} joined conversation room: ${conversationId}`);
+      const room = conversationId.toString();
+      socket.join(room);
+      console.log(`[SOCKET] Socket ${socket.id} joined conversation room: ${room}`);
     });
 
     socket.on(SocketEvent.SEND_MESSAGE, async (data: { conversationId: string; text: string; receiverId: string; message: IMessage }) => {
-      console.log(`[SOCKET] Relay message to room ${data.conversationId} and receiver ${data.receiverId}`);
+      const room = data.conversationId.toString();
+      const receiverRoom = data.receiverId.toString();
+      
+      console.log(`[SOCKET] Relay message to room ${room} and receiver ${receiverRoom}`);
       // 1. Emit to the conversation room (for those currently in the chat)
-      io.to(data.conversationId).emit(SocketEvent.RECEIVE_MESSAGE, data.message);
+      ioInstance.to(room).emit(SocketEvent.RECEIVE_MESSAGE, data.message);
       
       // 2. Emit to the receiver's private room (for notifications/unread counts)
-      io.to(data.receiverId).emit(SocketEvent.NEW_MESSAGE_NOTIFICATION, {
-        conversationId: data.conversationId,
+      ioInstance.to(receiverRoom).emit(SocketEvent.NEW_MESSAGE_NOTIFICATION, {
+        conversationId: room,
         message: data.message
       });
 
@@ -63,7 +74,7 @@ export const initSocket = (httpServer: HttpServer) => {
     // Real-Time Rider Location Tracking
     socket.on('update_rider_location', (data: { orderId: string; lat: number; lng: number; buyerId: string }) => {
       // Broadcast to the buyer's private room
-      io.to(data.buyerId).emit('rider_location_updated', {
+      ioInstance.to(data.buyerId).emit('rider_location_updated', {
         orderId: data.orderId,
         lat: data.lat,
         lng: data.lng,

@@ -1,6 +1,6 @@
 import { Notification, NotificationType } from '../models/Notification';
 import { User } from '../models/User';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 
 interface SendNotificationParams {
   recipient: string;
@@ -23,7 +23,7 @@ export class NotificationService {
         data: params.data,
       });
 
-      io.to(params.recipient).emit('notification', {
+      getIO().to(params.recipient).emit('notification', {
         type: params.type,
         title: params.title,
         message: params.message,

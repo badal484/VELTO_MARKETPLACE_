@@ -28,8 +28,11 @@ export const SocketProvider: React.FC<{children: React.ReactNode}> = ({
 
   useEffect(() => {
     const newSocket = io(BASE_URL, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
     });
 
     newSocket.on('connect', () => {

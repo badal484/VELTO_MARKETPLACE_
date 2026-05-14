@@ -3,7 +3,7 @@ import { Product } from '../models/Product';
 import { Order } from '../models/Order';
 import { uploadImage } from '../utils/imagekit';
 import { AppError } from '../utils/errors';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { WalletTransaction } from '../models/WalletTransaction';
 import { TransactionCategory } from '@shared/types';
@@ -58,7 +58,7 @@ export class ShopService {
     });
 
     // Notify admins about new shop application
-    io.emit(SocketEvent.NEW_APPLICATION, { type: 'shop', name: shop.name });
+    getIO().emit(SocketEvent.NEW_APPLICATION, { type: 'shop', name: shop.name });
 
     return shop;
   }

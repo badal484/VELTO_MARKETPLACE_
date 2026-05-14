@@ -3,7 +3,7 @@ import { Conversation } from '../models/Conversation';
 import { User } from '../models/User';
 import { Message } from '../models/Message';
 import { Role } from '@shared/types';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { handleError, AppError } from '../utils/errors';
 import mongoose from 'mongoose';
@@ -51,32 +51,20 @@ export const startConversation = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Find existing conversation for this pair + context
-    let conversation;
-    if (orderId) {
-      conversation = await Conversation.findOne({
-        participants: { $all: [req.user?._id, receiverId] },
-        order: orderId,
-      });
-    } else if (productId) {
-      conversation = await Conversation.findOne({
-        participants: { $all: [req.user?._id, receiverId] },
-        product: productId,
-      });
-    } else {
-      conversation = await Conversation.findOne({
-        participants: { $all: [req.user?._id, receiverId] },
-      });
-    }
+    // --- SINGLE CHAT PER USER LOGIC ---
+    // We look for a conversation between these two participants, ignoring product/order context
+    let conversation = await Conversation.findOne({
+      participants: { $all: [req.user?._id, receiverId] }
+    });
 
     if (!conversation) {
       conversation = await Conversation.create({
         participants: [req.user?._id, receiverId],
-        product: productId,
-        order: orderId,
+        product: productId, // Optional initial context
+        order: orderId,     // Optional initial context
       });
-
     } else {
+      // Update context if provided but missing
       if (productId && !conversation.product) conversation.product = productId;
       if (orderId && !conversation.order) conversation.order = orderId;
       await conversation.save();
@@ -232,10 +220,15 @@ export const sendMessage = async (req: Request, res: Response): Promise<void> =>
     // --- REAL-TIME EMISSION FROM SERVER ---
     const populatedMessage = await Message.findById(message._id).populate('sender', 'name avatar role');
     
-    console.log(`[REST] Emitting message to conv: ${conversationId}, receiver: ${receiverId}`);
-    io.to(conversationId).emit(SocketEvent.RECEIVE_MESSAGE, populatedMessage);
-    io.to(receiverId).emit(SocketEvent.NEW_MESSAGE_NOTIFICATION, {
-      conversationId,
+    const roomName = conversationId.toString();
+    const receiverRoom = receiverId.toString();
+
+    console.log(`[REST] Emitting message to room: ${roomName}, receiverRoom: ${receiverRoom}`);
+    
+    const io = getIO();
+    io.to(roomName).emit(SocketEvent.RECEIVE_MESSAGE, populatedMessage);
+    io.to(receiverRoom).emit(SocketEvent.NEW_MESSAGE_NOTIFICATION, {
+      conversationId: roomName,
       message: populatedMessage
     });
 

@@ -5,7 +5,7 @@ import { User } from '../models/User';
 import { Shop } from '../models/Shop';
 import { Cart } from '../models/Cart';
 import { Notification, NotificationType } from '../models/Notification';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { OrderStatus, Role, TransactionCategory } from '@shared/types';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { AppError } from '../utils/errors';
@@ -122,7 +122,7 @@ export class OrderService {
       }
       
       if (sellerId) {
-        io.to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order[0]);
+        getIO().to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order[0]);
       }
 
       return order[0];
@@ -423,7 +423,7 @@ export class OrderService {
     }
 
     await WorkflowService.syncOrderState(order._id.toString(), OrderStatus.RIDER_ASSIGNED, 'System: Delivery partner assigned. Heading to pickup.');
-    io.emit('order_status_updated', order);
+    getIO().emit('order_status_updated', order);
     return order;
   }
 
@@ -494,12 +494,12 @@ export class OrderService {
           ` Velto Express: Delivery partner assigned (${(assignedRider.distanceMetres/1000).toFixed(2)}km away).`
         );
 
-        io.to(assignedRider._id.toString()).emit('order_assigned', {
+        getIO().to(assignedRider._id.toString()).emit('order_assigned', {
           orderId,
           message: 'New order auto-assigned to you!',
           order: updatedOrder
         });
-        io.emit('order_status_updated', updatedOrder);
+        getIO().emit('order_status_updated', updatedOrder);
       }
     } else if (order.status === OrderStatus.READY_FOR_PICKUP) {
       const updatedOrder = await Order.findOneAndUpdate(
@@ -508,7 +508,7 @@ export class OrderService {
         { new: true }
       );
       if (updatedOrder) {
-        io.emit('order_status_updated', updatedOrder);
+        getIO().emit('order_status_updated', updatedOrder);
       }
     }
   }
@@ -729,7 +729,7 @@ export class OrderService {
         if (sellerId) {
           const isPrepaidPending = paymentMethod === 'Razorpay' && order.status === OrderStatus.PAYMENT_UNDER_REVIEW;
           if (!isPrepaidPending) {
-            io.to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
+            getIO().to(sellerId).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
           }
         }
       }

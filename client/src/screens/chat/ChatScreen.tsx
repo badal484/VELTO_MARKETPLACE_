@@ -225,6 +225,19 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         markConversationAsRead(conversationId);
       });
 
+      // --- REDUNDANCY LISTENER ---
+      // In case the conversation room fails, we listen to the global notification event
+      socket.on(SocketEvent.NEW_MESSAGE_NOTIFICATION, (data: { conversationId: string; message: any }) => {
+        if (data.conversationId === conversationId) {
+          setMessages(prev => {
+            const exists = prev.some(m => m._id === data.message._id);
+            if (exists) return prev;
+            return [...prev, data.message];
+          });
+          markConversationAsRead(conversationId);
+        }
+      });
+
       socket.on(SocketEvent.ORDER_STATUS_UPDATED, (updatedOrder: any) => {
         if (orderId && updatedOrder._id === orderId) {
           setOrder(updatedOrder);
