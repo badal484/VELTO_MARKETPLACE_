@@ -67,8 +67,11 @@ export class OrderService {
         deliveryCharge = calculateDeliveryFee(distance, product.size as any);
       }
 
-      // Launch Promotion: Free Delivery charges customer pure product price
-      const totalPrice = round(product.price * data.quantity);
+      const subtotal = round(product.price * data.quantity);
+      const isFreeDelivery = subtotal >= 500;
+      const finalDeliveryCharge = isFreeDelivery ? 0 : deliveryCharge;
+      
+      const totalPrice = subtotal; // Keep as product-only for commission logic
       const { productId, ...rest } = data;
       const order = await Order.create([{
         ...rest,
@@ -84,6 +87,7 @@ export class OrderService {
         },
         fulfillmentMethod,
         totalPrice,
+        deliveryCharge: finalDeliveryCharge,
         status: OrderStatus.PENDING,
         pickupLocation: product.location?.coordinates?.length ? product.location : (product.shop as any)?.location,
         deliveryLocation: data.lat && data.lng ? {
@@ -585,9 +589,16 @@ export class OrderService {
         tempItems.push({ ...item, product, itemDeliveryCharge, itemTotalPrice });
       }
 
+      // IMPLEMENT FREE DELIVERY OVER 500
+      const isFreeDelivery = totalBatchAmount >= 500;
+      const finalBatchDeliveryFee = isFreeDelivery ? 0 : tempItems.reduce((sum, item) => sum + (item.itemDeliveryCharge || 0), 0);
+      
+      // The total the user MUST pay
+      const totalPayable = totalBatchAmount + finalBatchDeliveryFee;
+
       let walletDeduction = 0;
       if (useWallet && user.walletBalance && user.walletBalance > 0) {
-        walletDeduction = Math.min(totalBatchAmount, user.walletBalance);
+        walletDeduction = Math.min(totalPayable, user.walletBalance);
         
         // Deduct from user
         user.walletBalance = round(user.walletBalance - walletDeduction);
@@ -616,21 +627,22 @@ export class OrderService {
         }
 
         const itemTotalPrice = item.itemTotalPrice;
-        const itemDeliveryCharge = item.itemDeliveryCharge;
+        const itemDeliveryCharge = isFreeDelivery ? 0 : item.itemDeliveryCharge;
+        const itemTotalWithDelivery = itemTotalPrice + itemDeliveryCharge;
         
-        // Distribute wallet deduction proportionally or simply
+        // Distribute wallet deduction proportionally based on item total (with delivery)
         let itemWalletPaid = 0;
         if (i === tempItems.length - 1) {
           itemWalletPaid = remainingWalletToDistribute;
         } else {
-          itemWalletPaid = round((itemTotalPrice / totalBatchAmount) * walletDeduction);
+          itemWalletPaid = round((itemTotalWithDelivery / totalPayable) * walletDeduction);
           remainingWalletToDistribute -= itemWalletPaid;
         }
 
         const isRazorpay = paymentMethod === 'Razorpay';
         const isDirectUPI = paymentMethod === 'Direct UPI Transfer';
-        // If wallet covers full amount, status should be CONFIRMED immediately (except for review logic if any)
-        const isFullyPaidByWallet = itemWalletPaid >= itemTotalPrice;
+        // If wallet covers full amount, status should be CONFIRMED immediately
+        const isFullyPaidByWallet = itemWalletPaid >= itemTotalWithDelivery;
         const initialStatus = isRazorpay 
           ? (isFullyPaidByWallet ? OrderStatus.AWAITING_SELLER_CONFIRMATION : OrderStatus.PAYMENT_UNDER_REVIEW) 
           : (isDirectUPI ? OrderStatus.PAYMENT_UNDER_REVIEW : OrderStatus.AWAITING_SELLER_CONFIRMATION);
@@ -676,7 +688,7 @@ export class OrderService {
 
       let razorpayOrder: any = null;
       if (paymentMethod === 'Razorpay') {
-        const remainingToPay = round(totalBatchAmount - walletDeduction);
+        const remainingToPay = round(totalPayable - walletDeduction);
         
         if (remainingToPay > 0) {
           razorpayOrder = await RazorpayService.createOrder(remainingToPay, createdOrders[0]._id.toString());
@@ -791,9 +803,15 @@ export class OrderService {
       });
     }
 
+    // Free Delivery for orders above ₹500
+    const totalSubtotal = items.reduce((acc: number, item: any) => acc + (item.price || 0) * (item.quantity || 1), 0);
+    const isFreeDelivery = totalSubtotal >= 500;
+
     return {
-      totalDeliveryFee: 0, // Launch Promotion: Free Delivery
-      itemQuotes
+      totalDeliveryFee: isFreeDelivery ? 0 : totalDeliveryFee,
+      itemQuotes,
+      isFreeDelivery,
+      subtotal: totalSubtotal
     };
   }
 }

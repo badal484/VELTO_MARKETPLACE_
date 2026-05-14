@@ -416,9 +416,8 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     const totalOrders = await Order.countDocuments();
     const totalConversations = await Conversation.countDocuments({});
 
-    const revenueData = await Order.aggregate([
-      { $match: { status: { $ne: OrderStatus.CANCELLED } } },
-      { $group: { _id: null, total: { $sum: '$totalPrice' } } }
+      { $match: { status: OrderStatus.COMPLETED } },
+      { $group: { _id: null, total: { $sum: { $add: ["$totalPrice", { $ifNull: ["$deliveryCharge", 0] }] } } } }
     ]);
 
     const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
@@ -427,11 +426,11 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const dailySales = await Order.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo }, status: { $ne: OrderStatus.CANCELLED } } },
+      { $match: { createdAt: { $gte: sevenDaysAgo }, status: OrderStatus.COMPLETED } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-          amount: { $sum: "$totalPrice" },
+          amount: { $sum: { $add: ["$totalPrice", { $ifNull: ["$deliveryCharge", 0] }] } },
           count: { $sum: 1 }
         }
       },
@@ -442,11 +441,11 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     const monthlySales = await Order.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo }, status: { $ne: OrderStatus.CANCELLED } } },
+      { $match: { createdAt: { $gte: sixMonthsAgo }, status: OrderStatus.COMPLETED } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-          amount: { $sum: "$totalPrice" },
+          amount: { $sum: { $add: ["$totalPrice", { $ifNull: ["$deliveryCharge", 0] }] } },
           count: { $sum: 1 }
         }
       },
@@ -457,11 +456,11 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     const platformRevenue = revenueDoc.netRevenue;
 
     const topShops = await Order.aggregate([
-      { $match: { status: { $ne: OrderStatus.CANCELLED } } },
+      { $match: { status: OrderStatus.COMPLETED } },
       {
         $group: {
           _id: "$shop",
-          revenue: { $sum: "$totalPrice" },
+          revenue: { $sum: { $add: ["$totalPrice", { $ifNull: ["$deliveryCharge", 0] }] } },
           orderCount: { $sum: 1 }
         }
       },

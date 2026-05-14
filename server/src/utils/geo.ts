@@ -30,5 +30,29 @@ export const calculateDeliveryFee = (
   distanceKm: number,
   size: ProductSize = ProductSize.SMALL
 ): number => {
-  return 40; // Base logistics fee restored to ₹40
+  const BASE_FEE = 30; // Up to 3km
+  const DISTANCE_THRESHOLD = 3;
+  const PER_KM_CHARGE = 10;
+  
+  let fee = BASE_FEE;
+  
+  if (distanceKm > DISTANCE_THRESHOLD) {
+    const extraKm = Math.ceil(distanceKm - DISTANCE_THRESHOLD);
+    fee += extraKm * PER_KM_CHARGE;
+  }
+
+  // Size Surcharge
+  switch (size) {
+    case ProductSize.MEDIUM:
+      fee += 20;
+      break;
+    case ProductSize.LARGE:
+      fee += 50;
+      break;
+    case ProductSize.SMALL:
+    default:
+      break;
+  }
+
+  return fee;
 };
