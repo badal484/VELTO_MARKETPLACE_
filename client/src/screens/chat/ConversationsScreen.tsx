@@ -48,36 +48,36 @@ export default function ConversationsScreen({navigation}: ConversationsProps) {
       resetUnreadChatCount();
     });
     fetchConversations();
-    
-    if (socket) {
-      socket.on(SocketEvent.NEW_MESSAGE_NOTIFICATION, (data: { conversationId: string, message: any }) => {
-        setConversations(prev => {
-          const index = prev.findIndex(c => c._id === data.conversationId);
-          if (index === -1) {
-            fetchConversations();
-            return prev;
-          }
-          const updated = [...prev];
-          updated[index] = {
-            ...updated[index],
-            lastMessage: data.message.text,
-            updatedAt: new Date(),
-            unreadCount: (updated[index] as any).unreadCount + 1
-          } as any;
-          // Move to top
-          const conv = updated.splice(index, 1)[0];
-          return [conv, ...updated];
-        });
-      });
-    }
+    return () => unsubscribe();
+  }, [navigation]);
 
-    return () => {
-      unsubscribe();
-      if (socket) {
-        socket.off(SocketEvent.NEW_MESSAGE_NOTIFICATION);
-      }
+  useEffect(() => {
+    if (!socket) return;
+
+    const onNewMessage = (data: { conversationId: string; message: any }) => {
+      setConversations(prev => {
+        const index = prev.findIndex(c => c._id === data.conversationId);
+        if (index === -1) {
+          fetchConversations();
+          return prev;
+        }
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          lastMessage: data.message.text,
+          updatedAt: new Date(),
+          unreadCount: (updated[index] as any).unreadCount + 1,
+        } as any;
+        const conv = updated.splice(index, 1)[0];
+        return [conv, ...updated];
+      });
     };
-  }, [navigation, socket]);
+
+    socket.on(SocketEvent.NEW_MESSAGE_NOTIFICATION, onNewMessage);
+    return () => {
+      socket.off(SocketEvent.NEW_MESSAGE_NOTIFICATION, onNewMessage);
+    };
+  }, [socket]);
 
   const fetchConversations = async () => {
     try {

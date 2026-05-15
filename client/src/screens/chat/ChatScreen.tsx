@@ -208,76 +208,15 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     await fetchMessages(page + 1);
   };
 
+  // Effect 1: data fetch + lifecycle (runs once per conversationId)
   useEffect(() => {
     fetchMessages();
     setActiveConversationId(conversationId);
     markConversationAsRead(conversationId);
 
-    if (socket && isConnected) {
-      socket.emit(SocketEvent.JOIN_CONVERSATION, conversationId);
-
-      socket.on(SocketEvent.RECEIVE_MESSAGE, (message: IMessage) => {
-        setMessages(prev => {
-          const exists = prev.some(m => m._id === message._id);
-          if (exists) return prev;
-          return [...prev, message];
-        });
-        markConversationAsRead(conversationId);
-      });
-
-      // --- REDUNDANCY LISTENER ---
-      // In case the conversation room fails, we listen to the global notification event
-      socket.on(SocketEvent.NEW_MESSAGE_NOTIFICATION, (data: { conversationId: string; message: any }) => {
-        if (data.conversationId === conversationId) {
-          setMessages(prev => {
-            const exists = prev.some(m => m._id === data.message._id);
-            if (exists) return prev;
-            return [...prev, data.message];
-          });
-          markConversationAsRead(conversationId);
-        }
-      });
-
-      socket.on(SocketEvent.ORDER_STATUS_UPDATED, (updatedOrder: any) => {
-        if (orderId && updatedOrder._id === orderId) {
-          setOrder(updatedOrder);
-        }
-      });
-
-      socket.on(
-        SocketEvent.TYPING,
-        (data: { conversationId: string; userId: string }) => {
-          if (
-            data.conversationId === conversationId &&
-            data.userId !== user?._id
-          ) {
-            setIsTyping(true);
-            setTypingUser(
-              otherUser?.role === Role.ADMIN
-                ? 'Support Team'
-                : otherUser?.name || 'Someone',
-            );
-
-            if (typingTimeoutRef.current)
-              clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = setTimeout(() => {
-              setIsTyping(false);
-            }, 3000);
-          }
-        },
-      );
-    }
-
     return () => {
       setActiveConversationId(null);
-      if (socket) {
-        socket.off(SocketEvent.RECEIVE_MESSAGE);
-        socket.off(SocketEvent.TYPING);
-        socket.off(SocketEvent.ORDER_STATUS_UPDATED);
-      }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      
-      // Cleanup audio
       if (audioPlayerRef.current) {
         audioPlayerRef.current.stopPlayer();
         audioPlayerRef.current.removePlayBackListener();
@@ -285,16 +224,67 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         audioPlayerRef.current.removeRecordBackListener();
       }
     };
-  }, [
-    socket,
-    isConnected,
-    conversationId,
-    fetchMessages,
-    setActiveConversationId,
-    markConversationAsRead,
-    user?._id,
-    orderId,
-  ]);
+  }, [conversationId]);
+
+  // Effect 2: join room whenever socket reconnects or conversationId changes
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+    socket.emit(SocketEvent.JOIN_CONVERSATION, conversationId);
+  }, [socket, isConnected, conversationId]);
+
+  // Effect 3: socket event listeners — isolated so deps don't tear down the handlers
+  useEffect(() => {
+    if (!socket) return;
+
+    const onReceiveMessage = (message: IMessage) => {
+      setMessages(prev => {
+        if (prev.some(m => m._id === message._id)) return prev;
+        return [...prev, message];
+      });
+      markConversationAsRead(conversationId);
+    };
+
+    const onNotification = (data: { conversationId: string; message: any }) => {
+      if (data.conversationId === conversationId) {
+        setMessages(prev => {
+          if (prev.some(m => m._id === data.message._id)) return prev;
+          return [...prev, data.message];
+        });
+        markConversationAsRead(conversationId);
+      }
+    };
+
+    const onOrderUpdate = (updatedOrder: any) => {
+      if (orderId && updatedOrder._id === orderId) {
+        setOrder(updatedOrder);
+      }
+    };
+
+    const onTyping = (data: { conversationId: string; userId: string }) => {
+      if (data.conversationId === conversationId && data.userId !== user?._id) {
+        setIsTyping(true);
+        setTypingUser(
+          otherUser?.role === Role.ADMIN
+            ? 'Support Team'
+            : otherUser?.name || 'Someone',
+        );
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 3000);
+      }
+    };
+
+    socket.on(SocketEvent.RECEIVE_MESSAGE, onReceiveMessage);
+    socket.on(SocketEvent.NEW_MESSAGE_NOTIFICATION, onNotification);
+    socket.on(SocketEvent.ORDER_STATUS_UPDATED, onOrderUpdate);
+    socket.on(SocketEvent.TYPING, onTyping);
+
+    return () => {
+      socket.off(SocketEvent.RECEIVE_MESSAGE, onReceiveMessage);
+      socket.off(SocketEvent.NEW_MESSAGE_NOTIFICATION, onNotification);
+      socket.off(SocketEvent.ORDER_STATUS_UPDATED, onOrderUpdate);
+      socket.off(SocketEvent.TYPING, onTyping);
+    };
+  }, [socket]);
 
   const sendMessage = async () => {
     if (!text.trim()) {

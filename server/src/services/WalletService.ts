@@ -7,7 +7,7 @@ import { WalletTransaction } from '../models/WalletTransaction';
 import { PlatformRevenue } from '../models/PlatformRevenue';
 import { AppError } from '../utils/errors';
 import { PayoutRequestStatus, TransactionCategory } from '@shared/types';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { round } from '../utils/math';
 import { NotificationService } from './notificationService';
@@ -100,7 +100,7 @@ export class WalletService {
       await session.commitTransaction();
 
       if (updatedRider) {
-        io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, {
+        getIO().to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, {
           balance: updatedRider.walletBalance || 0,
           cashInHand: updatedRider.cashInHand || 0,
         });
@@ -176,7 +176,7 @@ export class WalletService {
       await session.commitTransaction();
 
       if (updatedSeller) {
-        io.to(order.seller.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedSeller.walletBalance || 0 });
+        getIO().to(order.seller.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedSeller.walletBalance || 0 });
       }
 
       console.log(`[WALLET] Seller earnings: item=₹${itemTotal}, commission=₹${commission}, credited=₹${earnings}`);
@@ -238,7 +238,7 @@ export class WalletService {
       await session.commitTransaction();
 
       if (updatedRider) {
-        io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, {
+        getIO().to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, {
           balance: updatedRider.walletBalance || 0,
           cashInHand: updatedRider.cashInHand || 0,
         });
@@ -298,7 +298,7 @@ export class WalletService {
       );
 
       await session.commitTransaction();
-      io.to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, {});
+      getIO().to(order.rider.toString()).emit(SocketEvent.WALLET_UPDATED, {});
     } catch (error) {
       if (session.inTransaction()) await session.abortTransaction();
       console.error('[WALLET] compensateRiderForCancellation failed:', error);
@@ -417,7 +417,7 @@ export class WalletService {
 
       const latestBuyer = await User.findById(order.buyer).select('walletBalance').lean();
       if (latestBuyer) {
-        io.to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: latestBuyer.walletBalance || 0 });
+        getIO().to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: latestBuyer.walletBalance || 0 });
       }
 
       console.log(`[WALLET] Refund: wallet=₹${walletRefund}, bank=₹${bankRefund}, dest=${dest}`);
@@ -484,7 +484,7 @@ export class WalletService {
       await session.commitTransaction();
 
       if (updatedUser) {
-        io.to(userId).emit(SocketEvent.WALLET_UPDATED, { balance: updatedUser.walletBalance || 0 });
+        getIO().to(userId).emit(SocketEvent.WALLET_UPDATED, { balance: updatedUser.walletBalance || 0 });
       }
 
       const admins = await User.find({ role: 'admin' }).select('_id').lean();
@@ -538,7 +538,7 @@ export class WalletService {
       await session.commitTransaction();
 
       if (updatedUser) {
-        io.to(request.user.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedUser.walletBalance || 0 });
+        getIO().to(request.user.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: updatedUser.walletBalance || 0 });
       }
     } catch (error) {
       if (session.inTransaction()) await session.abortTransaction();

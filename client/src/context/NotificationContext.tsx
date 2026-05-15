@@ -1,4 +1,4 @@
-import React, {createContext, useState, useEffect, useContext, useCallback} from 'react';
+import React, {createContext, useState, useEffect, useContext, useCallback, useRef} from 'react';
 import {axiosInstance} from '../api/axiosInstance';
 import {useAuth} from '../hooks/useAuth';
 import {useSocket} from '../hooks/useSocket';
@@ -103,34 +103,32 @@ export const NotificationProvider: React.FC<{children: React.ReactNode}> = ({chi
     }
   }, [user, fetchUnreadCount, fetchUnreadChatCount]);
 
+  const activeConversationIdRef = useRef(activeConversationId);
   useEffect(() => {
-    if (socket && isConnected) {
-      // 1. Real-time Message Badges
-      socket.on(SocketEvent.NEW_MESSAGE_NOTIFICATION, (data: { conversationId: string }) => {
-        // Only increment if we are NOT currently in this conversation
-        if (activeConversationId !== data.conversationId) {
-          setUnreadChatCount(prev => prev + 1);
-        }
-      });
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
-      // 2. Real-time System/Order Notifications
-      socket.on(SocketEvent.ORDER_STATUS_UPDATED, () => {
-        setUnreadCount(prev => prev + 1);
-      });
-      
-      socket.on(SocketEvent.NEW_ORDER_FOR_SELLER, () => {
-        setUnreadCount(prev => prev + 1);
-      });
-    }
+  useEffect(() => {
+    if (!socket || !isConnected) return;
 
-    return () => {
-      if (socket) {
-        socket.off(SocketEvent.NEW_MESSAGE_NOTIFICATION);
-        socket.off(SocketEvent.ORDER_STATUS_UPDATED);
-        socket.off(SocketEvent.NEW_ORDER_FOR_SELLER);
+    const onNewMessage = (data: { conversationId: string }) => {
+      if (activeConversationIdRef.current !== data.conversationId) {
+        setUnreadChatCount(prev => prev + 1);
       }
     };
-  }, [socket, isConnected, activeConversationId]);
+    const onOrderUpdate = () => setUnreadCount(prev => prev + 1);
+    const onNewOrder = () => setUnreadCount(prev => prev + 1);
+
+    socket.on(SocketEvent.NEW_MESSAGE_NOTIFICATION, onNewMessage);
+    socket.on(SocketEvent.ORDER_STATUS_UPDATED, onOrderUpdate);
+    socket.on(SocketEvent.NEW_ORDER_FOR_SELLER, onNewOrder);
+
+    return () => {
+      socket.off(SocketEvent.NEW_MESSAGE_NOTIFICATION, onNewMessage);
+      socket.off(SocketEvent.ORDER_STATUS_UPDATED, onOrderUpdate);
+      socket.off(SocketEvent.NEW_ORDER_FOR_SELLER, onNewOrder);
+    };
+  }, [socket, isConnected]);
 
   const incrementUnreadCount = useCallback(() => {
     setUnreadCount(prev => prev + 1);

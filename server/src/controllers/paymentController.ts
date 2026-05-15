@@ -3,7 +3,7 @@ import { RazorpayService } from '../services/RazorpayService';
 import { Order } from '../models/Order';
 import { OrderStatus } from '@shared/types';
 import { handleError, AppError } from '../utils/errors';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { WorkflowService } from '../services/workflowService';
 import { NotificationType } from '../models/Notification';
 import { NotificationService } from '../services/notificationService';
@@ -64,6 +64,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
         'Payment received via Razorpay. Awaiting seller confirmation.',
         { silent: true }
       );
+      const io = getIO();
       io.to(order.seller.toString()).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
       io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
       io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
@@ -129,6 +130,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
               'Payment confirmed via Razorpay webhook. Awaiting seller confirmation.',
               { silent: true }
             );
+            const io = getIO();
             io.to(order.seller.toString()).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
             io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
             io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
@@ -192,7 +194,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
               console.error('[WEBHOOK] refund failed for failed payment:', e)
             );
 
-            io.to(order.buyer.toString()).emit('order_status_updated', {
+            getIO().to(order.buyer.toString()).emit('order_status_updated', {
               orderId: order._id,
               status: OrderStatus.CANCELLED,
             });
@@ -224,7 +226,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
           const buyer = await User.findById(order.buyer).select('walletBalance').lean();
           if (buyer) {
-            io.to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: buyer.walletBalance || 0 });
+            getIO().to(order.buyer.toString()).emit(SocketEvent.WALLET_UPDATED, { balance: buyer.walletBalance || 0 });
           }
         }
       }

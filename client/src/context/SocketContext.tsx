@@ -3,6 +3,7 @@ import {io, Socket} from 'socket.io-client';
 import {Platform} from 'react-native';
 import {useAuth} from '../hooks/useAuth';
 import {BASE_URL} from '../api/axiosInstance';
+import {tokenStore} from '../api/tokenStore';
 
 interface SocketContextData {
   socket: Socket | null;
@@ -33,6 +34,9 @@ export const SocketProvider: React.FC<{children: React.ReactNode}> = ({
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      auth: {
+        token: tokenStore.get(),
+      },
     });
 
     newSocket.on('connect', () => {
@@ -40,6 +44,10 @@ export const SocketProvider: React.FC<{children: React.ReactNode}> = ({
       if (user?._id) {
         newSocket.emit('join_user', user._id);
       }
+    });
+
+    newSocket.on('disconnect', () => {
+      setIsConnected(false);
     });
 
     newSocket.on('force_logout', (data: { message: string }) => {

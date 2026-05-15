@@ -3,7 +3,7 @@ import { User } from '../models/User';
 import { WalletTransaction } from '../models/WalletTransaction';
 import { AppError, handleError } from '../utils/errors';
 import mongoose from 'mongoose';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
 import { TransactionCategory } from '@shared/types';
 
@@ -46,7 +46,7 @@ export const recordCashDeposit = async (req: Request, res: Response) => {
     await session.commitTransaction();
 
     const updatedRider = await User.findById(riderId).select('walletBalance cashInHand').lean();
-    io.to(riderId.toString()).emit(SocketEvent.WALLET_UPDATED, {
+    getIO().to(riderId.toString()).emit(SocketEvent.WALLET_UPDATED, {
       balance: updatedRider?.walletBalance || 0,
       cashInHand: updatedRider?.cashInHand || 0,
     });

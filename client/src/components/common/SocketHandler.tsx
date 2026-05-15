@@ -1,29 +1,26 @@
-import React, {useEffect} from 'react';
-import {Alert} from 'react-native';
+import React, {useEffect, useRef} from 'react';
 import {useSocket} from '../../hooks/useSocket';
 import {useAuth} from '../../hooks/useAuth';
 import {useToast} from '../../hooks/useToast';
 import {useNotifications} from '../../context/NotificationContext';
 
-/**
- * SocketHandler is a global listener for server-emitted events.
- * It remains mounted throughout the app session to handle real-time notifications.
- */
 export const SocketHandler: React.FC = () => {
   const {socket, activeConversationId} = useSocket();
   const {refreshUser} = useAuth();
   const {showToast} = useToast();
   const {incrementUnreadCount, incrementUnreadChatCount} = useNotifications();
 
+  const activeConversationIdRef = useRef(activeConversationId);
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
   useEffect(() => {
     if (!socket) return;
 
-    // Listen for new chat messages
-    socket.on('new_message_notification', (data: { conversationId: string; message: any }) => {
-      // Logic: Only increment badge if NOT currently viewing this specific chat
-      if (data.conversationId !== activeConversationId) {
+    const onNewMessage = (data: { conversationId: string; message: any }) => {
+      if (data.conversationId !== activeConversationIdRef.current) {
         incrementUnreadChatCount();
-        
         showToast({
           title: 'New Message',
           message: `From ${data.message.sender?.name || 'User'}`,
@@ -31,53 +28,47 @@ export const SocketHandler: React.FC = () => {
           duration: 3000,
         });
       }
-    });
+    };
 
-    // Listen for shop approval/rejection events
-    socket.on('shop_status_update', (data: { 
-      isVerified: boolean; 
-      message: string; 
-      rejectionReason?: string 
-    }) => {
+    const onShopStatus = (data: { isVerified: boolean; message: string; rejectionReason?: string }) => {
       refreshUser();
-      
       showToast({
         title: data.isVerified ? 'Verification Success' : 'Shop Update',
-        message: data.isVerified 
-          ? 'Your shop is now live on Velto!' 
+        message: data.isVerified
+          ? 'Your shop is now live on Velto!'
           : (data.rejectionReason ? data.rejectionReason : data.message),
         type: data.isVerified ? 'success' : 'info',
         duration: 5000,
       });
-    });
+    };
 
-    // Listen for new general notifications
-    socket.on('new_notification', (notification: {
-      title: string;
-      message: string;
-    }) => {
+    const onNewNotification = (notification: { title: string; message: string }) => {
       incrementUnreadCount();
-      
       showToast({
         title: notification.title,
         message: notification.message,
         type: 'info',
         duration: 4000,
       });
-    });
+    };
 
-    // Utility updates
-    socket.on('wallet_updated', () => refreshUser());
-    socket.on('user_state_updated', () => refreshUser());
+    const onWalletUpdated = () => refreshUser();
+    const onUserStateUpdated = () => refreshUser();
+
+    socket.on('new_message_notification', onNewMessage);
+    socket.on('shop_status_update', onShopStatus);
+    socket.on('new_notification', onNewNotification);
+    socket.on('wallet_updated', onWalletUpdated);
+    socket.on('user_state_updated', onUserStateUpdated);
 
     return () => {
-      socket.off('new_message_notification');
-      socket.off('shop_status_update');
-      socket.off('new_notification');
-      socket.off('wallet_updated');
-      socket.off('user_state_updated');
+      socket.off('new_message_notification', onNewMessage);
+      socket.off('shop_status_update', onShopStatus);
+      socket.off('new_notification', onNewNotification);
+      socket.off('wallet_updated', onWalletUpdated);
+      socket.off('user_state_updated', onUserStateUpdated);
     };
-  }, [socket, refreshUser, activeConversationId]);
+  }, [socket]);
 
-  return null; // This component doesn't render any UI itself
+  return null;
 };

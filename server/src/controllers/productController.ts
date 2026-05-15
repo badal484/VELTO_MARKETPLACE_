@@ -4,7 +4,7 @@ import { createProductSchema } from '../utils/validation';
 import { handleError, AppError } from '../utils/errors';
 import { Product } from '../models/Product';
 import { Wishlist } from '../models/Wishlist';
-import { io } from '../socket/socket';
+import { getIO } from '../socket/socket';
 import { SocketEvent } from '@shared/constants/socketEvents';
 
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
@@ -22,7 +22,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       validatedData,
       req.files as any[]
     );
-    io.to(req.user!._id.toString()).emit(SocketEvent.INVENTORY_UPDATED, { action: 'created', product });
+    getIO().to(req.user!._id.toString()).emit(SocketEvent.INVENTORY_UPDATED, { action: 'created', product });
     res.status(201).json({ success: true, data: product });
   } catch (error) {
     handleError(error, res);
@@ -71,7 +71,7 @@ export const editProduct = async (req: Request, res: Response): Promise<void> =>
     if (product.seller.toString() !== req.user?._id.toString()) throw new AppError('Not authorized', 403);
 
     const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    io.to(req.user!._id.toString()).emit(SocketEvent.INVENTORY_UPDATED, { action: 'updated', product: updated });
+    getIO().to(req.user!._id.toString()).emit(SocketEvent.INVENTORY_UPDATED, { action: 'updated', product: updated });
     res.json({ success: true, data: updated });
   } catch (error) {
     handleError(error, res);
@@ -87,7 +87,7 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
     }
     const sellerId = product.seller.toString();
     await product.deleteOne();
-    io.to(sellerId).emit(SocketEvent.INVENTORY_UPDATED, { action: 'deleted', productId: req.params.id });
+    getIO().to(sellerId).emit(SocketEvent.INVENTORY_UPDATED, { action: 'deleted', productId: req.params.id });
     res.json({ success: true, message: 'Product removed' });
   } catch (error) {
     handleError(error, res);
