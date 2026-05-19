@@ -59,7 +59,7 @@ export default function CheckoutScreen({route, navigation}: CheckoutProps) {
   const [products, setProducts] = useState<CheckoutItem[]>(initialProducts);
   const fulfillmentMethod = 'delivery';
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'UPI' | 'Razorpay'>(
-    (products.reduce((total, item) => total + (item.lockedPrice || item.product.price) * item.quantity, 0) + deliveryCharge) > MAX_COD_AMOUNT ? 'Razorpay' : 'Cash'
+    (products.reduce((total, item) => total + (item.lockedPrice || item.product.price) * item.quantity, 0) + DEFAULT_DELIVERY_FEE) > MAX_COD_AMOUNT ? 'Razorpay' : 'Cash'
   );
   const [loading, setLoading] = useState(false);
   

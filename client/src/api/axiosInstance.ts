@@ -1,7 +1,7 @@
 import {tokenStore} from './tokenStore';
 
 const PROD_URL = 'https://velto-marketplace.onrender.com';
-const DEV_URL = 'http://10.0.2.2:8082'; // Standard Android Emulator Localhost bridge
+const DEV_URL = 'http://localhost:8082'; // Use localhost with adb reverse for USB device
 
 export const BASE_URL = __DEV__ ? DEV_URL : PROD_URL;
 

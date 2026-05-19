@@ -40,16 +40,23 @@ export default function AdminOrdersScreen({route, navigation}: any) {
   const [searchQuery, setSearchQuery] = useState(deepSearchId ? String(deepSearchId) : '');
   const [filteredOrders, setFilteredOrders] = useState<IOrder[]>([]);
 
+  const {socket, isConnected} = useSocket();
+
   useEffect(() => {
     fetchOrders();
   }, []);
 
-  useSocket('order_status_updated', (updatedOrder: IOrder) => {
-    setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
-    if (selectedOrder && selectedOrder._id === updatedOrder._id) {
-      setSelectedOrder(updatedOrder);
-    }
-  });
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+    const handler = (updatedOrder: IOrder) => {
+      setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
+      if (selectedOrder && selectedOrder._id === updatedOrder._id) {
+        setSelectedOrder(updatedOrder);
+      }
+    };
+    socket.on('order_status_updated', handler);
+    return () => { socket.off('order_status_updated', handler); };
+  }, [socket, isConnected, selectedOrder]);
 
   const fetchOrders = async () => {
     try {

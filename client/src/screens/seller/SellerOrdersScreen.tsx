@@ -183,23 +183,53 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
     const isAwaitingConfirmation = item.status === OrderStatus.AWAITING_SELLER_CONFIRMATION;
     const isConfirmed = item.status === OrderStatus.CONFIRMED;
     const isCompleted = item.status === OrderStatus.COMPLETED;
+    const isPharmacy = item.orderType === 'pharmacy';
 
     return (
       <Animated.View entering={FadeInDown.delay(index * 100)}>
         <Card style={styles.orderCard} variant="elevated">
           <View style={styles.orderHeader}>
             <View style={styles.idGroup}>
-              <View style={styles.iconBox}>
-                <Icon name="receipt-outline" size={16} color={theme.colors.primary} />
+              <View style={[styles.iconBox, isPharmacy && {backgroundColor: '#F5F3FF'}]}>
+                <Icon name={isPharmacy ? 'medkit-outline' : 'receipt-outline'} size={16} color={isPharmacy ? '#6D28D9' : theme.colors.primary} />
               </View>
               <Text style={styles.orderId}>#{item._id?.slice(-6).toUpperCase() || 'ORDER'}</Text>
+              {isPharmacy && (
+                <View style={styles.pharmacyBadge}>
+                  <Text style={styles.pharmacyBadgeText}>PHARMACY</Text>
+                </View>
+              )}
             </View>
             <View style={[styles.statusBadge, { backgroundColor: color + '15' }]}>
               <View style={[styles.statusDot, { backgroundColor: color }]} />
               <Text style={[styles.statusText, { color: color }]}>{label}</Text>
             </View>
           </View>
-          
+
+          {isPharmacy ? (
+            <View style={styles.contentRow}>
+              <View style={[styles.iconBox, {width: 60, height: 60, borderRadius: 12, backgroundColor: '#F5F3FF', marginRight: 12}]}>
+                <Icon name="medkit" size={28} color="#6D28D9" />
+              </View>
+              <View style={styles.productInfo}>
+                <Text style={styles.productTitle} numberOfLines={1}>Pharmacy Order</Text>
+                {item.catalogItems && item.catalogItems.length > 0 && (
+                  <Text style={styles.buyerText} numberOfLines={2}>
+                    {item.catalogItems.map(ci => `${ci.name} ×${ci.quantity}`).join(', ')}
+                  </Text>
+                )}
+                <View style={styles.privacyNotice}>
+                  <Icon name="shield-checkmark-outline" size={11} color="#6D28D9" />
+                  <Text style={styles.privacyText}>Customer contact is private</Text>
+                </View>
+                <Text style={styles.dateText}>Placed on {new Date(item.createdAt ?? Date.now()).toLocaleDateString()}</Text>
+              </View>
+              <View style={styles.priceInfo}>
+                <Text style={styles.amountText}>₹{item.totalPrice.toLocaleString()}</Text>
+                <Text style={styles.qtyText}>{item.catalogItems?.length || 0} items</Text>
+              </View>
+            </View>
+          ) : (
           <View style={styles.contentRow}>
             {product?.images && product.images.length > 0 && (
               <Image source={{uri: product.images[0]}} style={styles.productThumb} />
@@ -218,6 +248,7 @@ export default function SellerOrdersScreen({navigation}: SellerOrdersProps) {
               <Text style={styles.qtyText}>{item.quantity} Qty</Text>
             </View>
           </View>
+          )}
 
           {item.rider && (
             <View style={[styles.addressBox, {backgroundColor: '#ECFDF5', borderColor: '#10B981'}]}>
@@ -708,4 +739,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalConfirmBtnText: {fontSize: 14, fontWeight: '800', color: '#fff'},
+  pharmacyBadge: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  pharmacyBadgeText: {fontSize: 9, fontWeight: '900', color: '#6D28D9', letterSpacing: 0.5},
+  privacyNotice: {flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4},
+  privacyText: {fontSize: 10, color: '#6D28D9', fontWeight: '700'},
 });

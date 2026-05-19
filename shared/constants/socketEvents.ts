@@ -11,4 +11,8 @@ export enum SocketEvent {
   NEW_APPLICATION = 'new_application',
   APPLICATION_PROCESSED = 'application_processed',
   INVENTORY_UPDATED = 'inventory_updated',
+  // Pharmacy broadcast events
+  PHARMACY_ORDER_BROADCAST = 'pharmacy_order_broadcast',
+  PHARMACY_ORDER_TAKEN     = 'pharmacy_order_taken',
+  PHARMACY_ORDER_EXPIRED   = 'pharmacy_order_expired',
 }

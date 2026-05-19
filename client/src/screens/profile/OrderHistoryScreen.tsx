@@ -203,29 +203,35 @@ export default function OrderHistoryScreen({
 
     const product = item.product as unknown as IProduct;
     const shop = item.shop as unknown as IShop;
+    const isPharmacy = item.orderType === 'pharmacy';
 
     return (
       <Animated.View entering={FadeInDown.delay(index * 100).duration(600)}>
         <Card style={styles.orderCard} variant="elevated">
           <View style={styles.orderHeader}>
             <View style={styles.orderIdGroup}>
-              <View style={styles.receiptIconBox}>
+              <View style={[styles.receiptIconBox, isPharmacy && {backgroundColor: '#F5F3FF'}]}>
                 <Icon
-                  name="receipt-outline"
+                  name={isPharmacy ? 'medkit-outline' : 'receipt-outline'}
                   size={14}
-                  color={theme.colors.primary}
+                  color={isPharmacy ? '#6D28D9' : theme.colors.primary}
                 />
               </View>
               <Text style={styles.orderId}>
                 #NB-{item._id.slice(-6).toUpperCase()}
               </Text>
+              {isPharmacy && (
+                <View style={styles.pharmacyPill}>
+                  <Text style={styles.pharmacyPillText}>PHARMACY</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.headerRight}>
-              {isBuyerHistoryView && (String(item.status).toLowerCase() === 'completed' || 
-                String(item.status).toLowerCase() === 'delivered' || 
+              {isBuyerHistoryView && (String(item.status).toLowerCase() === 'completed' ||
+                String(item.status).toLowerCase() === 'delivered' ||
                 String(item.status).toLowerCase() === 'shipped') && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.downloadIconBtn}
                   onPress={() => handleDownloadInvoice(item._id)}>
                   <Icon name="document-text-outline" size={18} color={theme.colors.primary} />
@@ -249,26 +255,39 @@ export default function OrderHistoryScreen({
 
           <View style={styles.productRow}>
             <View style={styles.productDetails}>
-              <Text style={styles.productTitle} numberOfLines={1}>
-                {product?.title || 'Market Item'}
-              </Text>
-              <View style={styles.shopRow}>
-                <Icon
-                  name="storefront-outline"
-                  size={12}
-                  color={theme.colors.muted}
-                />
-                <Text style={styles.shopName}>
-                  {shop?.name || 'Local Seller'}
-                </Text>
-              </View>
+              {isPharmacy ? (
+                <>
+                  <Text style={styles.productTitle} numberOfLines={1}>Pharmacy Order</Text>
+                  {item.catalogItems && item.catalogItems.length > 0 && (
+                    <Text style={styles.shopName} numberOfLines={2}>
+                      {item.catalogItems.map(ci => `${ci.name} ×${ci.quantity}`).join(' · ')}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.productTitle} numberOfLines={1}>
+                    {product?.title || 'Market Item'}
+                  </Text>
+                  <View style={styles.shopRow}>
+                    <Icon
+                      name="storefront-outline"
+                      size={12}
+                      color={theme.colors.muted}
+                    />
+                    <Text style={styles.shopName}>
+                      {shop?.name || 'Local Seller'}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
             <View style={styles.priceColumn}>
               <Text style={styles.price}>₹{item.totalPrice}</Text>
               {isBuyerHistoryView && (item.deliveryCharge ?? 0) > 0 && (
                 <Text style={styles.deliveryFeeText}>Includes ₹{item.deliveryCharge} Delivery</Text>
               )}
-              <Text style={styles.qtyText}>Qty: {item.quantity}</Text>
+              <Text style={styles.qtyText}>{isPharmacy ? `${item.catalogItems?.length || 0} items` : `Qty: ${item.quantity}`}</Text>
             </View>
           </View>
 
@@ -921,4 +940,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '600',
   },
+  pharmacyPill: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  pharmacyPillText: {fontSize: 9, fontWeight: '900', color: '#6D28D9', letterSpacing: 0.5},
 });

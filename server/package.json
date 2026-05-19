@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.5.0",
+    "@types/sharp": "^0.31.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -26,6 +27,7 @@
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.18.0",
     "razorpay": "^2.9.6",
+    "sharp": "^0.34.5",
     "socket.io": "^4.7.2",
     "tsconfig-paths": "^4.2.0",
     "zod": "^4.3.6"

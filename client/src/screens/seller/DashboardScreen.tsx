@@ -488,6 +488,12 @@ const ProductCard = memo(({ item, onPress }: { item: IProduct, onPress: () => vo
                 </View>
                 <Text style={styles.shortcutText}>Withdraw</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.shortcutBtn} onPress={() => navigation.navigate('PharmacyBroadcasts')}>
+                <View style={[styles.shortcutIcon, {backgroundColor: '#F5F3FF'}]}>
+                  <Icon name="medkit" size={20} color="#6D28D9" />
+                </View>
+                <Text style={styles.shortcutText}>Broadcasts</Text>
+              </TouchableOpacity>
             </ScrollView>
 
             <View style={styles.sectionHead}>

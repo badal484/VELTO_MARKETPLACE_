@@ -638,6 +638,32 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <Text style={styles.searchText}>{t('common.search')}</Text>
       </TouchableOpacity>
 
+      {/* Pharmacy quick-access card */}
+      <TouchableOpacity
+        style={styles.pharmacyBanner}
+        activeOpacity={0.88}
+        onPress={() =>
+          (navigation as any).navigate('PharmacyHome', {
+            coords: currentCoords ?? undefined,
+          })
+        }>
+        <View style={styles.pharmacyBannerLeft}>
+          <View style={styles.pharmacyIconBox}>
+            <Icon name="medkit" size={22} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.pharmacyBannerTitle}>Velto Pharmacy</Text>
+            <Text style={styles.pharmacyBannerSub}>
+              Medicines · 20-30 min delivery
+            </Text>
+          </View>
+        </View>
+        <View style={styles.pharmacyBannerRight}>
+          <Text style={styles.pharmacyBannerCta}>Order Now</Text>
+          <Icon name="arrow-forward" size={14} color="#6D28D9" />
+        </View>
+      </TouchableOpacity>
+
       <View style={styles.quickNavSection}>
         <View style={styles.quickNavHeader}>
           <View style={styles.categoryTitleRow}>
@@ -660,7 +686,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <TouchableOpacity
                 style={styles.quickNavBtn}
                 activeOpacity={0.8}
-                onPress={() => setSelectedCategory(item.id as Category | null)}
+                onPress={() => {
+                  if (item.id === Category.PHARMACY) {
+                    (navigation as any).navigate('PharmacyHome', {
+                      coords: currentCoords ?? undefined,
+                    });
+                    return;
+                  }
+                  setSelectedCategory(item.id as Category | null);
+                }}
               >
                 <View
                   style={[
@@ -1474,6 +1508,53 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#B91C1C',
     lineHeight: 15,
+  },
+  pharmacyBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  pharmacyBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  pharmacyIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#6D28D9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pharmacyBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4C1D95',
+  },
+  pharmacyBannerSub: {
+    fontSize: 11,
+    color: '#6D28D9',
+    marginTop: 1,
+  },
+  pharmacyBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pharmacyBannerCta: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6D28D9',
   },
 });
 const HomeSkeleton = () => {

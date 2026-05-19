@@ -30,15 +30,23 @@ export class NotificationService {
         data: params.data,
       });
 
-      // Push via FCM if tokens exist
+      // Push via FCM if tokens exist.
+      // Always include `type` so the client notification navigator can route the tap.
       const user = await User.findById(params.recipient).select('fcmTokens');
       if (user?.fcmTokens?.length) {
         const { FCMService } = require('./fcmService');
+        const fcmData: Record<string, string> = {
+          type: String(params.type),
+          ...(params.relatedId ? { relatedId: params.relatedId } : {}),
+          ...Object.fromEntries(
+            Object.entries(params.data || {}).map(([k, v]) => [k, String(v)])
+          ),
+        };
         await FCMService.sendToUser(
           params.recipient,
           params.title,
           params.message,
-          params.data
+          fcmData
         );
       }
     } catch (err) {

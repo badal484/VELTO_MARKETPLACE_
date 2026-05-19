@@ -495,6 +495,7 @@ export class WalletService {
           title: 'New Payout Request',
           message: `${user.name} requested ₹${amount} to ${bankDetails.bankName}`,
           relatedId: request._id.toString(),
+          data: { type: 'PAYOUT', requestId: request._id.toString() },
         });
       }
 

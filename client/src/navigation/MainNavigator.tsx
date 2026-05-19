@@ -36,6 +36,9 @@ import WalletScreen from '../screens/rider/WalletScreen';
 import {RiderNavigator} from './RiderNavigator';
 import SellerOrdersScreen from '../screens/seller/SellerOrdersScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
+import PharmacyScreen from '../screens/buyer/PharmacyScreen';
+import PharmacyCheckoutScreen from '../screens/buyer/PharmacyCheckoutScreen';
+import PharmacyBroadcastsScreen from '../screens/seller/PharmacyBroadcastsScreen';
 
 // --- Navigator Instances ---
 const RootStack = createStackNavigator();
@@ -63,6 +66,7 @@ const DashboardStack = () => (
     <Stack.Screen name="ShopSetup" component={ShopSetupScreen} />
     <Stack.Screen name="ManageInventory" component={InventoryScreen} />
     <Stack.Screen name="SellerOrders" component={SellerOrdersScreen} />
+    <Stack.Screen name="PharmacyBroadcasts" component={PharmacyBroadcastsScreen} />
   </Stack.Navigator>
 );
 
@@ -221,6 +225,8 @@ export const MainNavigator = () => {
       <RootStack.Screen name="Checkout" component={CheckoutScreen as React.FC} />
       <RootStack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
       <RootStack.Screen name="Support" component={SupportScreen} />
+      <RootStack.Screen name="PharmacyHome" component={PharmacyScreen as React.FC} />
+      <RootStack.Screen name="PharmacyCheckout" component={PharmacyCheckoutScreen as React.FC} />
     </RootStack.Navigator>
   );
 };

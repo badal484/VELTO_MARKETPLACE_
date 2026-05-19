@@ -25,16 +25,23 @@ import { OrderStatus } from '@shared/types';
 
 const ACCENT = theme.colors.accent;
 
-const steps = [
+const marketplaceSteps = [
   { icon: 'checkmark-circle', label: 'Payment Confirmed' },
   { icon: 'storefront-outline', label: 'Awaiting Seller' },
   { icon: 'cube-outline', label: 'Preparing Order' },
   { icon: 'bicycle-outline', label: 'Out for Delivery' },
 ];
 
+const pharmacySteps = [
+  { icon: 'checkmark-circle', label: 'Payment Confirmed' },
+  { icon: 'medkit-outline', label: 'Finding Nearby Pharmacy' },
+  { icon: 'cube-outline', label: 'Pharmacy Packing Order' },
+  { icon: 'bicycle-outline', label: 'Out for Delivery' },
+];
+
 export default function OrderSuccessScreen({ navigation, route }: any) {
   const { fetchCartCount } = useNotifications();
-  const { orderId, paymentMethod, deliveryCode } = route.params || {};
+  const { orderId, paymentMethod, deliveryCode, isPharmacy } = route.params || {};
   const { socket, isConnected } = useSocket();
 
   const [paymentConfirmed, setPaymentConfirmed] = React.useState(paymentMethod === 'Razorpay');
@@ -111,12 +118,14 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
 
           <Animated.View style={[styles.heroText, contentStyle]}>
             <Text style={styles.title}>
-              {paymentConfirmed ? 'Payment Received!' : 'Order Placed!'}
+              {isPharmacy ? 'Finding Pharmacy!' : paymentConfirmed ? 'Payment Received!' : 'Order Placed!'}
             </Text>
             <Text style={styles.subtitle}>
-              {paymentConfirmed
-                ? 'Your payment was verified successfully. The seller will confirm your order shortly.'
-                : 'Your order is awaiting seller confirmation.'}
+              {isPharmacy
+                ? 'Broadcasting to pharmacies near you. You\'ll be notified once a pharmacy accepts your order.'
+                : paymentConfirmed
+                  ? 'Your payment was verified successfully. The seller will confirm your order shortly.'
+                  : 'Your order is awaiting seller confirmation.'}
             </Text>
           </Animated.View>
         </View>
@@ -149,9 +158,10 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
           <View style={styles.card}>
             <Text style={styles.sectionLabel}>ORDER PROGRESS</Text>
             <View style={styles.timeline}>
-              {steps.map((step, i) => {
+              {(isPharmacy ? pharmacySteps : marketplaceSteps).map((step, i) => {
                 const isActive = i === 0;
                 const isDone = i === 0;
+                const allSteps = isPharmacy ? pharmacySteps : marketplaceSteps;
                 return (
                   <View key={i} style={styles.timelineRow}>
                     <View style={styles.timelineLeft}>
@@ -166,7 +176,7 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
                           color={isDone ? '#fff' : isActive ? ACCENT : theme.colors.muted}
                         />
                       </View>
-                      {i < steps.length - 1 && (
+                      {i < allSteps.length - 1 && (
                         <View style={[styles.timelineLine, i === 0 && styles.timelineLineDone]} />
                       )}
                     </View>
@@ -215,7 +225,9 @@ export default function OrderSuccessScreen({ navigation, route }: any) {
           <View style={[styles.card, styles.nextCard]}>
             <Icon name="information-circle-outline" size={18} color={ACCENT} />
             <Text style={styles.nextText}>
-              You'll be notified once the seller confirms your order. You can track the status anytime from Order History.
+              {isPharmacy
+                ? 'Pharmacies near you have 10 minutes to accept your order. You\'ll get a notification the moment one accepts.'
+                : 'You\'ll be notified once the seller confirms your order. You can track the status anytime from Order History.'}
             </Text>
           </View>
         </Animated.View>

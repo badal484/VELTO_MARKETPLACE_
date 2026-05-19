@@ -226,19 +226,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     };
   }, [conversationId]);
 
-  // Effect 2: join room whenever socket reconnects or conversationId changes
+  // Effect 2: join room AND register all socket listeners together so they
+  // are always in sync — re-runs on reconnect (isConnected toggle) or room change
   useEffect(() => {
     if (!socket || !isConnected) return;
-    socket.emit(SocketEvent.JOIN_CONVERSATION, conversationId);
-  }, [socket, isConnected, conversationId]);
 
-  // Effect 3: socket event listeners — isolated so deps don't tear down the handlers
-  useEffect(() => {
-    if (!socket) return;
+    socket.emit(SocketEvent.JOIN_CONVERSATION, conversationId);
 
     const onReceiveMessage = (message: IMessage) => {
       setMessages(prev => {
-        if (prev.some(m => m._id === message._id)) return prev;
+        if (prev.some(m => String(m._id) === String(message._id))) return prev;
         return [...prev, message];
       });
       markConversationAsRead(conversationId);
@@ -247,7 +244,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const onNotification = (data: { conversationId: string; message: any }) => {
       if (data.conversationId === conversationId) {
         setMessages(prev => {
-          if (prev.some(m => m._id === data.message._id)) return prev;
+          if (prev.some(m => String(m._id) === String(data.message._id))) return prev;
           return [...prev, data.message];
         });
         markConversationAsRead(conversationId);
@@ -255,7 +252,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     };
 
     const onOrderUpdate = (updatedOrder: any) => {
-      if (orderId && updatedOrder._id === orderId) {
+      if (orderId && String(updatedOrder._id) === String(orderId)) {
         setOrder(updatedOrder);
       }
     };
@@ -284,7 +281,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       socket.off(SocketEvent.ORDER_STATUS_UPDATED, onOrderUpdate);
       socket.off(SocketEvent.TYPING, onTyping);
     };
-  }, [socket]);
+  }, [socket, isConnected, conversationId]);
 
   const sendMessage = async () => {
     if (!text.trim()) {

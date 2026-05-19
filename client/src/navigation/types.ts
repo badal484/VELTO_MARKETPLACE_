@@ -33,6 +33,7 @@ export type DashboardStackParamList = {
   ManageInventory: undefined;
   SellerOrders: undefined;
   Notifications: undefined;
+  PharmacyBroadcasts: undefined;
 };
 
 export type MainTabParamList = {
@@ -57,10 +58,17 @@ export type HomeStackParamList = {
     fulfillmentMethod?: 'delivery' | 'pickup';
     deliveryCode?: string | null;
     pickupCode?: string | null;
+    isPharmacy?: boolean;
   };
   Support: undefined;
   Conversations: undefined;
   ChatRoom: ChatStackParamList['ChatRoom'];
+  PharmacyHome: {coords?: {lat: number; lng: number}} | undefined;
+  PharmacyCheckout: {
+    cart: any[];
+    coords?: {lat: number; lng: number};
+    openPrescription?: boolean;
+  };
 };
 
 export type BrowseStackParamList = {

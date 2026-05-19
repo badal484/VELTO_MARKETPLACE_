@@ -27,6 +27,7 @@ import payoutRoutes from './routes/payout';
 import bannerRoutes from './routes/bannerRoutes';
 import zoneRoutes from './routes/zone';
 import locationRoutes from './routes/location';
+import pharmacyRoutes from './routes/pharmacy';
 
 // Global Model Registration to prevent Mongoose "Cold Start" Schema errors
 import './models/index';
@@ -72,6 +73,7 @@ app.use('/api/payouts', payoutRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/location', locationRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -124,6 +126,9 @@ const seedBanners = async () => {
 };
 
 import { FundReleaseJob } from './services/fundReleaseJob';
+import { PharmacyService } from './services/pharmacyService';
+import { PharmacyCatalog } from './models/PharmacyCatalog';
+import { pharmacySeedData } from './seed/pharmacyCatalog';
 
 const connectMongoWithRetry = async () => {
   for (let attempt = 1; attempt <= MAX_MONGO_RETRIES; attempt++) {
@@ -153,6 +158,16 @@ connectMongoWithRetry()
         // Start background jobs & Seed
         await seedBanners();
         FundReleaseJob.init();
+
+        // Pharmacy: seed catalog if empty, then recover any stale broadcasts
+        const catalogCount = await PharmacyCatalog.countDocuments();
+        if (catalogCount === 0) {
+          console.log('[SEED] Seeding pharmacy catalog...');
+          await PharmacyCatalog.insertMany(pharmacySeedData);
+          console.log(`[SEED] ${pharmacySeedData.length} medicines seeded.`);
+        }
+        await PharmacyService.recoverStaleBroadcasts();
+
         console.log(' Velto Server fully initialized and ready.');
       } catch (err) {
         console.error(' CRITICAL ERROR DURING STARTUP JOBS:', err);

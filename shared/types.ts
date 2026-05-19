@@ -31,6 +31,7 @@ export enum OrderStatus {
   PAYMENT_UNDER_REVIEW = 'Payment Under Review',
   CONFIRMED = 'Confirmed',
   AWAITING_SELLER_CONFIRMATION = 'Awaiting Seller Confirmation',
+  PHARMACY_BROADCASTING = 'Pharmacy Broadcasting',
   READY_FOR_PICKUP = 'Ready for Pickup',
   SEARCHING_RIDER = 'Searching Rider',
   RIDER_ASSIGNED = 'Rider Assigned',
@@ -240,6 +241,14 @@ export interface IOrder {
   walletAmountPaid?: number;
   refundDestination?: 'wallet' | 'bank' | 'both';
   refundStatus?: 'pending' | 'completed' | 'none';
+  // Pharmacy-specific fields
+  orderType?: 'marketplace' | 'pharmacy';
+  catalogItems?: IPharmacyCatalogItem[];
+  broadcastedTo?: MongoId[];
+  broadcastExpiry?: Date;
+  prescriptionImageUrl?: string;
+  prescriptionRedactedUrl?: string;
+  prescriptionConsent?: boolean;
 }
 
 export interface IReview {
@@ -347,4 +356,39 @@ export interface IServiceZone {
   city: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+}
+
+export enum MedicineForm {
+  TABLET   = 'tablet',
+  SYRUP    = 'syrup',
+  CAPSULE  = 'capsule',
+  CREAM    = 'cream',
+  DROPS    = 'drops',
+  DEVICE   = 'device',
+  POWDER   = 'powder',
+  INJECTION = 'injection',
+  OTHER    = 'other',
+}
+
+export interface IPharmacyCatalog {
+  _id: MongoId;
+  name: string;
+  brand: string;
+  genericName: string;
+  strength: string;
+  form: MedicineForm;
+  mrp: number;
+  image?: string;
+  searchTerms: string[];
+  requiresPrescription: boolean;
+  isActive: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+export interface IPharmacyCatalogItem {
+  catalogItem: MongoId | IPharmacyCatalog;
+  name: string;
+  mrp: number;
+  quantity: number;
 }

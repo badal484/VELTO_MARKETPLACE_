@@ -37,7 +37,8 @@ export class OrderService {
     [OrderStatus.COMPLETED_PENDING_RELEASE]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
     [OrderStatus.COMPLETED]: [],
     [OrderStatus.CANCELLED]: [],
-    [OrderStatus.PRICE_LOCKED]: []
+    [OrderStatus.PRICE_LOCKED]: [],
+    [OrderStatus.PHARMACY_BROADCASTING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
   };
 
   static async createOrder(buyerId: string, data: any) {

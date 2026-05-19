@@ -11,6 +11,7 @@ import { SocketEvent } from '@shared/constants/socketEvents';
 import { User } from '../models/User';
 import { WalletTransaction } from '../models/WalletTransaction';
 import { TransactionCategory } from '@shared/types';
+import { triggerBroadcastAfterPayment } from './pharmacyController';
 
 export const verifyPayment = async (req: Request, res: Response) => {
   try {
@@ -27,63 +28,82 @@ export const verifyPayment = async (req: Request, res: Response) => {
     const orders = await Order.find({ razorpayOrderId: razorpay_order_id });
     if (orders.length === 0) throw new AppError('No orders found for this payment session.', 404);
 
-    await Order.updateMany(
-      { razorpayOrderId: razorpay_order_id },
-      {
+    const pharmacyOrders = orders.filter((o) => (o as any).orderType === 'pharmacy');
+    const marketplaceOrders = orders.filter((o) => (o as any).orderType !== 'pharmacy');
+
+    // ── Pharmacy: trigger broadcast ───────────────────────────────────────────
+    for (const order of pharmacyOrders) {
+      await Order.findByIdAndUpdate(order._id, {
         $set: {
-          status: OrderStatus.AWAITING_SELLER_CONFIRMATION,
           razorpayPaymentId: razorpay_payment_id,
           razorpaySignature: razorpay_signature,
         },
+      });
+      // triggerBroadcastAfterPayment moves status PENDING → PHARMACY_BROADCASTING and fires broadcast
+      await triggerBroadcastAfterPayment(order._id.toString());
+    }
+
+    // ── Marketplace: existing seller-confirmation flow ────────────────────────
+    if (marketplaceOrders.length > 0) {
+      await Order.updateMany(
+        { razorpayOrderId: razorpay_order_id, orderType: { $ne: 'pharmacy' } },
+        {
+          $set: {
+            status: OrderStatus.AWAITING_SELLER_CONFIRMATION,
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+          },
+        }
+      );
+
+      const sellerOrderMap = new Map<string, typeof marketplaceOrders[0][]>();
+      for (const order of marketplaceOrders) {
+        const sellerId = order.seller.toString();
+        if (!sellerOrderMap.has(sellerId)) sellerOrderMap.set(sellerId, []);
+        sellerOrderMap.get(sellerId)!.push(order);
       }
-    );
+
+      for (const order of marketplaceOrders) {
+        await WorkflowService.syncOrderState(
+          order._id.toString(),
+          OrderStatus.AWAITING_SELLER_CONFIRMATION,
+          'Payment received via Razorpay. Awaiting seller confirmation.',
+          { silent: true }
+        );
+        const io = getIO();
+        io.to(order.seller.toString()).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
+        io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
+        io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
+      }
+
+      for (const [sellerId, sellerOrders] of sellerOrderMap) {
+        await NotificationService.send({
+          recipient: sellerId,
+          type: NotificationType.ORDER,
+          title: 'New Order — Action Required',
+          message: sellerOrders.length === 1
+            ? `A new order for ${(sellerOrders[0] as any).productSnapshot?.title || 'your product'} requires your confirmation.`
+            : `${sellerOrders.length} new orders require your confirmation.`,
+          data: { orderId: sellerOrders[0]._id.toString() },
+        });
+      }
+    }
 
     const buyerId = (orders[0].buyer as any)?._id || orders[0].buyer;
+    const isPharmacyOnly = pharmacyOrders.length > 0 && marketplaceOrders.length === 0;
     await NotificationService.send({
       recipient: buyerId.toString(),
       type: NotificationType.ORDER,
       title: 'Payment Successful',
-      message: orders.length === 1
-        ? 'Payment confirmed! Your order is now awaiting seller acceptance.'
-        : `Payment confirmed! Your ${orders.length}-item order is awaiting seller acceptance.`,
+      message: isPharmacyOnly
+        ? 'Payment confirmed! We are finding a pharmacy near you.'
+        : orders.length === 1
+          ? 'Payment confirmed! Your order is now awaiting seller acceptance.'
+          : `Payment confirmed! Your ${orders.length}-item order is awaiting seller acceptance.`,
       data: { razorpayOrderId: razorpay_order_id },
     });
 
-    // Group orders by seller to send one notification per seller
-    const sellerOrderMap = new Map<string, typeof orders[0][]>();
-    for (const order of orders) {
-      const sellerId = order.seller.toString();
-      if (!sellerOrderMap.has(sellerId)) sellerOrderMap.set(sellerId, []);
-      sellerOrderMap.get(sellerId)!.push(order);
-    }
-
-    for (const order of orders) {
-      await WorkflowService.syncOrderState(
-        order._id.toString(),
-        OrderStatus.AWAITING_SELLER_CONFIRMATION,
-        'Payment received via Razorpay. Awaiting seller confirmation.',
-        { silent: true }
-      );
-      const io = getIO();
-      io.to(order.seller.toString()).emit(SocketEvent.NEW_ORDER_FOR_SELLER, order);
-      io.to(order.seller.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
-      io.to(order.buyer.toString()).emit('order_status_updated', { orderId: order._id, status: OrderStatus.AWAITING_SELLER_CONFIRMATION });
-    }
-
-    // Notify each seller — push goes through even if they're offline
-    for (const [sellerId, sellerOrders] of sellerOrderMap) {
-      await NotificationService.send({
-        recipient: sellerId,
-        type: NotificationType.ORDER,
-        title: 'New Order — Action Required',
-        message: sellerOrders.length === 1
-          ? `A new order for ${(sellerOrders[0] as any).productSnapshot?.title || 'your product'} requires your confirmation.`
-          : `${sellerOrders.length} new orders require your confirmation.`,
-        data: { orderId: sellerOrders[0]._id.toString() },
-      });
-    }
-
-    res.json({ success: true, message: 'Payment verified. Awaiting seller confirmation.' });
+    res.json({ success: true, message: isPharmacyOnly ? 'Payment verified. Broadcasting to nearby pharmacies.' : 'Payment verified. Awaiting seller confirmation.' });
   } catch (error) {
     handleError(error, res);
   }
@@ -109,21 +129,35 @@ export const handleWebhook = async (req: Request, res: Response) => {
         || req.body.payload?.order?.entity?.id;
 
       if (razorpayOrderId) {
-        // Only act on orders still awaiting payment — don't overwrite seller-confirmed orders
-        const orders = await Order.find({
+        const paymentId = req.body.payload?.payment?.entity?.id;
+
+        // ── Pharmacy orders (PENDING → broadcast) ────────────────────────────
+        const pendingPharmacyOrders = await Order.find({
+          razorpayOrderId,
+          orderType: 'pharmacy',
+          status: OrderStatus.PENDING,
+        });
+        for (const order of pendingPharmacyOrders) {
+          if (paymentId) {
+            await Order.findByIdAndUpdate(order._id, { $set: { razorpayPaymentId: paymentId } });
+          }
+          await triggerBroadcastAfterPayment(order._id.toString());
+        }
+
+        // ── Marketplace orders (PAYMENT_UNDER_REVIEW → awaiting seller) ──────
+        const marketplaceOrders = await Order.find({
           razorpayOrderId,
           status: OrderStatus.PAYMENT_UNDER_REVIEW,
         });
 
-        if (orders.length > 0) {
-          const paymentId = req.body.payload?.payment?.entity?.id;
+        if (marketplaceOrders.length > 0) {
           await Order.updateMany(
             { razorpayOrderId, status: OrderStatus.PAYMENT_UNDER_REVIEW },
             { $set: { status: OrderStatus.AWAITING_SELLER_CONFIRMATION, ...(paymentId && { razorpayPaymentId: paymentId }) } }
           );
 
-          const webhookSellerOrderMap = new Map<string, typeof orders[0][]>();
-          for (const order of orders) {
+          const webhookSellerOrderMap = new Map<string, typeof marketplaceOrders[0][]>();
+          for (const order of marketplaceOrders) {
             await WorkflowService.syncOrderState(
               order._id.toString(),
               OrderStatus.AWAITING_SELLER_CONFIRMATION,
@@ -152,14 +186,17 @@ export const handleWebhook = async (req: Request, res: Response) => {
             });
           }
 
-          const buyerId = (orders[0].buyer as any)?._id?.toString() || orders[0].buyer.toString();
+          const allOrders = [...pendingPharmacyOrders, ...marketplaceOrders];
+          const buyerId = (allOrders[0].buyer as any)?._id?.toString() || allOrders[0].buyer.toString();
           await NotificationService.send({
             recipient: buyerId,
             type: NotificationType.ORDER,
             title: 'Payment Successful',
-            message: orders.length === 1
-              ? 'Payment confirmed! Your order is now awaiting seller acceptance.'
-              : `Payment confirmed! Your ${orders.length}-item order is awaiting seller acceptance.`,
+            message: pendingPharmacyOrders.length > 0
+              ? 'Payment confirmed! We are finding a pharmacy near you.'
+              : marketplaceOrders.length === 1
+                ? 'Payment confirmed! Your order is now awaiting seller acceptance.'
+                : `Payment confirmed! Your ${marketplaceOrders.length}-item order is awaiting seller acceptance.`,
             data: { razorpayOrderId },
           });
         }

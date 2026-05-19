@@ -140,6 +140,7 @@ export const updatePayoutStatus = async (req: Request, res: Response): Promise<v
         title: 'Payout Update',
         message: msg,
         relatedId: request._id.toString(),
+        data: { type: 'PAYOUT', requestId: request._id.toString() },
       });
     }
 

@@ -86,17 +86,39 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       .populate('shop')
       .populate('buyer', 'name avatar phoneNumber')
       .populate('seller', 'name avatar')
-      .populate('rider', 'name avatar phoneNumber');
+      .populate('rider', 'name avatar phoneNumber')
+      .lean();
 
     if (!order) throw new AppError('Order not found', 404);
 
     const userId = req.user?._id.toString();
+    const userRole = req.user?.role;
+
+    const buyerId = (order.buyer as any)?._id?.toString() || order.buyer?.toString();
+    const sellerId = (order.seller as any)?._id?.toString() || order.seller?.toString();
+    const riderId = (order.rider as any)?._id?.toString() || order.rider?.toString();
+
     const isParticipant =
-      [order.buyer, order.seller, order.rider].some(p => 
-        p && ((p as any)._id?.toString() === userId || p.toString() === userId)
-      ) || req.user?.role === 'admin';
+      [buyerId, sellerId, riderId].some(id => id && id === userId) ||
+      userRole === 'admin';
 
     if (!isParticipant) throw new AppError('Not authorized to view this order', 403);
+
+    // Sellers must never see buyer contact details — enforced at API layer.
+    // This prevents pharmacies and marketplace sellers from directly contacting buyers.
+    const isSeller = userRole === 'seller' || userRole === 'shop_owner';
+    const isSellersOrder = sellerId === userId;
+    if (isSeller && isSellersOrder) {
+      const sanitized = { ...order } as any;
+      delete sanitized.buyerPhone;
+      delete sanitized.deliveryAddress;
+      if (sanitized.buyer) {
+        const { phoneNumber: _p, ...buyerWithoutPhone } = sanitized.buyer as any;
+        sanitized.buyer = buyerWithoutPhone;
+      }
+      res.json({ success: true, data: sanitized });
+      return;
+    }
 
     res.json({ success: true, data: order });
   } catch (error) {
@@ -129,9 +151,9 @@ export const getSellerOrders = async (req: Request, res: Response): Promise<void
     const limit = Number(req.query.limit) || 20;
     const page = Number(req.query.page) || 1;
 
-    const orders = await Order.find({ 
+    const orders = await Order.find({
       seller: req.user?._id,
-      status: { $ne: OrderStatus.PAYMENT_UNDER_REVIEW } 
+      status: { $ne: OrderStatus.PAYMENT_UNDER_REVIEW }
     })
       .populate('product', 'title images price')
       .populate('shop', 'name logo')
@@ -141,7 +163,19 @@ export const getSellerOrders = async (req: Request, res: Response): Promise<void
       .limit(limit)
       .lean();
 
-    res.json({ success: true, data: orders });
+    // Strip buyer contact details from pharmacy orders — pharmacies must never
+    // directly contact patients outside the platform.
+    const sanitized = orders.map((order: any) => {
+      if (order.orderType !== 'pharmacy') return order;
+      const { buyerPhone: _bp, deliveryAddress: _da, ...rest } = order;
+      if (rest.buyer?.phoneNumber) {
+        const { phoneNumber: _pn, ...buyerSafe } = rest.buyer;
+        rest.buyer = buyerSafe;
+      }
+      return rest;
+    });
+
+    res.json({ success: true, data: sanitized });
   } catch (error) {
     handleError(error, res);
   }

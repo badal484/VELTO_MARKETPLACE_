@@ -95,7 +95,10 @@ export class FCMService {
         tokens: user.fcmTokens,
         android: {
           priority: 'high',
-          notification: { channelId: 'default' }
+          notification: { 
+            channelId: 'default',
+            sound: 'default'
+          }
         },
         apns: {
           payload: { aps: { badge: 1, sound: 'default' } }
